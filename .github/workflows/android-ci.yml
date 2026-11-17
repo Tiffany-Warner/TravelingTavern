@@ -1,14 +1,14 @@
 # Builds, tests and lints the app on GitHub's servers.
-# Runs on every pull request into main, on every push to main,
+# Runs on every pull request into main or dev, on every push to main or dev,
 # and on demand from the Actions tab ("Run workflow").
 
 name: Android CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
 
 # Read-only access to the repo is all this workflow needs.
