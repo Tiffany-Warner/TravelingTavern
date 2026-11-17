@@ -26,7 +26,7 @@ The app shows your own SillyTavern, so some features only work if these extensio
 
 | Extension | Type | Needed for | Status |
 |---|---|---|---|
-| Speech Recognition | SillyTavern extension (install from the Extensions panel) | The mic button in the message bar (voice input). The app asks for Android's microphone permission the first time it's used | Needed now |
+| Speech Recognition | SillyTavern extension (install from the Extensions panel) | The mic button in the message bar (voice input). The app asks for Android's microphone permission the first time it's used | Needed until Phase 1.7b, which adds the app's own on-device mic; after that it's optional and only shows in Advanced and on desktop |
 | EchoText | SillyTavern extension | The Text tab on the Chat screen (Phase 1.7) | Needed from Phase 1.7 |
 | SillyTavern-EchoText-Proactive (fork) | SillyTavern extension | Proactive message notifications (Phase 2) | Needed from Phase 2 |
 | TravelingTavern-Bridge | SillyTavern server plugin | Push events, media, reminders, card writes (Phase 2+) | Needed from Phase 2 |

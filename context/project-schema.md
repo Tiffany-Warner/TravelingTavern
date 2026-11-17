@@ -32,11 +32,13 @@
 - [x] 1.1 Project setup & app shell (dependencies, theme, navigation, placeholder screens)
 - [x] 1.1b Bottom navigation (Chats, Characters, Me) & quiet visual style
 - [x] 1.2 Connect screen — server URL, optional login, connection test
-- [ ] 1.3 WebView host — single retained WebView, file upload, mic/camera permissions, back handling, error states
+- [x] 1.3 WebView host — single retained WebView, file upload, mic/camera permissions, back handling, error states
 - [ ] 1.4 JS bridge foundation — injected script, typed messages, Kotlin ↔ JS calls
 - [ ] 1.5 Clean theme — injected CSS that hides SillyTavern clutter inside the app only
 - [ ] 1.6 Chats & Characters tabs — recent-chats list and portrait grid
+- [ ] 1.6b Lorebooks tab — browse, create and delete lorebooks; view, add, edit and delete entries
 - [ ] 1.7 Chat screen — Text tab (EchoText) and Story tab (main chat), no reloads
+- [ ] 1.7b Voice input — on-device speech-to-text mic in both chat tabs, tolerates pauses, never auto-sends
 - [ ] 1.8 Me tab & Advanced — persona, appearance, server, full SillyTavern UI behind Advanced, open-source licenses
 
 ---
