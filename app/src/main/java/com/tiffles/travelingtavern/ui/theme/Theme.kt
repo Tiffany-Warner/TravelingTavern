@@ -10,62 +10,74 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
+// Secondary maps to the same amber so NavigationBar's selected-tab indicator
+// (secondaryContainer) uses the accent. Tertiary stays neutral.
 private val DarkColorScheme = darkColorScheme(
-    primary = AmberDarkPrimary,
-    onPrimary = AmberDarkOnPrimary,
-    primaryContainer = AmberDarkPrimaryContainer,
-    onPrimaryContainer = AmberDarkOnPrimaryContainer,
-    secondary = WoodDarkSecondary,
-    onSecondary = WoodDarkOnSecondary,
-    secondaryContainer = WoodDarkSecondaryContainer,
-    onSecondaryContainer = WoodDarkOnSecondaryContainer,
-    tertiary = HerbDarkTertiary,
-    onTertiary = HerbDarkOnTertiary,
-    tertiaryContainer = HerbDarkTertiaryContainer,
-    onTertiaryContainer = HerbDarkOnTertiaryContainer,
-    background = WoodDarkBackground,
-    onBackground = WoodDarkOnBackground,
-    surface = WoodDarkSurface,
-    onSurface = WoodDarkOnSurface,
-    surfaceVariant = WoodDarkSurfaceVariant,
-    onSurfaceVariant = WoodDarkOnSurfaceVariant,
-    outline = WoodDarkOutline
+    primary = AmberDark,
+    onPrimary = OnAmberDark,
+    primaryContainer = AmberContainerDark,
+    onPrimaryContainer = OnAmberContainerDark,
+    secondary = AmberDark,
+    onSecondary = OnAmberDark,
+    secondaryContainer = AmberContainerDark,
+    onSecondaryContainer = OnAmberContainerDark,
+    tertiary = OnSurfaceVariantDark,
+    onTertiary = SurfaceDark,
+    tertiaryContainer = SurfaceContainerHighDark,
+    onTertiaryContainer = OnSurfaceDark,
+    background = BackgroundDark,
+    onBackground = OnSurfaceDark,
+    surface = SurfaceDark,
+    onSurface = OnSurfaceDark,
+    surfaceVariant = SurfaceVariantDark,
+    onSurfaceVariant = OnSurfaceVariantDark,
+    surfaceContainerLow = SurfaceContainerLowDark,
+    surfaceContainer = SurfaceContainerDark,
+    surfaceContainerHigh = SurfaceContainerHighDark,
+    outline = OutlineDark,
+    outlineVariant = OutlineVariantDark
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = AmberLightPrimary,
-    onPrimary = AmberLightOnPrimary,
-    primaryContainer = AmberLightPrimaryContainer,
-    onPrimaryContainer = AmberLightOnPrimaryContainer,
-    secondary = WoodLightSecondary,
-    onSecondary = WoodLightOnSecondary,
-    secondaryContainer = WoodLightSecondaryContainer,
-    onSecondaryContainer = WoodLightOnSecondaryContainer,
-    tertiary = HerbLightTertiary,
-    onTertiary = HerbLightOnTertiary,
-    tertiaryContainer = HerbLightTertiaryContainer,
-    onTertiaryContainer = HerbLightOnTertiaryContainer,
-    background = ParchmentLightBackground,
-    onBackground = ParchmentLightOnBackground,
-    surface = ParchmentLightSurface,
-    onSurface = ParchmentLightOnSurface,
-    surfaceVariant = ParchmentLightSurfaceVariant,
-    onSurfaceVariant = ParchmentLightOnSurfaceVariant,
-    outline = ParchmentLightOutline
+    primary = AmberLight,
+    onPrimary = OnAmberLight,
+    primaryContainer = AmberContainerLight,
+    onPrimaryContainer = OnAmberContainerLight,
+    secondary = AmberLight,
+    onSecondary = OnAmberLight,
+    secondaryContainer = AmberContainerLight,
+    onSecondaryContainer = OnAmberContainerLight,
+    tertiary = OnSurfaceVariantLight,
+    onTertiary = SurfaceLight,
+    tertiaryContainer = SurfaceContainerHighLight,
+    onTertiaryContainer = OnSurfaceLight,
+    background = BackgroundLight,
+    onBackground = OnSurfaceLight,
+    surface = SurfaceLight,
+    onSurface = OnSurfaceLight,
+    surfaceVariant = SurfaceVariantLight,
+    onSurfaceVariant = OnSurfaceVariantLight,
+    surfaceContainerLow = SurfaceContainerLowLight,
+    surfaceContainer = SurfaceContainerLight,
+    surfaceContainerHigh = SurfaceContainerHighLight,
+    outline = OutlineLight,
+    outlineVariant = OutlineVariantLight
 )
 
 /**
- * App-wide Material 3 theme. Uses dynamic color (Material You) on Android 12+
- * and falls back to the TravelingTavern brand palette below that.
+ * App-wide Material 3 theme: neutral surfaces with one amber accent.
+ *
+ * Dynamic color (Material You) is off by default. [useDynamicColor] is hard-coded
+ * `false` by the caller until 1.8 adds the "Use wallpaper colors" toggle in Me → Appearance.
  */
 @Composable
 fun TravelingTavernTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    useDynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+        useDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }

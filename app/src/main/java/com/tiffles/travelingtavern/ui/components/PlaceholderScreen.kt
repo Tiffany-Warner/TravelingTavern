@@ -2,7 +2,6 @@ package com.tiffles.travelingtavern.ui.components
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,12 +14,10 @@ import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
 @Composable
 fun PlaceholderScreen(label: String, modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .safeDrawingPadding(),
+        modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = label, style = MaterialTheme.typography.headlineMedium)
+        Text(text = label, style = MaterialTheme.typography.titleLarge)
     }
 }
 

@@ -1,6 +1,6 @@
 # Current Feature
 
-Phase 1.1 — Project Setup & App Shell
+Phase 1.1b — Bottom Navigation & Visual Style
 
 ## Status
 
@@ -8,31 +8,45 @@ Completed
 
 ## Goals
 
-Create the TravelingTavern Android project with all core dependencies, theming, and the navigation shell. Every screen is a placeholder for now.
+Replace the single-root navigation from 1.1 with a three-tab bottom navigation bar and apply the quiet visual style from `ui-guidelines.md`. Tabs are still placeholders — real content arrives in 1.6 and 1.8.
 
 ### Deliverables
 
-- New Android project (`com.tiffles.travelingtavern`), Kotlin, Compose, min SDK 26, target SDK 36
-- Core dependencies in the version catalog and `build.gradle.kts`
-- Hilt wired up (`TravelingTavernApplication`, `MainActivity`)
-- Material 3 theme with dynamic color + brand fallback, light and dark
-- Navigation shell with placeholder screens: Connect, Home, Chat, Settings, Advanced
-- Routes defined in `ui/navigation/Routes.kt`
-- Project structure scaffolded to match `coding-standards.md`
+- Material 3 `NavigationBar` with three tabs: Chats (start), Characters, Me — labels always shown
+- Per-tab nested back stacks with `saveState` / `restoreState`
+- Re-selecting the current tab emits a scroll-to-top event (hook only; lists arrive in 1.6)
+- Bottom bar hidden on full-screen destinations (Connect, Chat, Advanced) and while the keyboard is open
+- `Routes.kt` reorganized into `TabRoutes` and `FullScreenRoutes`; Settings route and Home removed
+- Neutral palette with single amber accent; dynamic color off by default behind a `useDynamicColor` flag
+- Inter (Regular, Medium, SemiBold) bundled and mapped into the Material 3 type scale
+- Shapes: 12dp small, 16dp medium/large
+- Bottom bar previews in light and dark with each tab selected
+- Version bump to `0.1.1` / `versionCode 2`
 
 ## Notes
 
-- No WebView yet — that's 1.3
-- Start destination is Home for now; 1.2 adds the "no server configured → Connect" logic
+- Tab icons are vector drawables (Material Icons, Apache 2.0) because chat bubble and people are not in `material-icons-core` and `material-icons-extended` is too heavy
+- Inter is bundled under the SIL Open Font License; license text in `licenses/`
 
 ## References
 
-- @context/specs/phase1-1-project-setup-spec.md
+- @context/specs/phase1-1b-bottom-navigation-spec.md
+- @context/ui-guidelines.md
 - @context/coding-standards.md
 
 ## History
 
 <!-- Completed work is added here, newest last -->
+
+### 2026-11-16 — Phase 1.1b Bottom Navigation & Visual Style (branch `feature/bottom-navigation`)
+
+- `Routes.kt` split into `Routes.Tab` (Chats, Characters, Me — nested graphs) and `Routes.FullScreen` (Connect, Chat, Advanced). Home and Settings screens removed
+- `TravelingTavernNavHost` is now the shell: one `Scaffold`, `TravelingTavernBottomBar` shown only when the current destination is inside a tab graph and the IME is hidden; tab switches use `popUpTo(start) { saveState }` + `restoreState`; re-selecting the current tab emits on `TabReselectEvents` (via `LocalTabReselectEvents`) for 1.6 lists to scroll to top
+- Tab icons are vector drawables (Material Icons, outlined/filled pairs) — `?attr/colorControlNormal` tint had to be dropped since the app has no AppCompat; Compose `Icon` tints from `LocalContentColor`
+- Theme: neutral light/dark palette, amber on primary **and** secondary so the `NavigationBar` indicator uses the accent; `useDynamicColor` parameter defaults to `false`; Inter Regular/Medium/SemiBold bundled in `res/font/` (OFL text in `licenses/Inter-OFL.txt`) and applied to the whole M3 type scale; shapes 12/16/16dp
+- Version `0.1.1` / `versionCode 2`
+- `./gradlew build` passes; lint only reports newer-version suggestions
+- Verified on Medium_Phone_API_35: all three tabs in dark and light, selected indicator and labels, back from Me returns to Chats, back again exits. Not device-verifiable yet: bottom bar hiding on full-screen routes and under the keyboard (no navigation to those routes or text fields exist until 1.2/1.6) — covered by code path only
 
 ### 2026-11-16 — Phase 1.1 Project Setup & App Shell (branch `feature/project-setup`)
 
