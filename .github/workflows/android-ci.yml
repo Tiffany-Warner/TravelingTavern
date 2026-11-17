@@ -1,0 +1,71 @@
+# Builds, tests and lints the app on GitHub's servers.
+# Runs on every pull request into main or dev, on every push to main or dev,
+# and on demand from the Actions tab ("Run workflow").
+
+name: Android CI
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+# Read-only access to the repo is all this workflow needs.
+permissions:
+  contents: read
+
+# If you push again to the same branch while a run is still going,
+# cancel the old run instead of finishing it.
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build, test and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v6
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle (with caching)
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build
+        run: ./gradlew assembleDebug
+
+      - name: Unit tests
+        run: ./gradlew test
+
+      - name: Lint
+        run: ./gradlew lint
+
+      # Installable debug APK, downloadable from the run's summary page.
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: travelingtavern-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+
+      # Test and lint reports, kept even when a step fails so you can see why.
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reports
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          retention-days: 14
+          if-no-files-found: ignore
