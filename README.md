@@ -13,7 +13,7 @@ SillyTavern is the brain — this app never re-implements prompt building, never
 - AndroidX WebKit (WebView + JS bridge)
 - DataStore, Room, OkHttp, Coil, Kotlin Serialization
 
-Min SDK 26, Target SDK 36.
+Min SDK 31 (Android 12), Target SDK 36.
 
 ## Requirements
 

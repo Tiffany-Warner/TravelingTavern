@@ -39,6 +39,13 @@ One WebView, created once and kept alive for the whole app session, showing the 
 
 <!-- Completed work is added here, newest last -->
 
+### 2026-11-17 — Min SDK 31 (branch `chore/min-sdk-31`)
+
+- `minSdk` 26 → 31 (Android 12) so 1.7b's on-device speech recognizer (`createOnDeviceSpeechRecognizer`, API 31) is always available as an API; updated `CLAUDE.md`, `README.md` and the 1.7b spec (`Unavailable` now only means on-device recognition isn't available)
+- Removed the now-redundant API 31 check around dynamic color in `Theme.kt`
+- `./gradlew build` green; installed on Pixel 8 (`minSdk=31`, `0.1.4`), launches and loads SillyTavern normally
+- Version `0.1.4` / `versionCode 5`
+
 ### 2026-11-17 — Phase 1.3 WebView Host (branch `feature/webview-host`)
 
 - Domain: `PageState` (`Loading` / `Ready` / `Error`) and `PageError` (`Unreachable`, `AuthFailed`, `HttpError(code)`)

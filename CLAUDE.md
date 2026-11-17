@@ -33,7 +33,7 @@ Read the following at the start of every session:
 - **Room** for app-owned data only (added when a feature needs it)
 - **OkHttp** for direct HTTP calls; **Coil** for images
 - **Kotlin Serialization** for JSON (bridge messages, settings)
-- Min SDK 26, Target SDK 36
+- Min SDK 31 (Android 12), Target SDK 36
 
 ## Versioning
 

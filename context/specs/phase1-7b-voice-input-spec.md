@@ -21,7 +21,7 @@ The app doesn't type into SillyTavern directly. Recognized text goes to the page
 
 ### Speech recognizer (`data/speech/`)
 
-- `OnDeviceSpeechInput` wraps `SpeechRecognizer.createOnDeviceSpeechRecognizer` (API 31+)
+- `OnDeviceSpeechInput` wraps `SpeechRecognizer.createOnDeviceSpeechRecognizer` (API 31, the app's min SDK)
     - Created, used, and destroyed on `Dispatchers.Main`
     - Request partial results (`EXTRA_PARTIAL_RESULTS`) and the device's default language
     - Exposes `listen(): Flow<SpeechEvent>`; cancelling the flow stops and releases the recognizer
@@ -30,7 +30,7 @@ The app doesn't type into SillyTavern directly. Recognized text goes to the page
 ### Domain (`domain/`)
 
 - `SpeechEvent` sealed class: `Listening`, `Partial(text)`, `Final(text)`, `Ended`, `Error(type)`
-- `SpeechError` types: `Unavailable` (API < 31 or `isOnDeviceRecognitionAvailable()` false), `LanguagePackMissing`, `NoMatch`, `PermissionDenied`, `Busy`, `Other`
+- `SpeechError` types: `Unavailable` (`isOnDeviceRecognitionAvailable()` false), `LanguagePackMissing`, `NoMatch`, `PermissionDenied`, `Busy`, `Other`
 - `SpeechInputRepository` interface (implemented by `OnDeviceSpeechInput`)
 - `IsVoiceInputAvailableUseCase`, `ListenForSpeechUseCase`
 
