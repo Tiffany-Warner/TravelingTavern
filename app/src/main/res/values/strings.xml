@@ -23,6 +23,7 @@
     <string name="connect_result_invalid_url">That doesn\'t look like a valid address</string>
     <string name="webview_error_auth_failed">Your server didn\'t accept the saved login</string>
     <string name="webview_error_http">Your server answered with an error (%1$d)</string>
+    <string name="webview_error_outdated">Your Android System WebView is too old. Update it in the Play Store.</string>
     <string name="webview_retry">Retry</string>
     <string name="webview_server_settings">Server settings</string>
     <string name="screen_chat">Chat: %1$s</string>

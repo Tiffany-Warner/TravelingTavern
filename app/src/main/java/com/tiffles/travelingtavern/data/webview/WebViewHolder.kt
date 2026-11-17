@@ -5,14 +5,17 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.MutableContextWrapper
+import android.graphics.Color
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebView
 import com.tiffles.travelingtavern.BuildConfig
+import com.tiffles.travelingtavern.data.bridge.BridgeInstaller
 import com.tiffles.travelingtavern.data.repository.ServerConfigRepositoryImpl
 import com.tiffles.travelingtavern.data.settings.ServerCredentials
 import com.tiffles.travelingtavern.di.ApplicationScope
+import com.tiffles.travelingtavern.domain.model.PageError
 import com.tiffles.travelingtavern.domain.model.PageState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -35,11 +38,13 @@ import javax.inject.Singleton
 class WebViewHolder @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val repository: ServerConfigRepositoryImpl,
+    private val bridge: BridgeInstaller,
     @ApplicationScope private val scope: CoroutineScope
 ) {
     // The WebView holds this wrapper, not an Activity, so no Activity can leak through it.
     private val contextWrapper = MutableContextWrapper(appContext)
     private val tracker = PageStateTracker()
+    private val watchdog = LoadWatchdog(scope)
 
     private val _pageFinished = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private val _canGoBack = MutableStateFlow(false)
@@ -54,13 +59,21 @@ class WebViewHolder @Inject constructor(
         tracker = tracker,
         serverBaseUrl = { serverBaseUrl },
         credentials = { credentials },
-        onPageLoaded = { _pageFinished.tryEmit(Unit) },
+        onPageStarting = {
+            bridge.onPageStarted()
+            startWatchdog()
+        },
+        onServerAnswered = { watchdog.onServerAnswered() },
+        onPageLoaded = { view ->
+            bridge.injectScripts(view)
+            _pageFinished.tryEmit(Unit)
+        },
         onHistoryChanged = { _canGoBack.value = it }
     )
 
     val pageState: StateFlow<PageState> = tracker.state
 
-    /** Fires each time the main page finishes loading (bridge and theme injection hook in here). */
+    /** Fires each time the main page finishes loading, after the bridge scripts are injected. */
     val pageFinished: SharedFlow<Unit> = _pageFinished.asSharedFlow()
 
     val canGoBack: StateFlow<Boolean> = _canGoBack.asStateFlow()
@@ -110,6 +123,9 @@ class WebViewHolder @Inject constructor(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
+            // A blank WebView paints white — over the status bar too, in dark theme. Let the
+            // app background show until SillyTavern paints its own.
+            setBackgroundColor(Color.TRANSPARENT)
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.mediaPlaybackRequiresUserGesture = false
@@ -137,7 +153,26 @@ class WebViewHolder @Inject constructor(
     private fun load(view: WebView, baseUrl: String) {
         loadedBaseUrl = baseUrl
         tracker.onPageStarted()
-        view.doOnNonZeroSize { view.loadUrl(baseUrl) }
+        if (!bridge.isSupported) {
+            tracker.onMainFrameError(PageError.WebViewOutdated)
+            return
+        }
+        view.doOnNonZeroSize {
+            // The listener only takes effect on the next navigation, so register it first.
+            bridge.registerListener(view, origin = baseUrl)
+            view.loadUrl(baseUrl)
+            startWatchdog()
+        }
+    }
+
+    /** Gives up on a load the server never answers, instead of waiting ~2 min for the WebView. */
+    private fun startWatchdog() {
+        watchdog.onLoadStarted {
+            // An HTTP or network error already ended this load; nothing to give up on.
+            if (pageState.value !is PageState.Loading) return@onLoadStarted
+            webView.stopLoading()
+            tracker.onMainFrameError(PageError.Unreachable)
+        }
     }
 
     /**

@@ -44,6 +44,15 @@ When I ask to release (usually after a sub-feature is verified on device and its
 2. Open a pull request from `dev` into `main`, titled with the version (e.g. `Release 0.1.5`) and listing the history entries it includes
 3. I merge it on GitHub with **Create a merge commit** — not squash or rebase, which would make `main` and `dev` drift apart
 
+## Private Data
+
+This repo is public. Nothing that identifies my network, devices or accounts goes into any committed file — code, tests, specs, `current-feature.md` history entries, commit messages or PR descriptions:
+
+- No real IP addresses, ports tied to my machines, Tailscale machine or tailnet names, hostnames, usernames, emails, passwords, tokens or API keys
+- In history entries, describe the setup instead: "against SillyTavern 1.19.0 over Tailscale", "on the Pixel 8"
+- In code, tests and previews, use placeholders only: `100.64.0.2:8000`, `desktop.tail1234.ts.net`, `user` / `pass`
+- Before every commit, check the diff for anything like the above. If something private was already committed, stop and tell me — don't just overwrite it, since it stays in Git history
+
 ## Commits
 
 - Ask before committing (don't auto-commit)
