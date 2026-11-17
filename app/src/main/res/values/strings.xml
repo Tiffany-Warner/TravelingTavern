@@ -21,6 +21,10 @@
     <string name="connect_result_auth_failed">Username or password is wrong</string>
     <string name="connect_result_not_sillytavern">That address answered, but it doesn\'t look like SillyTavern</string>
     <string name="connect_result_invalid_url">That doesn\'t look like a valid address</string>
+    <string name="webview_error_auth_failed">Your server didn\'t accept the saved login</string>
+    <string name="webview_error_http">Your server answered with an error (%1$d)</string>
+    <string name="webview_retry">Retry</string>
+    <string name="webview_server_settings">Server settings</string>
     <string name="screen_chat">Chat: %1$s</string>
     <string name="screen_advanced">Advanced</string>
 </resources>

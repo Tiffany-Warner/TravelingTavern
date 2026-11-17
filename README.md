@@ -20,6 +20,17 @@ Min SDK 26, Target SDK 36.
 - A SillyTavern instance running on your desktop, reachable over [Tailscale](https://tailscale.com/)
 - Android Studio
 
+## SillyTavern Extensions
+
+The app shows your own SillyTavern, so some features only work if these extensions are installed on the desktop. Without them the matching buttons are simply missing or do nothing — the app isn't broken.
+
+| Extension | Type | Needed for | Status |
+|---|---|---|---|
+| Speech Recognition | SillyTavern extension (install from the Extensions panel) | The mic button in the message bar (voice input). The app asks for Android's microphone permission the first time it's used | Needed now |
+| EchoText | SillyTavern extension | The Text tab on the Chat screen (Phase 1.7) | Needed from Phase 1.7 |
+| SillyTavern-EchoText-Proactive (fork) | SillyTavern extension | Proactive message notifications (Phase 2) | Needed from Phase 2 |
+| TravelingTavern-Bridge | SillyTavern server plugin | Push events, media, reminders, card writes (Phase 2+) | Needed from Phase 2 |
+
 ## Build
 
 ```bash

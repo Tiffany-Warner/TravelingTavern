@@ -2,6 +2,7 @@ package com.tiffles.travelingtavern.ui.navigation
 
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
@@ -75,11 +76,14 @@ fun TravelingTavernNavHost(
             NavHost(
                 navController = navController,
                 startDestination = startDestination,
-                modifier = Modifier.padding(innerPadding)
+                // Consumed so screens that add imePadding() don't count the system bars twice.
+                modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)
             ) {
-                tabGraphs()
+                tabGraphs(
+                    onOpenServerSettings = { navController.navigate(Routes.FullScreen.CONNECT) }
+                )
                 fullScreenDestinations(
-                    onServerSaved = { navController.navigateToChatsClearingConnect() }
+                    onServerSaved = { navController.leaveConnectAfterSave() }
                 )
             }
         }
@@ -102,17 +106,24 @@ private fun NavHostController.navigateToTab(tab: TopLevelTab) {
     }
 }
 
-/** After a successful save on Connect: go to Chats and drop Connect from the back stack. */
-private fun NavHostController.navigateToChatsClearingConnect() {
+/**
+ * After a successful save on Connect. Opened from inside the app (an error state): go back
+ * to where the user was. Opened as the first screen: go to Chats and drop Connect.
+ */
+private fun NavHostController.leaveConnectAfterSave() {
+    if (previousBackStackEntry != null) {
+        popBackStack()
+        return
+    }
     navigate(Routes.Tab.CHATS) {
         popUpTo(Routes.FullScreen.CONNECT) { inclusive = true }
         launchSingleTop = true
     }
 }
 
-private fun NavGraphBuilder.tabGraphs() {
+private fun NavGraphBuilder.tabGraphs(onOpenServerSettings: () -> Unit) {
     navigation(startDestination = Routes.Tab.CHATS_ROOT, route = Routes.Tab.CHATS) {
-        composable(Routes.Tab.CHATS_ROOT) { ChatsScreen() }
+        composable(Routes.Tab.CHATS_ROOT) { ChatsScreen(onOpenServerSettings = onOpenServerSettings) }
     }
     navigation(startDestination = Routes.Tab.CHARACTERS_ROOT, route = Routes.Tab.CHARACTERS) {
         composable(Routes.Tab.CHARACTERS_ROOT) { CharactersScreen() }

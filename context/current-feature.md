@@ -1,40 +1,57 @@
 # Current Feature
 
-Phase 1.2 — Connect Screen
+Phase 1.3 — WebView Host
 
 ## Status
 
-Completed
+In Progress
 
 ## Goals
 
-Let the user point the app at their SillyTavern server, optionally log in, and test the connection. Shown on first launch when no server is saved; later reachable from error states and Me → Server → "Change server".
+One WebView, created once and kept alive for the whole app session, showing the user's SillyTavern. Screens attach and detach it — they never create their own and never reload it.
 
 ### Deliverables
 
-- `ServerConfig`, `ConnectionResult`, `ServerConfigRepository`, `TestConnectionUseCase` in `domain/`
-- Server URL in DataStore; username/password encrypted with Tink + Android Keystore; password never exposed to the UI
-- Shared `OkHttpClient` (Hilt `@Singleton`) with a basic-auth interceptor that only applies stored credentials to the configured server host
-- Connection test: `GET {baseUrl}/` with a 10 s timeout, mapped to `Success` / `NotSillyTavern` / `AuthRequired` / `AuthFailed` / `Unreachable` / `InvalidUrl`
-- `ConnectScreen` + `ConnectViewModel`: URL field (adds `http://` when no scheme), "Server requires login" toggle, Test & Save, result messages per spec
-- Start destination: no saved config → Connect, else Chats tab; saving navigates to Chats and clears Connect from the back stack
-- Unit tests for URL normalization, `TestConnectionUseCase` result mapping, and `ConnectViewModel`
-- Version bump to `0.1.2` / `versionCode 3`
+- `PageState` / `PageError` in `domain/model/`
+- `WebViewHolder` (`data/webview/`, `@Singleton`): lazy WebView on a `MutableContextWrapper`, `attach` / `detach`, loads the saved base URL once and reloads only when it changes, exposes `pageState`, `pageFinished`, `canGoBack`
+- `TavernWebViewClient`: basic auth from stored credentials (one attempt), main-frame network / HTTP errors mapped to `PageState.Error`, links to other hosts open in the system browser
+- `TavernWebChromeClient` (ported from Aegis, ISC notice kept): file chooser through an Activity Result launcher, mic / camera requests mapped to `RECORD_AUDIO` / `CAMERA` runtime permissions, granted only for the server's own origin
+- `SillyTavernWebView` composable + `SillyTavernWebViewModel` (`ui/components/`): attaches the shared WebView, loading and error overlays (Retry, Server settings), back handling
+- Manifest: `RECORD_AUDIO`, `CAMERA`, `adjustResize`
+- Temporary host: the Chats tab shows the WebView full-size until 1.6 replaces it with the real list
+- Unit tests for `PageStateTracker` and `isSameServer`
+- Version bump to `0.1.3` / `versionCode 4`
 
 ## Notes
 
-- SillyTavern detection marker **(verified)**: `GET /` returns 200 with `<title>SillyTavern</title>` on SillyTavern 1.19.0; `GET /version` also returns JSON with `agent: "SillyTavern:<ver>..."` as a fallback marker if the title ever changes
-- Real server for testing: this PC's SillyTavern on the Tailscale IP `100.127.52.41:8000`
+- The spec says to host the WebView on "Home" temporarily; Home was replaced by the tabs in 1.1b, so the Chats tab is the temporary host
+- Mic access needs a secure origin, so over plain `http://` the mic prompt never fires — expected until an HTTPS (`tailscale serve`) address is used
+- Aegis reference read from source (`android/app/src/main/java/com/sillytavern/android/MainActivity.java`): its file chooser is ported; its permission handler grants everything automatically, so ours is stricter by design
+- **(verified)** A page that starts loading while the WebView is zero-sized keeps every CSS viewport unit (`vh`, `dvh`, `svh`, `lvh`) at 0 for good, even after the view grows (`innerHeight` is correct). SillyTavern's `body { height: 100dvh }` then collapses and the input bar sits at the top. Found on the Pixel 8 via DevTools after Connect → Save; `WebViewHolder` now waits for a non-zero layout before `loadUrl`
 
 ## References
 
-- @context/specs/phase1-2-connect-screen-spec.md
+- @context/specs/phase1-3-webview-host-spec.md
 - @context/coding-standards.md
 - @context/ui-guidelines.md
 
 ## History
 
 <!-- Completed work is added here, newest last -->
+
+### 2026-11-17 — Phase 1.3 WebView Host (branch `feature/webview-host`)
+
+- Domain: `PageState` (`Loading` / `Ready` / `Error`) and `PageError` (`Unreachable`, `AuthFailed`, `HttpError(code)`)
+- Data: `WebViewHolder` (`@Singleton`) creates the one WebView lazily on a `MutableContextWrapper`, swaps in the Activity on `attach` and back on `detach` (guarded so a late detach can't undo a new attach), loads the saved URL once and reloads only when it changes or a settings change happens while in an error state. `PageStateTracker` keeps a main-frame error alive past the `onPageFinished` that follows it. `TavernWebViewClient`: basic auth answered once and only for the saved host, main-frame errors → `PageState.Error`, other-host links → system browser. `TavernWebChromeClient` (Aegis port, ISC notice kept): file chooser via Activity Result, mic/camera only for the server origin and only what the user granted. `@ApplicationScope` coroutine scope added (`CoroutineModule`)
+- UI: `SillyTavernWebView` + `SillyTavernWebViewModel` attach the shared WebView (removed from its parent, never destroyed, on dispose), flush cookies on pause, `BackHandler` while the WebView can go back; `PageStateOverlay` with loading and error states (Retry, Server settings) and previews. Chats tab hosts it temporarily (spec said Home, which no longer exists)
+- Navigation: Server settings opens Connect; saving from there pops back instead of rebuilding Chats. Scaffold padding is now consumed so `imePadding()` doesn't double-count the system bars; `adjustResize` set on the Activity
+- Manifest: `RECORD_AUDIO`, `CAMERA` (requested only when the page asks), camera/mic features optional; `buildConfig` enabled for `BuildConfig.DEBUG`
+- Unit tests: `PageStateTrackerTest` (5), `ServerOriginTest` (5); `./gradlew build` green, lint only version suggestions
+- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 at `100.127.52.41:8000`: page loads in the Chats tab; an open SillyTavern drawer survived tab switches, backgrounding and two rotations (no reload); airplane mode → Unreachable overlay → Retry recovers; Server settings opens Connect and back returns; character import opens the system file picker, cancel leaves the page usable (second open works); GitHub link opens Chrome, not the WebView
+- Verified on Pixel 8 (Android 17) against the same server: clean install → Connect → Save loads a full-height page (before the fix: collapsed layout, `100dvh` = 0); docked keyboard pushes SillyTavern's input bar above it; GitHub link opens the default browser and back returns; backgrounding and returning keeps the page (a JS marker survived, so no reload)
+- Mic: voice input via the SillyTavern **Speech Recognition** extension tested manually on the Pixel 8 by the user — works. Which STT provider it uses, and whether it goes through our `onPermissionRequest` path over plain `http://`, was not checked. Speech Recognition is now listed under "SillyTavern Extensions" in `README.md`
+- Not verified on device: back navigation inside the WebView (SillyTavern adds no history entries in normal use), basic auth (server has it off), camera
+- Version `0.1.3` / `versionCode 4`
 
 ### 2026-11-16 — Phase 1.2 Connect Screen (branch `feature/connect-screen`)
 
