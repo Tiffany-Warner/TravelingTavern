@@ -71,11 +71,14 @@ private fun ErrorOverlay(
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center
             )
-            Button(onClick = onRetry) {
-                Text(stringResource(R.string.webview_retry))
-            }
-            TextButton(onClick = onOpenServerSettings) {
-                Text(stringResource(R.string.webview_server_settings))
+            // Retrying or changing servers can't fix an outdated WebView; only an update can.
+            if (error != PageError.WebViewOutdated) {
+                Button(onClick = onRetry) {
+                    Text(stringResource(R.string.webview_retry))
+                }
+                TextButton(onClick = onOpenServerSettings) {
+                    Text(stringResource(R.string.webview_server_settings))
+                }
             }
         }
     }
@@ -86,6 +89,7 @@ private fun PageError.message(): String = when (this) {
     PageError.Unreachable -> stringResource(R.string.connect_result_unreachable)
     PageError.AuthFailed -> stringResource(R.string.webview_error_auth_failed)
     is PageError.HttpError -> stringResource(R.string.webview_error_http, code)
+    PageError.WebViewOutdated -> stringResource(R.string.webview_error_outdated)
 }
 
 @Preview(name = "Loading", showBackground = true)
@@ -115,6 +119,18 @@ private fun PageStateOverlayAuthFailedPreview() {
     TravelingTavernTheme {
         PageStateOverlay(
             pageState = PageState.Error(PageError.AuthFailed),
+            onRetry = {},
+            onOpenServerSettings = {}
+        )
+    }
+}
+
+@Preview(name = "WebView outdated", showBackground = true)
+@Composable
+private fun PageStateOverlayOutdatedPreview() {
+    TravelingTavernTheme {
+        PageStateOverlay(
+            pageState = PageState.Error(PageError.WebViewOutdated),
             onRetry = {},
             onOpenServerSettings = {}
         )

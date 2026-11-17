@@ -33,7 +33,7 @@
 - [x] 1.1b Bottom navigation (Chats, Characters, Me) & quiet visual style
 - [x] 1.2 Connect screen — server URL, optional login, connection test
 - [x] 1.3 WebView host — single retained WebView, file upload, mic/camera permissions, back handling, error states
-- [ ] 1.4 JS bridge foundation — injected script, typed messages, Kotlin ↔ JS calls
+- [x] 1.4 JS bridge foundation — injected script, typed messages, Kotlin ↔ JS calls
 - [ ] 1.5 Clean theme — injected CSS that hides SillyTavern clutter inside the app only
 - [ ] 1.6 Chats & Characters tabs — recent-chats list and portrait grid
 - [ ] 1.6b Lorebooks tab — browse, create and delete lorebooks; view, add, edit and delete entries

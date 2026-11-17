@@ -50,7 +50,7 @@ A typed, two-way channel between Kotlin and the SillyTavern page. JS listens to 
 
 - Candidate APIs **(verify against the installed SillyTavern version before use)**: `SillyTavern.getContext()`, `context.characters`, `context.characterId`, `context.eventSource`, `context.event_types`, `context.selectCharacterById`
 - Avatar URL candidate: `/thumbnail?type=avatar&file=<encoded avatar>` **(verify)**
-- Write the verified names into this Notes section once confirmed
+- **Verified on SillyTavern 1.19.0:** ready = `APP_READY` (re-fires for late listeners via `eventSource.autoFireAfterEmit`); `CHAT_CHANGED` = `chat_id_changed`; `MESSAGE_RECEIVED` = `message_received`; `context.characterId` is an index into `context.characters`, the stable ID is `character.avatar`; `selectCharacterById(index)`; thumbnail URL from `context.getThumbnailUrl("avatar", file)` = `/thumbnail?type=avatar&file=<encoded>`. All names live in `st-selectors.js`
 
 ## References
 

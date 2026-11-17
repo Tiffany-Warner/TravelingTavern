@@ -1,6 +1,6 @@
 # Current Feature
 
-Phase 1.3 — WebView Host
+Phase 1.4 — JS Bridge Foundation
 
 ## Status
 
@@ -8,36 +8,49 @@ Completed
 
 ## Goals
 
-One WebView, created once and kept alive for the whole app session, showing the user's SillyTavern. Screens attach and detach it — they never create their own and never reload it.
+A typed, two-way channel between Kotlin and the SillyTavern page. JS listens to SillyTavern's own events and posts messages to Kotlin; Kotlin calls into SillyTavern through one wrapper.
 
 ### Deliverables
 
-- `PageState` / `PageError` in `domain/model/`
-- `WebViewHolder` (`data/webview/`, `@Singleton`): lazy WebView on a `MutableContextWrapper`, `attach` / `detach`, loads the saved base URL once and reloads only when it changes, exposes `pageState`, `pageFinished`, `canGoBack`
-- `TavernWebViewClient`: basic auth from stored credentials (one attempt), main-frame network / HTTP errors mapped to `PageState.Error`, links to other hosts open in the system browser
-- `TavernWebChromeClient` (ported from Aegis, ISC notice kept): file chooser through an Activity Result launcher, mic / camera requests mapped to `RECORD_AUDIO` / `CAMERA` runtime permissions, granted only for the server's own origin
-- `SillyTavernWebView` composable + `SillyTavernWebViewModel` (`ui/components/`): attaches the shared WebView, loading and error overlays (Retry, Server settings), back handling
-- Manifest: `RECORD_AUDIO`, `CAMERA`, `adjustResize`
-- Temporary host: the Chats tab shows the WebView full-size until 1.6 replaces it with the real list
-- Unit tests for `PageStateTracker` and `isSameServer`
-- Version bump to `0.1.3` / `versionCode 4`
+- `st-selectors.js` (every SillyTavern global/event name) and `bridge.js` (`window.__ttBridge`, guarded against re-injection) in `assets/web/`
+- `BridgeInstaller`: `addWebMessageListener("TravelingTavern")` limited to the saved server origin, registered before each load; scripts injected on `pageFinished`; "WebView too old" error state when the feature is missing
+- `BridgeMessage` sealed interface + parser (`ready`, `characters`, `chatChanged`, `messageReceived`, `error`, `Unknown`); malformed input is logged and dropped
+- `BridgeRepository` (`messages`, `characters`, `isReady`) and `BridgeClient` (`requestCharacters`, `selectCharacter`, `setMode`) — the only place JS call strings are built, all arguments JSON-encoded
+- Domain `CharacterSummary`
+- Unit tests for message parsing and call escaping
+- Version bump to `0.1.5` / `versionCode 6`
 
 ## Notes
 
-- The spec says to host the WebView on "Home" temporarily; Home was replaced by the tabs in 1.1b, so the Chats tab is the temporary host
-- Mic access needs a secure origin, so over plain `http://` the mic prompt never fires — expected until an HTTPS (`tailscale serve`) address is used
-- Aegis reference read from source (`android/app/src/main/java/com/sillytavern/android/MainActivity.java`): its file chooser is ported; its permission handler grants everything automatically, so ours is stricter by design
-- **(verified)** A page that starts loading while the WebView is zero-sized keeps every CSS viewport unit (`vh`, `dvh`, `svh`, `lvh`) at 0 for good, even after the view grows (`innerHeight` is correct). SillyTavern's `body { height: 100dvh }` then collapses and the input bar sits at the top. Found on the Pixel 8 via DevTools after Connect → Save; `WebViewHolder` now waits for a non-zero layout before `loadUrl`
+- **(verified on SillyTavern 1.19.0, live page via DevTools)**
+    - Ready: `event_types.APP_READY` = `app_ready`. `eventSource.autoFireAfterEmit` contains `app_ready`, so a listener added after it fired is called immediately — no separate "already ready" flag needed
+    - `CHAT_CHANGED` = `chat_id_changed`, `MESSAGE_RECEIVED` = `message_received`; list-changing events used: `CHARACTER_EDITED`, `CHARACTER_DELETED`, `CHARACTER_RENAMED`, `CHARACTER_DUPLICATED`, `CHARACTER_PAGE_LOADED`, `CHAT_CREATED`
+    - `context.characterId` is an **index** into `context.characters` (undefined when no character / in a group); the stable ID is `character.avatar` (e.g. `Bob.png`). `selectCharacterById(index)` takes the index, so the bridge maps avatar → index
+    - Character fields used: `name`, `avatar`, `date_last_chat` (epoch ms, may be fractional or missing)
+    - Thumbnails: `context.getThumbnailUrl("avatar", file)` → `/thumbnail?type=avatar&file=<encoded>`
+    - Avatar IDs are not always the name: the bundled Seraphina is `default_Seraphina.png`, and IDs can contain spaces (`Tide Pods.png`)
 
 ## References
 
-- @context/specs/phase1-3-webview-host-spec.md
+- @context/specs/phase1-4-js-bridge-spec.md
 - @context/coding-standards.md
-- @context/ui-guidelines.md
 
 ## History
 
 <!-- Completed work is added here, newest last -->
+
+### 2026-11-17 — Phase 1.4 JS Bridge Foundation (branch `feature/js-bridge`)
+
+- Assets: `st-selectors.js` holds every SillyTavern name (event keys, context members, character/message fields); `bridge.js` waits for `SillyTavern.getContext()`, listens to SillyTavern's `eventSource`, posts `{ v: 1, type, ... }` messages (`ready`, `characters` debounced 300 ms, `chatChanged`, `messageReceived` for character messages only, `error`) and exposes a frozen `window.__ttBridge` (`requestCharacters`, `selectCharacter` maps avatar ID → index → `selectCharacterById`, `setMode` swaps the `tt-mode-*` body class). Both scripts guard against running twice
+- Data: `BridgeInstaller` registers the `TravelingTavern` listener for the saved origin only (re-registered if the server changes, main frame only) right before each load, and injects the scripts on every `onPageFinished`; `BridgeMessageParser` never throws (malformed / missing `v` or `type` / missing fields → dropped and logged, unknown types → `Unknown`); `BridgeRepository` exposes `messages`, `characters`, `isReady` (reset on each page start) and logs only the message type at DEBUG; `BridgeScript` + `BridgeClient` are the only place JS call strings are built, arguments JSON-encoded with U+2028/2029 escaped
+- Domain: `CharacterSummary` (`lastChatAt: Instant?`)
+- WebView without `WEB_MESSAGE_LISTENER` → `PageError.WebViewOutdated` overlay ("update it in the Play Store", no Retry / Server settings since neither helps)
+- Unit tests: `BridgeMessageParserTest` (10), `BridgeScriptTest` (6); `./gradlew build` green, lint only version suggestions
+- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 (DevTools + logcat): cold start delivers `characters (3)` then `Ready`; `selectCharacter("default_Seraphina.png")` opens Seraphina in SillyTavern and Kotlin gets `ChatChanged`; an unknown ID produces a bridge `Error`; `setMode` sets `tt-mode-story` and rejects invalid names; `location.reload()` re-injects cleanly with exactly one `Ready`
+- Verified on Pixel 8 (Android 17), user and Claude (logcat + DevTools): cold start → `characters` + `Ready`, full-height page; `selectCharacter` for `default_Seraphina.png`, `Tide Pods.png` (space in ID) and `Bob.png` each opened the chat and produced one `ChatChanged`; replies the user generated in Bob's and Tide Pods' chats produced `MessageReceived`; page reload → exactly one `Ready`; Tailscale off → Unreachable overlay, Tailscale on → Retry recovers with the bridge back; drawer + JS marker survived backgrounding and two rotations (no reload); import file picker opens, cancel returns to a usable page twice; GitHub link opens the browser. Whole run: 0 crashes, 0 bridge errors or malformed messages
+- Found on the Pixel, not fixed here: with Tailscale **off** the page sits on the loading spinner for ~2 min (the WebView's own network timeout) before the Unreachable overlay appears — airplane mode fails fast, a silently dropped connection doesn't. Also, during the cold-start loading and error states the status-bar strip is white with invisible icons
+- Not verified on device: the Kotlin `BridgeClient` path (no screen calls it until 1.6 — covered by `BridgeScriptTest`, the JS it produces was exercised through DevTools), the character-list events from editing/duplicating a character (skipped to avoid changing the user's data), the origin restriction (relies on the WebView API; other-host pages open in the browser anyway), the outdated-WebView overlay (preview only)
+- Version `0.1.5` / `versionCode 6`
 
 ### 2026-11-17 — Android CI (branch `chore/android-ci`)
 

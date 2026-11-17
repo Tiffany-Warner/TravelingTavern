@@ -16,4 +16,7 @@ sealed interface PageError {
     data object AuthFailed : PageError
 
     data class HttpError(val code: Int) : PageError
+
+    /** The phone's Android System WebView lacks the messaging feature the bridge needs. */
+    data object WebViewOutdated : PageError
 }
