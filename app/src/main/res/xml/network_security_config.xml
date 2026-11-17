@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Cleartext HTTP is allowed app-wide on purpose: the user's SillyTavern is
+    usually served over plain http:// on a private Tailscale network, which is
+    never exposed to the public internet. The InsecureBaseConfiguration lint
+    warning is suppressed for that reason.
+-->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config
+        cleartextTrafficPermitted="true"
+        tools:ignore="InsecureBaseConfiguration" />
+</network-security-config>
