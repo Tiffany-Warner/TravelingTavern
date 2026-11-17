@@ -1,2 +1,81 @@
-/* TravelingTavern clean theme — hides SillyTavern clutter inside the app only.
-   Placeholder: implemented in Phase 1.5. Injected classes/ids are prefixed tt-. */
+/* TravelingTavern clean theme — hides SillyTavern's settings clutter inside the app only.
+   Every rule is scoped under body.tt-clean, so this stylesheet does nothing until the app
+   sets that class (window.__ttBridge.setClean). The desktop browser never loads it.
+
+   Selectors used (verified on SillyTavern 1.19.0; mirrored in st-selectors.js):
+     #top-bar                 fixed bar behind the top toolbar
+     #top-settings-holder     top toolbar with the nine drawer buttons
+     #left-nav-panel          drawer: AI response configuration
+     #rm_api_block            drawer: API connections
+     #AdvancedFormatting      drawer: advanced formatting
+     #WorldInfo               drawer: World Info / lorebooks
+     #user-settings-block     drawer: user settings
+     #Backgrounds             drawer: backgrounds
+     #rm_extensions_block     drawer: extensions
+     #PersonaManagement       drawer: persona management
+     #right-nav-panel         drawer: character management (list and editor)
+     #extensionTopBar         TopInfoBar extension's chat bar (chat name, search, new/rename/delete chat)
+     #chat .drawer-opener     shortcut buttons inside the chat (welcome screen) that open a hidden drawer
+     #sheld                   main column: chat + input; offset by the toolbar's height
+     #chat                    message list
+     .mes_text                one message's text
+     #send_textarea           message input
+     #leftSendForm            input row, left buttons (options menu, extensions menu)
+     #rightSendForm           input row, right buttons (microphone, send)
+   Colors are never set here: everything keeps SillyTavern's theme variables. */
+
+/* Toolbar, its drawers, and the TopInfoBar chat bar: the app provides these natively. */
+body.tt-clean #top-bar,
+body.tt-clean #top-settings-holder,
+body.tt-clean #left-nav-panel,
+body.tt-clean #rm_api_block,
+body.tt-clean #AdvancedFormatting,
+body.tt-clean #WorldInfo,
+body.tt-clean #user-settings-block,
+body.tt-clean #Backgrounds,
+body.tt-clean #rm_extensions_block,
+body.tt-clean #PersonaManagement,
+body.tt-clean #right-nav-panel,
+body.tt-clean #extensionTopBar,
+body.tt-clean #chat .drawer-opener {
+    display: none !important;
+}
+
+/* With the toolbar gone, the chat column takes the whole viewport. */
+body.tt-clean #sheld {
+    top: 0 !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+}
+
+body.tt-clean #chat {
+    max-height: none;
+}
+
+/* Readable without zooming: at least 16px, or larger if the user chose a bigger font. */
+body.tt-clean .mes_text,
+body.tt-clean #send_textarea {
+    font-size: max(16px, var(--mainFontSize));
+}
+
+/* Input row: every button gets a 48dp touch target (1 CSS px = 1 dp in the WebView).
+   Only sizes are set — `display` stays SillyTavern's, which hides buttons like #mes_stop
+   until they apply. */
+body.tt-clean #leftSendForm,
+body.tt-clean #rightSendForm {
+    width: auto;
+    flex-wrap: nowrap;
+    align-items: center;
+}
+
+body.tt-clean #leftSendForm > div,
+body.tt-clean #rightSendForm > div {
+    min-width: 48px;
+    min-height: 48px;
+    line-height: 48px;
+    text-align: center;
+}
+
+body.tt-clean #send_textarea {
+    min-height: 48px;
+}

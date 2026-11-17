@@ -22,6 +22,7 @@ Inject a stylesheet that hides SillyTavern's settings clutter and makes the chat
 
 - Find selectors by inspecting the live page in `chrome://inspect` on a debug build. Don't guess **(verify every selector)**
 - Prefer stable ids over deep class chains, so SillyTavern updates break as little as possible
+- **Verified on SillyTavern 1.19.0** — selectors, findings and the two deviations (`setClean` instead of `setMode`; opening a character without the editor panel) are recorded in the 1.5 history entry in `current-feature.md`
 - Expect iteration — get the big drawers hidden first, then polish spacing
 - Verify on device: Story tab looks clean, Advanced shows everything, desktop browser unchanged after using the app
 

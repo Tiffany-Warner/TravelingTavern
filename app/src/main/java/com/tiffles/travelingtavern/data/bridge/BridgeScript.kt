@@ -2,6 +2,8 @@ package com.tiffles.travelingtavern.data.bridge
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import java.util.Base64
 
 /**
  * Builds the JavaScript that calls `window.__ttBridge`. Arguments are JSON-encoded, never
@@ -15,6 +17,16 @@ object BridgeScript {
         val encodedArgs = args.joinToString(",") { it.toJsLiteral() }
         return "window.__ttBridge && window.__ttBridge.$function($encodedArgs);"
     }
+
+    /**
+     * Adds or replaces `<style id=[id]>` with [css]. The stylesheet travels Base64-encoded
+     * (UTF-8) and is decoded in the page, so its quotes and newlines can't break the script.
+     */
+    fun installStyle(id: String, css: String): String =
+        call("installStyle", JsonPrimitive(id), JsonPrimitive(encodeBase64(css)))
+
+    fun encodeBase64(text: String): String =
+        Base64.getEncoder().encodeToString(text.toByteArray(Charsets.UTF_8))
 
     /**
      * JSON is valid JavaScript except that older engines treat U+2028/U+2029 as line

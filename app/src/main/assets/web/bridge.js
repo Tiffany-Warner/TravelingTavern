@@ -129,9 +129,30 @@
                 postError('Unknown character');
                 return;
             }
-            Promise.resolve(ctx[S.context.selectCharacterById](index)).catch(function (e) {
+            Promise.resolve(ctx[S.context.selectCharacterById](index, S.selectOptions)).catch(function (e) {
                 postError('selectCharacter failed: ' + e);
             });
+        },
+
+        /** Turns the clean theme (clean-theme.css) on or off. */
+        setClean: function (enabled) {
+            document.body.classList.toggle(S.cleanClass, enabled === true);
+        },
+
+        /**
+         * Adds or replaces a <style id=[id]>. [base64] is the UTF-8 stylesheet, Base64-encoded
+         * so quotes, backslashes and newlines can't break the calling script.
+         */
+        installStyle: function (id, base64) {
+            const bytes = Uint8Array.from(atob(base64), function (c) { return c.charCodeAt(0); });
+            const css = new TextDecoder().decode(bytes);
+            let style = document.getElementById(id);
+            if (!style) {
+                style = document.createElement('style');
+                style.id = id;
+                document.head.appendChild(style);
+            }
+            style.textContent = css;
         },
 
         /** Replaces the body's tt-mode-* class with tt-mode-[mode]; an empty mode clears it. */

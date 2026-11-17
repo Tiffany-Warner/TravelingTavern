@@ -6,25 +6,27 @@ import android.webkit.WebView
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.serialization.json.JsonPrimitive
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Connects the WebView to [BridgeRepository]: registers the `TravelingTavern` message
- * listener for the saved server's origin only, and injects the bridge scripts after each
- * page load. Main thread only.
+ * listener for the saved server's origin only, and injects the bridge scripts and the clean
+ * theme after each page load. Main thread only.
  */
 @Singleton
 class BridgeInstaller @Inject constructor(
     @ApplicationContext private val appContext: Context,
-    private val repository: BridgeRepository
+    private val repository: BridgeRepository,
+    private val pageMode: PageModeStore
 ) {
     private var registeredOrigin: String? = null
 
+    /** Bridge scripts, then the clean-theme stylesheet (inert until `tt-clean` is set on the body). */
     private val scripts: String by lazy(LazyThreadSafetyMode.NONE) {
-        SCRIPT_ASSETS.joinToString("\n") { path ->
-            appContext.assets.open(path).bufferedReader().use { it.readText() }
-        }
+        val bridge = SCRIPT_ASSETS.joinToString("\n") { readAsset(it) }
+        bridge + "\n" + BridgeScript.installStyle(CLEAN_THEME_STYLE_ID, readAsset(CLEAN_THEME_ASSET))
     }
 
     val isSupported: Boolean
@@ -50,17 +52,27 @@ class BridgeInstaller @Inject constructor(
         }
     }
 
-    /** Runs st-selectors.js then bridge.js in the current page; both are safe to run twice. */
+    /**
+     * Runs st-selectors.js and bridge.js, installs the clean theme, and applies the current
+     * clean-mode setting. Safe to run twice: the scripts guard themselves and the style tag
+     * is replaced, not duplicated.
+     */
     fun injectScripts(view: WebView) {
         if (!isSupported) return
-        view.evaluateJavascript(scripts, null)
+        val applyMode = BridgeScript.call("setClean", JsonPrimitive(pageMode.cleanMode))
+        view.evaluateJavascript(scripts + "\n" + applyMode, null)
     }
 
     fun onPageStarted() = repository.onPageStarted()
+
+    private fun readAsset(path: String): String =
+        appContext.assets.open(path).bufferedReader().use { it.readText() }
 
     private companion object {
         const val TAG = "BridgeInstaller"
         const val LISTENER_NAME = "TravelingTavern"
         val SCRIPT_ASSETS = listOf("web/st-selectors.js", "web/bridge.js")
+        const val CLEAN_THEME_ASSET = "web/clean-theme.css"
+        const val CLEAN_THEME_STYLE_ID = "tt-clean-theme"
     }
 }
