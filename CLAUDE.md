@@ -34,6 +34,14 @@ Read the following at the start of every session:
 - **Kotlin Serialization** for JSON (bridge messages, settings)
 - Min SDK 26, Target SDK 36
 
+## Versioning
+
+Semantic versioning, pre-1.0 while the app is under construction. Both values live in `app/build.gradle.kts`.
+
+- `versionName` = `0.<phase>.<increment>` — `0.1.x` during Phase 1, `0.2.0` when Phase 2 lands, and so on. Bump the last number for each completed sub-feature or fix within a phase
+- `versionCode` increments by 1 for every build that gets installed or shared; it never goes down
+- `1.0.0` is reserved for when Phase 1 is complete and the app is usable day-to-day
+
 ## Architecture
 
 MVVM + Clean Architecture. Features are organized into three layers:
