@@ -29,7 +29,7 @@
 
 > Goal: A clean, fast phone experience on top of the real SillyTavern. No companion features yet.
 
-- [ ] 1.1 Project setup & app shell (dependencies, theme, navigation, placeholder screens)
+- [x] 1.1 Project setup & app shell (dependencies, theme, navigation, placeholder screens)
 - [ ] 1.2 Connect screen — server URL, optional login, connection test
 - [ ] 1.3 WebView host — single retained WebView, file upload, mic/camera permissions, back handling, error states
 - [ ] 1.4 JS bridge foundation — injected script, typed messages, Kotlin ↔ JS calls
