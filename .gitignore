@@ -1,15 +1,19 @@
-*.iml
 .gradle
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-/.idea/deploymentTargetSelector.xml
-/.idea/deviceManager.xml
-/.idea/misc.xml
+
+# IntelliJ
+*.iml
+.idea/
+
+# Proguard folder
+proguard/
+
+# Generated files
+bin/
+gen/
+out/
+build/
+
 .DS_Store
 /build
 /captures
@@ -21,3 +25,9 @@
 *.jks
 *.keystore
 keystore.properties
+
+# Built application files
+*.apk
+*.aab
+*.ap_
+*.dex
