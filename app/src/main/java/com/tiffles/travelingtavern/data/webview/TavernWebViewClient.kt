@@ -25,6 +25,7 @@ class TavernWebViewClient(
     private val serverBaseUrl: () -> String?,
     private val credentials: () -> ServerCredentials?,
     private val onPageStarting: () -> Unit,
+    private val onServerAnswered: () -> Unit,
     private val onPageLoaded: (WebView) -> Unit,
     private val onHistoryChanged: (canGoBack: Boolean) -> Unit
 ) : WebViewClient() {
@@ -37,6 +38,11 @@ class TavernWebViewClient(
     override fun onPageFinished(view: WebView, url: String) {
         tracker.onPageFinished()
         onPageLoaded(view)
+    }
+
+    /** The server's response has started rendering, so it is reachable. */
+    override fun onPageCommitVisible(view: WebView, url: String) {
+        onServerAnswered()
     }
 
     override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {

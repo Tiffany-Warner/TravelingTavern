@@ -17,6 +17,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -62,7 +63,8 @@ private fun AttachedWebView(viewModel: SillyTavernWebViewModel, modifier: Modifi
 
     AndroidView(
         factory = { viewModel.webView().apply { removeFromParent() } },
-        modifier = modifier.fillMaxSize(),
+        // AndroidView doesn't clip; without this the WebView can paint over the status bar.
+        modifier = modifier.fillMaxSize().clipToBounds(),
         // Leave the WebView alive and parentless so the next screen can attach it.
         onRelease = { it.removeFromParent() }
     )

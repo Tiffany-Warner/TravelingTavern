@@ -1,6 +1,6 @@
 # Current Feature
 
-Phase 1.4 — JS Bridge Foundation
+Fix — WebView load timeout and status-bar strip
 
 ## Status
 
@@ -8,36 +8,36 @@ Completed
 
 ## Goals
 
-A typed, two-way channel between Kotlin and the SillyTavern page. JS listens to SillyTavern's own events and posts messages to Kotlin; Kotlin calls into SillyTavern through one wrapper.
+Two problems found while testing 1.4 on the Pixel 8, both in the 1.3 WebView host.
 
 ### Deliverables
 
-- `st-selectors.js` (every SillyTavern global/event name) and `bridge.js` (`window.__ttBridge`, guarded against re-injection) in `assets/web/`
-- `BridgeInstaller`: `addWebMessageListener("TravelingTavern")` limited to the saved server origin, registered before each load; scripts injected on `pageFinished`; "WebView too old" error state when the feature is missing
-- `BridgeMessage` sealed interface + parser (`ready`, `characters`, `chatChanged`, `messageReceived`, `error`, `Unknown`); malformed input is logged and dropped
-- `BridgeRepository` (`messages`, `characters`, `isReady`) and `BridgeClient` (`requestCharacters`, `selectCharacter`, `setMode`) — the only place JS call strings are built, all arguments JSON-encoded
-- Domain `CharacterSummary`
-- Unit tests for message parsing and call escaping
-- Version bump to `0.1.5` / `versionCode 6`
+- **Load timeout:** if the server hasn't answered 15 s after a page load starts, stop the load and show the Unreachable overlay. Today a silently dropped connection (Tailscale off) leaves the spinner up for ~2 min until the WebView's own timeout. Applies to every main-page load (first load, Retry, reloads started by the page). Unit tests for the timer
+- **Status-bar strip:** during the loading and error states (dark theme) the strip behind the status bar is white and its icons are invisible. Find the cause and make it match the app background
+- Version bump to `0.1.6` / `versionCode 7`
 
 ## Notes
 
-- **(verified on SillyTavern 1.19.0, live page via DevTools)**
-    - Ready: `event_types.APP_READY` = `app_ready`. `eventSource.autoFireAfterEmit` contains `app_ready`, so a listener added after it fired is called immediately — no separate "already ready" flag needed
-    - `CHAT_CHANGED` = `chat_id_changed`, `MESSAGE_RECEIVED` = `message_received`; list-changing events used: `CHARACTER_EDITED`, `CHARACTER_DELETED`, `CHARACTER_RENAMED`, `CHARACTER_DUPLICATED`, `CHARACTER_PAGE_LOADED`, `CHAT_CREATED`
-    - `context.characterId` is an **index** into `context.characters` (undefined when no character / in a group); the stable ID is `character.avatar` (e.g. `Bob.png`). `selectCharacterById(index)` takes the index, so the bridge maps avatar → index
-    - Character fields used: `name`, `avatar`, `date_last_chat` (epoch ms, may be fractional or missing)
-    - Thumbnails: `context.getThumbnailUrl("avatar", file)` → `/thumbnail?type=avatar&file=<encoded>`
-    - Avatar IDs are not always the name: the bundled Seraphina is `default_Seraphina.png`, and IDs can contain spaces (`Tide Pods.png`)
+- 15 s is a little longer than the Connect screen's 10 s test, since a full page load does more than one request
+- "Answered" means the WebView started rendering the server's response (`onPageCommitVisible`), not that SillyTavern finished loading — a slow but reachable server must not be cut off
 
 ## References
 
-- @context/specs/phase1-4-js-bridge-spec.md
+- @context/specs/phase1-3-webview-host-spec.md
 - @context/coding-standards.md
 
 ## History
 
 <!-- Completed work is added here, newest last -->
+
+### 2026-11-17 — Fix: WebView load timeout and status-bar strip (branch `fix/webview-load-timeout`)
+
+- **Load timeout:** new `LoadWatchdog` (15 s, coroutine timer on the app scope). Started when the app loads the server and on every `onPageStarted`; cancelled by `onPageCommitVisible` (the server's response started rendering), so a slow but reachable server is never cut off. On timeout, if the page is still loading: `stopLoading()` + `PageError.Unreachable`
+- **Status-bar strip — cause found:** a blank WebView paints white, and a Compose `AndroidView` doesn't clip, so the white page also covered the status-bar area (invisible light icons in dark theme). Fix: WebView background transparent (also removes the white flash before SillyTavern paints) and `clipToBounds()` on the `AndroidView`
+- Unit tests: `LoadWatchdogTest` (4, virtual time); `./gradlew build` green
+- Verified on Medium_Phone_API_35 (dark theme): error state with a dark status bar and visible icons (white before the fix); emulator `network delay 120000` (a connection that never answers) → Unreachable overlay ~20 s after launch, including app start-up and polling (was ~2 min on the Pixel); `network delay none` + Retry → page and bridge (`Ready`) back; `network delay 5000` (slow but reachable) → page loads, `Ready` after ~14 s, no false timeout
+- Verified on Pixel 8 (0.1.6): Tailscale off → cold start → Unreachable overlay ~18 s after launch (was ~120 s), dark status bar with visible icons in both the loading and error states; Tailscale on → Retry → SillyTavern and the bridge (`Ready`, `characters (3)`) back
+- Version `0.1.6` / `versionCode 7`
 
 ### 2026-11-17 — Phase 1.4 JS Bridge Foundation (branch `feature/js-bridge`)
 
