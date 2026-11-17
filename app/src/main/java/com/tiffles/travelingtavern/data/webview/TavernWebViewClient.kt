@@ -24,17 +24,19 @@ class TavernWebViewClient(
     private val tracker: PageStateTracker,
     private val serverBaseUrl: () -> String?,
     private val credentials: () -> ServerCredentials?,
-    private val onPageLoaded: () -> Unit,
+    private val onPageStarting: () -> Unit,
+    private val onPageLoaded: (WebView) -> Unit,
     private val onHistoryChanged: (canGoBack: Boolean) -> Unit
 ) : WebViewClient() {
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
         tracker.onPageStarted()
+        onPageStarting()
     }
 
     override fun onPageFinished(view: WebView, url: String) {
         tracker.onPageFinished()
-        onPageLoaded()
+        onPageLoaded(view)
     }
 
     override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
