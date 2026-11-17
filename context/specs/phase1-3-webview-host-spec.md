@@ -46,5 +46,5 @@ One WebView, created once and kept alive for the whole app session, showing the 
 ## References
 
 - @context/coding-standards.md
-- @context/features/phase1-2-connect-screen-spec.md
+- @context/specs/phase1-2-connect-screen-spec.md
 - Aegis wrapper reference: https://github.com/aegis-plus/sillytavern-android (ISC)

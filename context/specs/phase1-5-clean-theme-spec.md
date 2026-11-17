@@ -7,6 +7,8 @@ Inject a stylesheet that hides SillyTavern's settings clutter and makes the chat
 ## Requirements
 
 - `assets/web/clean-theme.css`, injected once on `pageFinished` as `<style id="tt-clean-theme">`
+    - Pass the CSS to JS Base64-encoded (decoded with `atob` in the page) so quotes, backslashes and newlines in the stylesheet can't break the script
+    - If `#tt-clean-theme` already exists (reload, re-injection), replace its contents instead of adding a second tag
 - Every rule scoped under `body.tt-clean` so the stylesheet does nothing until the class is set
 - `__ttBridge.setMode()` (from 1.4) toggles `tt-clean` on `<body>`
 - When clean mode is on:
@@ -26,4 +28,4 @@ Inject a stylesheet that hides SillyTavern's settings clutter and makes the chat
 ## References
 
 - @context/coding-standards.md
-- @context/features/phase1-4-js-bridge-spec.md
+- @context/specs/phase1-4-js-bridge-spec.md

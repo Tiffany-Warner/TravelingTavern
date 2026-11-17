@@ -10,6 +10,7 @@ Read the following at the start of every session:
 
 - @context/ai-guidelines.md
 - @context/coding-standards.md
+- @context/ui-guidelines.md
 - @context/current-feature.md
 - @context/project-schema.md
 

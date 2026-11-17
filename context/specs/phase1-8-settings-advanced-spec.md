@@ -39,4 +39,4 @@ A native Settings screen with the few things a phone user needs, and an Advanced
 ## References
 
 - @context/coding-standards.md
-- @context/features/phase1-7-chat-screen-spec.md
+- @context/specs/phase1-7-chat-screen-spec.md

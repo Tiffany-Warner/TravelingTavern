@@ -41,6 +41,6 @@ The chat screen for one character, with two tabs over the same WebView: **Text**
 ## References
 
 - @context/coding-standards.md
-- @context/features/phase1-5-clean-theme-spec.md
-- @context/features/phase1-6-home-character-list-spec.md
+- @context/specs/phase1-5-clean-theme-spec.md
+- @context/specs/phase1-6-home-character-list-spec.md
 - EchoText: https://github.com/mattjaybe/SillyTavern-EchoText

@@ -55,4 +55,4 @@ A typed, two-way channel between Kotlin and the SillyTavern page. JS listens to 
 ## References
 
 - @context/coding-standards.md
-- @context/features/phase1-3-webview-host-spec.md
+- @context/specs/phase1-3-webview-host-spec.md

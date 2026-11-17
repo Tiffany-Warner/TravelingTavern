@@ -57,4 +57,4 @@ Let the user point the app at their SillyTavern server, optionally log in, and t
 ## References
 
 - @context/coding-standards.md
-- @context/features/phase1-1-project-setup-spec.md
+- @context/specs/phase1-1-project-setup-spec.md

@@ -30,13 +30,14 @@
 > Goal: A clean, fast phone experience on top of the real SillyTavern. No companion features yet.
 
 - [x] 1.1 Project setup & app shell (dependencies, theme, navigation, placeholder screens)
+- [ ] 1.1b Bottom navigation (Chats, Characters, Me) & quiet visual style
 - [ ] 1.2 Connect screen — server URL, optional login, connection test
 - [ ] 1.3 WebView host — single retained WebView, file upload, mic/camera permissions, back handling, error states
 - [ ] 1.4 JS bridge foundation — injected script, typed messages, Kotlin ↔ JS calls
 - [ ] 1.5 Clean theme — injected CSS that hides SillyTavern clutter inside the app only
-- [ ] 1.6 Home — native character list
+- [ ] 1.6 Chats & Characters tabs — recent-chats list and portrait grid
 - [ ] 1.7 Chat screen — Text tab (EchoText) and Story tab (main chat), no reloads
-- [ ] 1.8 Settings & Advanced — settings screen, full SillyTavern UI behind Advanced, open-source licenses
+- [ ] 1.8 Me tab & Advanced — persona, appearance, server, full SillyTavern UI behind Advanced, open-source licenses
 
 ---
 
@@ -122,6 +123,6 @@
 | `context/ai-guidelines.md` | How Claude Code should behave |
 | `context/current-feature.md` | Active feature being worked on |
 | `context/coding-standards.md` | Kotlin/Compose/architecture/WebView rules |
+| `context/ui-guidelines.md` | Visual style, navigation, and common UI patterns |
 | `context/project-schema.md` | This file — phases and roadmap |
-| `context/specs/` | Pending feature specs, one per feature |
-| `context/features/` | Completed feature docs, one per feature |
+| `context/specs/` | Feature specs, one per feature |
