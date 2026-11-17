@@ -5,7 +5,22 @@
     <string name="tab_characters">Characters</string>
     <string name="tab_me">Me</string>
 
-    <string name="screen_connect">Connect</string>
+    <string name="connect_title">Connect to SillyTavern</string>
+    <string name="connect_subtitle">Enter the address of your SillyTavern server on your tailnet.</string>
+    <string name="connect_url_label">Server address</string>
+    <string name="connect_url_placeholder">http://100.x.y.z:8000</string>
+    <string name="connect_url_hint">IP address and port - Ex: 100.64.0.2:8000</string>
+    <string name="connect_requires_login">Server requires login</string>
+    <string name="connect_username">Username</string>
+    <string name="connect_password">Password</string>
+    <string name="connect_test">Test connection</string>
+    <string name="connect_save">Save</string>
+    <string name="connect_result_success">Connected to SillyTavern</string>
+    <string name="connect_result_unreachable">Can\'t reach the server. Is Tailscale connected and SillyTavern running?</string>
+    <string name="connect_result_auth_required">This server needs a login</string>
+    <string name="connect_result_auth_failed">Username or password is wrong</string>
+    <string name="connect_result_not_sillytavern">That address answered, but it doesn\'t look like SillyTavern</string>
+    <string name="connect_result_invalid_url">That doesn\'t look like a valid address</string>
     <string name="screen_chat">Chat: %1$s</string>
     <string name="screen_advanced">Advanced</string>
 </resources>

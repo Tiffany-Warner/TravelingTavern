@@ -11,9 +11,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -39,8 +40,14 @@ import com.tiffles.travelingtavern.ui.me.MeScreen
 @Composable
 fun TravelingTavernNavHost(
     modifier: Modifier = Modifier,
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    startDestinationViewModel: StartDestinationViewModel = hiltViewModel()
 ) {
+    // Blank until the saved server config has been read (a few ms) so the graph
+    // starts on the right screen instead of flashing Connect.
+    val startDestination = startDestinationViewModel.startDestination
+        .collectAsStateWithLifecycle().value ?: return
+
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
     val selectedTab = currentDestination?.topLevelTab()
@@ -67,11 +74,13 @@ fun TravelingTavernNavHost(
         ) { innerPadding ->
             NavHost(
                 navController = navController,
-                startDestination = Routes.Tab.CHATS,
+                startDestination = startDestination,
                 modifier = Modifier.padding(innerPadding)
             ) {
                 tabGraphs()
-                fullScreenDestinations()
+                fullScreenDestinations(
+                    onServerSaved = { navController.navigateToChatsClearingConnect() }
+                )
             }
         }
     }
@@ -81,12 +90,23 @@ fun TravelingTavernNavHost(
 private fun NavDestination.topLevelTab(): TopLevelTab? =
     TopLevelTab.entries.firstOrNull { tab -> hierarchy.any { it.route == tab.graphRoute } }
 
-/** Switches tabs, keeping each tab's own back stack (saveState / restoreState). */
+/**
+ * Switches tabs, keeping each tab's own back stack (saveState / restoreState). Pops to the
+ * Chats graph rather than the root start destination, which may be Connect on first launch.
+ */
 private fun NavHostController.navigateToTab(tab: TopLevelTab) {
     navigate(tab.graphRoute) {
-        popUpTo(graph.findStartDestination().id) { saveState = true }
+        popUpTo(Routes.Tab.CHATS) { saveState = true }
         launchSingleTop = true
         restoreState = true
+    }
+}
+
+/** After a successful save on Connect: go to Chats and drop Connect from the back stack. */
+private fun NavHostController.navigateToChatsClearingConnect() {
+    navigate(Routes.Tab.CHATS) {
+        popUpTo(Routes.FullScreen.CONNECT) { inclusive = true }
+        launchSingleTop = true
     }
 }
 
@@ -102,8 +122,8 @@ private fun NavGraphBuilder.tabGraphs() {
     }
 }
 
-private fun NavGraphBuilder.fullScreenDestinations() {
-    composable(Routes.FullScreen.CONNECT) { ConnectScreen() }
+private fun NavGraphBuilder.fullScreenDestinations(onServerSaved: () -> Unit) {
+    composable(Routes.FullScreen.CONNECT) { ConnectScreen(onSaved = onServerSaved) }
     composable(
         route = Routes.FullScreen.Chat.ROUTE,
         arguments = listOf(

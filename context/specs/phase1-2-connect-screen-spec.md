@@ -2,7 +2,7 @@
 
 ## Overview
 
-Let the user point the app at their SillyTavern server, optionally log in, and test the connection. Shown on first launch and whenever the server can't be reached.
+Let the user point the app at their SillyTavern server, optionally log in, and test the connection. Shown on first launch, and reachable from error states ("Server settings") and Me → Server → "Change server". A temporary connection drop never sends the user here automatically.
 
 ## Requirements
 
@@ -38,7 +38,7 @@ Let the user point the app at their SillyTavern server, optionally log in, and t
     - `AuthFailed` → "Username or password is wrong"
     - `NotSillyTavern` → "That address answered, but it doesn't look like SillyTavern"
     - `InvalidUrl` → "That doesn't look like a valid address"
-- On save, navigate to Home and clear Connect from the back stack
+- On save, navigate to the Chats tab and clear Connect from the back stack
 
 ### ViewModel (`ui/connect/ConnectViewModel.kt`)
 
@@ -47,7 +47,7 @@ Let the user point the app at their SillyTavern server, optionally log in, and t
 
 ### Start Destination
 
-- On launch: no saved `ServerConfig` → Connect; otherwise → Home
+- On launch: no saved `ServerConfig` → Connect; otherwise → Chats tab
 
 ## Notes
 

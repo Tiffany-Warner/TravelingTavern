@@ -1,6 +1,6 @@
 # Current Feature
 
-Phase 1.1b — Bottom Navigation & Visual Style
+Phase 1.2 — Connect Screen
 
 ## Status
 
@@ -8,35 +8,45 @@ Completed
 
 ## Goals
 
-Replace the single-root navigation from 1.1 with a three-tab bottom navigation bar and apply the quiet visual style from `ui-guidelines.md`. Tabs are still placeholders — real content arrives in 1.6 and 1.8.
+Let the user point the app at their SillyTavern server, optionally log in, and test the connection. Shown on first launch when no server is saved; later reachable from error states and Me → Server → "Change server".
 
 ### Deliverables
 
-- Material 3 `NavigationBar` with three tabs: Chats (start), Characters, Me — labels always shown
-- Per-tab nested back stacks with `saveState` / `restoreState`
-- Re-selecting the current tab emits a scroll-to-top event (hook only; lists arrive in 1.6)
-- Bottom bar hidden on full-screen destinations (Connect, Chat, Advanced) and while the keyboard is open
-- `Routes.kt` reorganized into `TabRoutes` and `FullScreenRoutes`; Settings route and Home removed
-- Neutral palette with single amber accent; dynamic color off by default behind a `useDynamicColor` flag
-- Inter (Regular, Medium, SemiBold) bundled and mapped into the Material 3 type scale
-- Shapes: 12dp small, 16dp medium/large
-- Bottom bar previews in light and dark with each tab selected
-- Version bump to `0.1.1` / `versionCode 2`
+- `ServerConfig`, `ConnectionResult`, `ServerConfigRepository`, `TestConnectionUseCase` in `domain/`
+- Server URL in DataStore; username/password encrypted with Tink + Android Keystore; password never exposed to the UI
+- Shared `OkHttpClient` (Hilt `@Singleton`) with a basic-auth interceptor that only applies stored credentials to the configured server host
+- Connection test: `GET {baseUrl}/` with a 10 s timeout, mapped to `Success` / `NotSillyTavern` / `AuthRequired` / `AuthFailed` / `Unreachable` / `InvalidUrl`
+- `ConnectScreen` + `ConnectViewModel`: URL field (adds `http://` when no scheme), "Server requires login" toggle, Test & Save, result messages per spec
+- Start destination: no saved config → Connect, else Chats tab; saving navigates to Chats and clears Connect from the back stack
+- Unit tests for URL normalization, `TestConnectionUseCase` result mapping, and `ConnectViewModel`
+- Version bump to `0.1.2` / `versionCode 3`
 
 ## Notes
 
-- Tab icons are vector drawables (Material Icons, Apache 2.0) because chat bubble and people are not in `material-icons-core` and `material-icons-extended` is too heavy
-- Inter is bundled under the SIL Open Font License; license text in `licenses/`
+- SillyTavern detection marker **(verified)**: `GET /` returns 200 with `<title>SillyTavern</title>` on SillyTavern 1.19.0; `GET /version` also returns JSON with `agent: "SillyTavern:<ver>..."` as a fallback marker if the title ever changes
+- Real server for testing: this PC's SillyTavern on the Tailscale IP `100.127.52.41:8000`
 
 ## References
 
-- @context/specs/phase1-1b-bottom-navigation-spec.md
-- @context/ui-guidelines.md
+- @context/specs/phase1-2-connect-screen-spec.md
 - @context/coding-standards.md
+- @context/ui-guidelines.md
 
 ## History
 
 <!-- Completed work is added here, newest last -->
+
+### 2026-11-16 — Phase 1.2 Connect Screen (branch `feature/connect-screen`)
+
+- Domain: `ServerConfig`, `ConnectionResult`, `normalizeServerUrl()` (pure `java.net.URI`, adds `http://`, strips path/trailing slash, lowercases host), `ServerConfigRepository`, `ConnectionTester`, `TestConnectionUseCase`
+- Data: Preferences DataStore (`settings`) for the base URL; username and password stored as Tink AES256-GCM ciphertext wrapped by an Android Keystore master key (`SecurityModule`, `CredentialCipher`); `ServerConfigRepositoryImpl` exposes decrypted credentials only to the data layer
+- Network: one `@Singleton` `OkHttpClient` with `BasicAuthInterceptor` — adds basic auth only when scheme/host/port match the saved server and no `Authorization` header is already set. `OkHttpConnectionTester` does `GET {baseUrl}/` with a 10 s call timeout and classifies by status code and `<title>SillyTavern</title>` (first 64 KB of body)
+- UI: `ConnectScreen` (stateless `ConnectContent` + previews for empty/testing/error/success), `ConnectViewModel` — any input edit resets the test result so Save is only enabled for tested inputs; `AuthRequired` auto-reveals the login fields
+- Navigation: `StartDestinationViewModel` reads the saved config once at launch → Connect or Chats; saving navigates to Chats with Connect popped; tab switching now pops to the Chats graph instead of the root start destination (which may be Connect)
+- Tink `1.24.0` added; `FilledTonalButton` used for Test (the only filled button is Save, per ui-guidelines)
+- Unit tests: `ServerUrlTest` (6), `TestConnectionUseCaseTest` (3), `ConnectViewModelTest` (6) — all passing; `./gradlew build` green, lint only version suggestions
+- Verified on Medium_Phone_API_35 against the real SillyTavern 1.19.0 at `100.127.52.41:8000`: fresh install opens Connect; bare `host:port` → "Connected to SillyTavern" → Save → Chats; back exits (Connect popped); cold relaunch opens Chats directly. Error cases shown correctly: invalid address, `example.com` → not SillyTavern, unreachable IP → timeout message after 10 s, login toggle reveals fields. `AuthRequired`/`AuthFailed` not exercised on device (server has basic auth off) — covered by unit tests
+- Version `0.1.2` / `versionCode 3`
 
 ### 2026-11-16 — Phase 1.1b Bottom Navigation & Visual Style (branch `feature/bottom-navigation`)
 
