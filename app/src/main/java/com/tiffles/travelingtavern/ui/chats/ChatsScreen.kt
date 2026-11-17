@@ -1,4 +1,4 @@
-package com.tiffles.travelingtavern.ui.settings
+package com.tiffles.travelingtavern.ui.chats
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -9,14 +9,14 @@ import com.tiffles.travelingtavern.ui.components.PlaceholderScreen
 import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
 
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier) {
-    PlaceholderScreen(label = stringResource(R.string.screen_settings), modifier = modifier)
+fun ChatsScreen(modifier: Modifier = Modifier) {
+    PlaceholderScreen(label = stringResource(R.string.tab_chats), modifier = modifier)
 }
 
 @Preview(showBackground = true)
 @Composable
-private fun SettingsScreenPreview() {
+private fun ChatsScreenPreview() {
     TravelingTavernTheme {
-        SettingsScreen()
+        ChatsScreen()
     }
 }

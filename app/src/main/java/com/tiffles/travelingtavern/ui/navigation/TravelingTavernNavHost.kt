@@ -1,51 +1,117 @@
 package com.tiffles.travelingtavern.ui.navigation
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavDestination
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.tiffles.travelingtavern.ui.advanced.AdvancedScreen
+import com.tiffles.travelingtavern.ui.characters.CharactersScreen
 import com.tiffles.travelingtavern.ui.chat.ChatScreen
+import com.tiffles.travelingtavern.ui.chats.ChatsScreen
 import com.tiffles.travelingtavern.ui.connect.ConnectScreen
-import com.tiffles.travelingtavern.ui.home.HomeScreen
-import com.tiffles.travelingtavern.ui.settings.SettingsScreen
+import com.tiffles.travelingtavern.ui.me.MeScreen
 
 /**
- * The app's navigation graph. Home is the root; Chat, Settings, and Advanced are
- * pushed on top of it. There is no bottom navigation.
+ * The app shell: a bottom navigation bar over three tab graphs, plus full-screen
+ * destinations (Connect, Chat, Advanced) that hide the bar. The bar also hides while
+ * the keyboard is open.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TravelingTavernNavHost(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController()
 ) {
-    NavHost(
-        navController = navController,
-        startDestination = Routes.HOME,
-        modifier = modifier
-    ) {
-        composable(Routes.CONNECT) {
-            ConnectScreen()
-        }
-        composable(Routes.HOME) {
-            HomeScreen(onOpenSettings = { navController.navigate(Routes.SETTINGS) })
-        }
-        composable(
-            route = Routes.Chat.ROUTE,
-            arguments = listOf(navArgument(Routes.Chat.ARG_CHARACTER_ID) { type = NavType.StringType })
-        ) { backStackEntry ->
-            val characterId = backStackEntry.arguments?.getString(Routes.Chat.ARG_CHARACTER_ID).orEmpty()
-            ChatScreen(characterId = characterId)
-        }
-        composable(Routes.SETTINGS) {
-            SettingsScreen()
-        }
-        composable(Routes.ADVANCED) {
-            AdvancedScreen()
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = backStackEntry?.destination
+    val selectedTab = currentDestination?.topLevelTab()
+    val showBottomBar = selectedTab != null && !WindowInsets.isImeVisible
+    val reselectEvents = remember { TabReselectEvents() }
+
+    CompositionLocalProvider(LocalTabReselectEvents provides reselectEvents) {
+        Scaffold(
+            modifier = modifier.fillMaxSize(),
+            bottomBar = {
+                if (showBottomBar) {
+                    TravelingTavernBottomBar(
+                        selectedTab = selectedTab,
+                        onTabSelected = { tab ->
+                            if (tab == selectedTab) {
+                                reselectEvents.reselect(tab)
+                            } else {
+                                navController.navigateToTab(tab)
+                            }
+                        }
+                    )
+                }
+            }
+        ) { innerPadding ->
+            NavHost(
+                navController = navController,
+                startDestination = Routes.Tab.CHATS,
+                modifier = Modifier.padding(innerPadding)
+            ) {
+                tabGraphs()
+                fullScreenDestinations()
+            }
         }
     }
+}
+
+/** Finds which tab (if any) the destination belongs to, by walking its parent graphs. */
+private fun NavDestination.topLevelTab(): TopLevelTab? =
+    TopLevelTab.entries.firstOrNull { tab -> hierarchy.any { it.route == tab.graphRoute } }
+
+/** Switches tabs, keeping each tab's own back stack (saveState / restoreState). */
+private fun NavHostController.navigateToTab(tab: TopLevelTab) {
+    navigate(tab.graphRoute) {
+        popUpTo(graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+
+private fun NavGraphBuilder.tabGraphs() {
+    navigation(startDestination = Routes.Tab.CHATS_ROOT, route = Routes.Tab.CHATS) {
+        composable(Routes.Tab.CHATS_ROOT) { ChatsScreen() }
+    }
+    navigation(startDestination = Routes.Tab.CHARACTERS_ROOT, route = Routes.Tab.CHARACTERS) {
+        composable(Routes.Tab.CHARACTERS_ROOT) { CharactersScreen() }
+    }
+    navigation(startDestination = Routes.Tab.ME_ROOT, route = Routes.Tab.ME) {
+        composable(Routes.Tab.ME_ROOT) { MeScreen() }
+    }
+}
+
+private fun NavGraphBuilder.fullScreenDestinations() {
+    composable(Routes.FullScreen.CONNECT) { ConnectScreen() }
+    composable(
+        route = Routes.FullScreen.Chat.ROUTE,
+        arguments = listOf(
+            navArgument(Routes.FullScreen.Chat.ARG_CHARACTER_ID) { type = NavType.StringType }
+        )
+    ) { entry ->
+        val characterId = entry.arguments?.getString(Routes.FullScreen.Chat.ARG_CHARACTER_ID).orEmpty()
+        ChatScreen(characterId = characterId)
+    }
+    composable(Routes.FullScreen.ADVANCED) { AdvancedScreen() }
 }

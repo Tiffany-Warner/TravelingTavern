@@ -2,47 +2,40 @@ package com.tiffles.travelingtavern.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// TravelingTavern brand palette — warm tavern tones. Used as the fallback
-// when dynamic color (Material You) is unavailable (Android 11 and below).
+// Quiet, neutral palette with a single warm amber accent (see ui-guidelines.md).
+// The characters' avatars supply the color; everything else stays neutral.
 
-// Light
-val AmberLightPrimary = Color(0xFF8A5A00)
-val AmberLightOnPrimary = Color(0xFFFFFFFF)
-val AmberLightPrimaryContainer = Color(0xFFFFDDB0)
-val AmberLightOnPrimaryContainer = Color(0xFF2C1700)
-val WoodLightSecondary = Color(0xFF6F5B40)
-val WoodLightOnSecondary = Color(0xFFFFFFFF)
-val WoodLightSecondaryContainer = Color(0xFFFADEBC)
-val WoodLightOnSecondaryContainer = Color(0xFF271904)
-val HerbLightTertiary = Color(0xFF4F6639)
-val HerbLightOnTertiary = Color(0xFFFFFFFF)
-val HerbLightTertiaryContainer = Color(0xFFD1EDB4)
-val HerbLightOnTertiaryContainer = Color(0xFF0E2000)
-val ParchmentLightBackground = Color(0xFFFFF8F3)
-val ParchmentLightOnBackground = Color(0xFF201B14)
-val ParchmentLightSurface = Color(0xFFFFF8F3)
-val ParchmentLightOnSurface = Color(0xFF201B14)
-val ParchmentLightSurfaceVariant = Color(0xFFF0E0D0)
-val ParchmentLightOnSurfaceVariant = Color(0xFF4F4539)
-val ParchmentLightOutline = Color(0xFF817567)
+// Accent — amber
+val AmberLight = Color(0xFF9A6300)
+val OnAmberLight = Color(0xFFFFFFFF)
+val AmberContainerLight = Color(0xFFFFDDB0)
+val OnAmberContainerLight = Color(0xFF2C1700)
 
-// Dark
-val AmberDarkPrimary = Color(0xFFFFB955)
-val AmberDarkOnPrimary = Color(0xFF472A00)
-val AmberDarkPrimaryContainer = Color(0xFF663D00)
-val AmberDarkOnPrimaryContainer = Color(0xFFFFDDB0)
-val WoodDarkSecondary = Color(0xFFDDC2A1)
-val WoodDarkOnSecondary = Color(0xFF3E2D16)
-val WoodDarkSecondaryContainer = Color(0xFF56442A)
-val WoodDarkOnSecondaryContainer = Color(0xFFFADEBC)
-val HerbDarkTertiary = Color(0xFFB5D198)
-val HerbDarkOnTertiary = Color(0xFF22370F)
-val HerbDarkTertiaryContainer = Color(0xFF384E24)
-val HerbDarkOnTertiaryContainer = Color(0xFFD1EDB4)
-val WoodDarkBackground = Color(0xFF1A120C)
-val WoodDarkOnBackground = Color(0xFFF0E0D0)
-val WoodDarkSurface = Color(0xFF1A120C)
-val WoodDarkOnSurface = Color(0xFFF0E0D0)
-val WoodDarkSurfaceVariant = Color(0xFF4F4539)
-val WoodDarkOnSurfaceVariant = Color(0xFFD3C4B4)
-val WoodDarkOutline = Color(0xFF9C8E80)
+val AmberDark = Color(0xFFFFB955)
+val OnAmberDark = Color(0xFF3D2A00)
+val AmberContainerDark = Color(0xFF5C4200)
+val OnAmberContainerDark = Color(0xFFFFDDB0)
+
+// Neutrals — light
+val BackgroundLight = Color(0xFFF7F7F7)
+val SurfaceLight = Color(0xFFFFFFFF)
+val SurfaceContainerLowLight = Color(0xFFF9F9F9)
+val SurfaceContainerLight = Color(0xFFF2F2F2)
+val SurfaceContainerHighLight = Color(0xFFECECEC)
+val SurfaceVariantLight = Color(0xFFE6E6E6)
+val OnSurfaceLight = Color(0xFF111111)
+val OnSurfaceVariantLight = Color(0xFF6B6B6B)
+val OutlineLight = Color(0xFFBDBDBD)
+val OutlineVariantLight = Color(0xFFE0E0E0)
+
+// Neutrals — dark
+val BackgroundDark = Color(0xFF0F0F0F)
+val SurfaceDark = Color(0xFF0F0F0F)
+val SurfaceContainerLowDark = Color(0xFF161616)
+val SurfaceContainerDark = Color(0xFF1C1C1C)
+val SurfaceContainerHighDark = Color(0xFF242424)
+val SurfaceVariantDark = Color(0xFF2A2A2A)
+val OnSurfaceDark = Color(0xFFF5F5F5)
+val OnSurfaceVariantDark = Color(0xFFA3A3A3)
+val OutlineDark = Color(0xFF525252)
+val OutlineVariantDark = Color(0xFF333333)
