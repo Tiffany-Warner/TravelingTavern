@@ -18,10 +18,26 @@ Lorebooks (SillyTavern calls them **World Info**) are a core SillyTavern feature
 
 ### Lorebooks list (`ui/lorebooks/LorebooksScreen.kt`)
 
-- Top app bar: "Lorebooks" title + search action (filters by name, client-side)
-- One row per lorebook: name (`titleMedium`), entry count (`bodyMedium`, secondary), and a trailing marker when it is active
-- "Active" means enabled globally or attached to the current character or chat **(verify where SillyTavern stores each kind of binding and how to read it through the bridge)**
-- Sorted: active first, then alphabetical
+- Top app bar: "Lorebooks" title + search action. Search is client-side and matches lorebook names **and** the names of characters they're attached to (typing "Sera" finds Seraphina's lorebooks)
+- Filter chips under the app bar, single-select: **All** (default) · **Global** · **Character ▾** · **Unused**
+    - **All** — every lorebook
+    - **Global** — turned on for every chat (SillyTavern's global "active worlds" list)
+    - **Character ▾** — opens a bottom sheet listing characters (avatar + name) that have at least one lorebook attached. Picking one filters the grid to that character's lorebooks and the chip reads "<name> ✕"; tapping ✕ clears the filter back to All
+    - **Unused** — not global and not attached to any character, chat or persona (useful for cleanup)
+    - Chips and search combine (e.g. Global + "magic")
+- 2-column grid (`LazyVerticalGrid`) of lorebook cards, `surface` card with 16dp corners, no border:
+    - **Cover** (4:3): the same quiet neutral tile with a book icon for every lorebook. No character art on covers and no per-lorebook colors — "characters are the color" is carried by the status line instead
+    - **Name** (`titleSmall`, max 2 lines, ellipsized)
+    - **Entry count** ("32 entries", `bodySmall`, secondary)
+    - **Status line** (`bodySmall`):
+        - Attached to one character → small round avatar (16dp) + character name, amber dot before it. Several characters → first avatar + "Seraphina +2"
+        - Global → amber dot + "Global" (if also attached to characters, Global wins the line; the detail screen shows the rest)
+        - Attached only to a chat or persona → amber dot + "Chat" / "Persona" **(verify these bindings exist and how to read them)**
+        - Nothing → "Not active" in muted text, no dot
+    - Tapping the avatar/name on the status line applies that character's filter (same as picking them from the Character sheet); tapping anywhere else on the card opens the lorebook
+- Where each binding lives (global list, character's primary and extra lorebooks, chat, persona) must be read through the bridge **(verify where SillyTavern stores each kind of binding and how to read it)**
+- Sorted alphabetically within the current filter
+- Results count is not shown; an empty filter result shows one line ("No lorebooks match") with a "Clear filters" text button
 - FAB (`+`) → bottom sheet with a name field and Create. Names must be non-empty and not already taken; the new lorebook opens in its detail screen
 - Empty state: "No lorebooks yet." + button "Create lorebook" (same sheet as the FAB)
 - Error banner and states per ui-guidelines (loading, unreachable, auth failed, empty)
@@ -49,16 +65,23 @@ Lorebooks (SillyTavern calls them **World Info**) are a core SillyTavern feature
 - Create and delete (lorebooks and entries) call SillyTavern's own functions through the bridge **(verify which ones — the same ones its World Info panel uses)**
 - `LorebooksViewModel`, `LorebookDetailViewModel`, `LorebookEntryViewModel`, each exposing a `StateFlow<UiState>`
 - All World Info globals and selectors go in `assets/web/st-selectors.js` / `data/bridge/StSelectors.kt`
-- Unit tests for the use cases, ViewModels, and bridge message parsing for the new message types
+- Filtering and search live in a `FilterLorebooksUseCase` (chip + selected character + query → list), not in the composable
+- Unit tests for the use cases (including every chip, the character filter, search by character name, and chip + search combined), ViewModels, and bridge message parsing for the new message types
+- Compose UI tests for the list's stateless content: each status-line variant renders, chips select, the Character sheet applies and ✕ clears the filter, empty filter result shows "Clear filters"
 
 ## Open Questions
 
-- How much of the binding model (global / character / chat / persona) to show on a phone without it needing explanation
+- How much of the binding model (global / character / chat / persona) to show on a phone without it needing explanation. Current answer: one status line per card plus the four filter chips; full detail only on the lorebook detail screen
+
+## Future (not in 1.6b)
+
+- **"Lore in this chat"** — an item in the Chat screen's menu (1.7 or later) listing every lorebook that's on for the current conversation (global + character + chat + persona), with toggles. This is where "active right now" makes sense; the Lorebooks tab has no current chat, so it has no "Active" filter
 
 ## Notes
 
 - The SillyTavern boundary rules apply: lorebooks are SillyTavern data. Read and change them only through SillyTavern's own JS, never by writing files
 - Everything marked **(verify)** must be confirmed against the live SillyTavern (`chrome://inspect`) or its source before building on it, and the findings recorded here
+- Layout inspired by PocketTavern's lorebook browser (grid of simple cards, search, one filter control), restyled to `ui-guidelines.md`: neutral covers, one amber accent (the status dot and selected chip), no stars, authors, tags or result counts — those belong to a public library, not your own lorebooks
 
 ## References
 
