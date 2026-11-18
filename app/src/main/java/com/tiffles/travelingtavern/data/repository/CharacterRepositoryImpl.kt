@@ -1,5 +1,6 @@
 package com.tiffles.travelingtavern.data.repository
 
+import android.util.Log
 import com.tiffles.travelingtavern.data.bridge.BridgeClient
 import com.tiffles.travelingtavern.data.bridge.BridgeMessage
 import com.tiffles.travelingtavern.data.bridge.BridgeRepository
@@ -43,20 +44,29 @@ class CharacterRepositoryImpl @Inject constructor(
 
     override fun retry() = holder.retry()
 
+    /**
+     * The wait for `chatOpened` is capped at [OPEN_CHAT_TIMEOUT_MS] from the moment the chat
+     * is requested (waiting for the page to load doesn't count): past that, Chat reveals the
+     * page anyway rather than keep the user looking at a cover.
+     */
     override suspend fun openChat(characterId: String) {
         bridge.isReady.first { it }
-        withTimeoutOrNull(OPEN_CHAT_TIMEOUT_MS) {
+        val answer = withTimeoutOrNull(OPEN_CHAT_TIMEOUT_MS) {
             bridge.messages
                 .onSubscription { client.selectCharacter(characterId) }
                 .first { it.isChatOpened(characterId) || it is BridgeMessage.Error }
+        }
+        if (answer == null) {
+            Log.w(TAG, "No chatOpened within $OPEN_CHAT_TIMEOUT_MS ms; showing the chat anyway")
         }
     }
 
     private fun BridgeMessage.isChatOpened(characterId: String) =
         this is BridgeMessage.ChatOpened && this.characterId == characterId
 
-    private companion object {
-        const val REFRESH_TIMEOUT_MS = 5_000L
-        const val OPEN_CHAT_TIMEOUT_MS = 10_000L
+    internal companion object {
+        private const val TAG = "CharacterRepository"
+        private const val REFRESH_TIMEOUT_MS = 5_000L
+        const val OPEN_CHAT_TIMEOUT_MS = 3_000L
     }
 }
