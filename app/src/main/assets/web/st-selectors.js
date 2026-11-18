@@ -157,5 +157,6 @@
         //   #chat .drawer-opener                  in-chat shortcut buttons that open a drawer
         //   #sheld, #chat, .mes_text              chat column, message list, message text
         //   #send_textarea, #leftSendForm, #rightSendForm   message input row
+        //   #et-portal (sibling of <body>)        EchoText's window, floating button and pop-ups
     });
 })();

@@ -22,6 +22,8 @@
      #send_textarea           message input
      #leftSendForm            input row, left buttons (options menu, extensions menu)
      #rightSendForm           input row, right buttons (microphone, send)
+     #et-portal               EchoText extension's container (window, floating button, pop-ups);
+                              a sibling of <body>, not inside it (verified on EchoText 1.2.6)
    Colors are never set here: everything keeps SillyTavern's theme variables. */
 
 /* Toolbar, its drawers, and the TopInfoBar chat bar: the app provides these natively. */
@@ -38,6 +40,15 @@ body.tt-clean #PersonaManagement,
 body.tt-clean #right-nav-panel,
 body.tt-clean #extensionTopBar,
 body.tt-clean #chat .drawer-opener {
+    display: none !important;
+}
+
+/* EchoText: no EchoText UI in the app until the Chat screen shows its thread (1.7). On a phone
+   its window is full screen at the top z-index and reopens itself after each page load, so it
+   would cover the main chat and take its taps; its floating button would cover the send button.
+   EchoText mounts #et-portal on <html> after <body>, hence `~`. The portal itself has an inline
+   `display: block !important`, which a stylesheet can't override, so its children are hidden. */
+body.tt-clean ~ #et-portal > * {
     display: none !important;
 }
 

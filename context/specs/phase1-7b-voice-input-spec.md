@@ -52,7 +52,7 @@ The app doesn't type into SillyTavern directly. Recognized text goes to the page
 - Add `MicPressed` to the `BridgeMessage` sealed class
 - In `clean-theme.css`, under `body.tt-clean`:
     - Hide the Speech Recognition extension's mic button, so the in-app mic is the only one. It stays visible in Advanced and on desktop
-    - Hide EchoText's floating button: `body.tt-clean ~ #et-portal #et-fab`. EchoText's portal sits outside `<body>` (see the 1.7 spec's Notes) and its button floats over the chat at the top z-index, where it can cover the mic or send button. The app shows no EchoText UI until 1.7 resumes
+    - EchoText's floating button and window are already hidden by the 0.1.12 fix (`body.tt-clean ~ #et-portal > *`, all EchoText UI in the app until 1.7 resumes), so nothing covers the mic or send button. Nothing to add here
 
 ### Behavior (`ChatViewModel`, as it exists from 1.6)
 
@@ -102,7 +102,7 @@ Pausing for a few seconds mid-thought must not end recording.
 - Verify on device: put the phone in airplane mode with Tailscale off and confirm the transcription still appears in the input (proves it's on-device; the send itself will fail, which is expected)
 - Verify on device: the mic shows next to the main chat's send button, the cursor ends up after the text, sending works normally afterwards, Advanced shows no in-app mic button (the extension's mic shows there instead)
 - Verify on device: say a sentence, pause about 3 s, say another — both end up in the input. Then pause about 6 s — recording stops
-- Verify on device: EchoText's floating button doesn't appear over the chat in the app, and still appears on desktop
+- Verify on device: no EchoText UI over the chat or the mic in the app (0.1.12 fix), and EchoText still appears on desktop
 - If restarts play a start/stop sound on each pass, or drop words at the seam, write that down here and raise it before working around it
 - Auto-send and continuous (hands-free, always-on) listening are out of scope for this spec
 - **When 1.7 resumes:** add `#tt-mic` to EchoText's input row (`.et-input-bar`, next to `#et-send-btn`) with `target: "text"`, and stop listening when switching between the thread and Story view
