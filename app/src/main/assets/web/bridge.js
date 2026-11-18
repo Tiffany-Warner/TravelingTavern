@@ -10,6 +10,9 @@
     const READY_TIMEOUT_MS = 60000;
     const READY_POLL_MS = 250;
     const CHARACTERS_DEBOUNCE_MS = 300;
+    const PREVIEW_MAX_CHARS = 200;
+    const SETTLE_POLL_MS = 100;
+    const SETTLE_MAX_MS = 2000;
     const S = window.__ttSelectors;
     const port = window.TravelingTavern;
 
@@ -47,6 +50,7 @@
             id: id,
             name: character[S.character.name] || '',
             avatarUrl: new URL(thumbnail, location.href).href,
+            fullAvatarUrl: new URL(S.fullAvatarPath + encodeURIComponent(id), location.href).href,
             lastChatAt: lastChat > 0 ? Math.floor(lastChat) : null,
         };
     }
@@ -60,10 +64,55 @@
         post('characters', { items: items });
     }
 
+    /** One /api/chats/recent row → { characterId, lastMessage, lastMessageAt, messageCount }. */
+    function toRecentChat(row) {
+        const F = S.recentChat;
+        const count = Number(row[F.messageCount]) || 0;
+        const text = typeof row[F.lastMessage] === 'string' ? row[F.lastMessage] : '';
+        const at = Date.parse(row[F.lastMessageAt]);
+        return {
+            characterId: row[F.characterId],
+            // An empty chat reports a placeholder text, not a message.
+            lastMessage: count > 0 && text ? text.slice(0, PREVIEW_MAX_CHARS) : null,
+            lastMessageAt: isNaN(at) ? null : at,
+            messageCount: count,
+        };
+    }
+
+    /** Posts `recentChats`: the chats SillyTavern's welcome screen lists, with last messages. */
+    function sendRecentChats() {
+        const ctx = context();
+        if (!ctx) return;
+        fetch(S.api.recentChats, {
+            method: 'POST',
+            headers: ctx[S.context.getRequestHeaders](),
+            body: JSON.stringify({ max: S.api.recentChatsMax }),
+        })
+            .then(function (response) {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            })
+            .then(function (rows) {
+                const items = (Array.isArray(rows) ? rows : [])
+                    // Group chats have no single character avatar.
+                    .filter(function (row) { return row && typeof row[S.recentChat.characterId] === 'string'; })
+                    .map(toRecentChat);
+                post('recentChats', { items: items });
+            })
+            .catch(function (e) {
+                postError('Recent chats failed: ' + e);
+            });
+    }
+
+    function sendLists() {
+        sendCharacters();
+        sendRecentChats();
+    }
+
     let charactersTimer = null;
     function scheduleCharacters() {
         clearTimeout(charactersTimer);
-        charactersTimer = setTimeout(sendCharacters, CHARACTERS_DEBOUNCE_MS);
+        charactersTimer = setTimeout(sendLists, CHARACTERS_DEBOUNCE_MS);
     }
 
     /** Avatar file name of the open character, or null (no character, or a group chat). */
@@ -71,6 +120,33 @@
         const index = ctx[S.context.characterId];
         const character = index === undefined ? undefined : characterList(ctx)[index];
         return character ? character[S.character.id] : null;
+    }
+
+    /**
+     * Calls [done] once the message list has stopped moving: SillyTavern keeps growing and
+     * scrolling a long chat (images, long messages) for a while after drawing it, and the
+     * WebView shows blank tiles until it catches up. Gives up waiting after SETTLE_MAX_MS.
+     */
+    function whenChatSettled(done) {
+        const chat = document.querySelector(S.dom.chat);
+        const started = Date.now();
+        let previous = null;
+        function check() {
+            requestAnimationFrame(function () {
+                const current = chat ? chat.scrollTop + ':' + chat.scrollHeight : '';
+                if (current === previous || Date.now() - started > SETTLE_MAX_MS) {
+                    done();
+                    return;
+                }
+                previous = current;
+                setTimeout(check, SETTLE_POLL_MS);
+            });
+        }
+        check();
+    }
+
+    function postChatOpened(id) {
+        whenChatSettled(function () { post('chatOpened', { characterId: id }); });
     }
 
     function onMessageReceived(messageId) {
@@ -96,7 +172,7 @@
         // APP_READY re-fires for late listeners, so this also covers an injection after load.
         events.on(eventName(ctx, S.events.ready), function () {
             post('ready');
-            sendCharacters();
+            sendLists();
         });
     }
 
@@ -119,17 +195,35 @@
 
     window.__ttBridge = Object.freeze({
         requestCharacters: sendCharacters,
+        requestRecentChats: sendRecentChats,
 
-        /** Opens the character whose avatar file name is [id], through SillyTavern's own code. */
+        /**
+         * Opens the character whose avatar file name is [id], through SillyTavern's own code,
+         * and posts `chatOpened` once its chat is drawn and has stopped moving (right away,
+         * if it is already open).
+         */
         selectCharacter: function (id) {
             const ctx = context();
             if (!ctx) return;
+            if (currentCharacterId(ctx) === id) {
+                postChatOpened(id);
+                return;
+            }
             const index = characterList(ctx).findIndex(function (c) { return c && c[S.character.id] === id; });
             if (index < 0) {
                 postError('Unknown character');
                 return;
             }
+            const events = ctx[S.context.eventSource];
+            const changed = eventName(ctx, S.events.chatChanged);
+            function onChatChanged() {
+                if (currentCharacterId(context()) !== id) return;
+                events.removeListener(changed, onChatChanged);
+                postChatOpened(id);
+            }
+            events.on(changed, onChatChanged);
             Promise.resolve(ctx[S.context.selectCharacterById](index, S.selectOptions)).catch(function (e) {
+                events.removeListener(changed, onChatChanged);
                 postError('selectCharacter failed: ' + e);
             });
         },

@@ -19,6 +19,9 @@ class BridgeClient @Inject constructor(
     /** Asks the page to send a fresh `characters` message. */
     suspend fun requestCharacters() = run(BridgeScript.call("requestCharacters"))
 
+    /** Asks the page to send a fresh `recentChats` message. */
+    suspend fun requestRecentChats() = run(BridgeScript.call("requestRecentChats"))
+
     /** Opens a character's chat in SillyTavern by its avatar file name. */
     suspend fun selectCharacter(id: String) = run(BridgeScript.call("selectCharacter", JsonPrimitive(id)))
 

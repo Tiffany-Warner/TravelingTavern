@@ -35,6 +35,7 @@ The chat screen for one character, with two tabs over the same WebView: **Text**
 
 ## Notes
 
+- **From 1.6:** `ChatScreen` / `ChatViewModel` already exist (top bar with back, avatar and name; Story mode only). The WebView is hosted by the app shell, not by this screen; Chat is transparent below its bar. `CharacterRepository.openChat()` returns once SillyTavern posts `chatOpened` (chat drawn and settled) and Chat covers the page until then. The shell keeps the WebView at a fixed size below `ChatChromeHeight` — a tab row added in 1.7 must be included in that height, or the WebView will be resized (and blank) on every tab switch
 - If EchoText can't be opened for a specific character from script, fall back to: select the character in SillyTavern (EchoText follows the active character, if it does), and record that limitation here
 - Verify on device: switching tabs is instant, sending a message works in both tabs, leaving and re-entering Chat doesn't reload
 

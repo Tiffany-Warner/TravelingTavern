@@ -1,10 +1,12 @@
 package com.tiffles.travelingtavern.ui.components
 
-import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
+import android.webkit.WebView
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,32 +28,52 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tiffles.travelingtavern.data.webview.WebViewHost
 
 /**
- * Shows the user's SillyTavern in the app's one shared WebView, with loading and error
- * overlays. Entering attaches the WebView and leaving detaches it — it is never destroyed
- * or reloaded by this composable.
+ * The app's one SillyTavern WebView, hosted once by the app shell behind every screen and
+ * attached for as long as the Activity lives, so the JS bridge keeps running while the
+ * native tabs cover it. It is never destroyed or reloaded here.
+ *
+ * Only while [revealed] (the Chat screen) does it show loading/error overlays, follow the
+ * keyboard, take focus and appear to accessibility services. Screens drawn over it must be
+ * opaque and consume touches.
  */
 @Composable
 fun SillyTavernWebView(
+    revealed: Boolean,
     onOpenServerSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SillyTavernWebViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val sized = if (revealed) modifier.fillMaxSize().imePadding() else modifier.fillMaxSize()
 
-    BackHandler(enabled = uiState.canGoBack) { viewModel.goBack() }
-
-    Box(modifier = modifier.fillMaxSize().imePadding()) {
-        AttachedWebView(viewModel = viewModel)
-        PageStateOverlay(
-            pageState = uiState.pageState,
-            onRetry = viewModel::retry,
-            onOpenServerSettings = onOpenServerSettings
-        )
+    Box(modifier = sized) {
+        AttachedWebView(viewModel = viewModel, revealed = revealed)
+        if (revealed) {
+            PageStateOverlay(
+                pageState = uiState.pageState,
+                onRetry = viewModel::retry,
+                onOpenServerSettings = onOpenServerSettings
+            )
+        }
     }
 }
 
+/**
+ * Back navigation inside the page. Call it from the screen that reveals the WebView: a
+ * handler registered there takes precedence over the NavHost's own.
+ */
 @Composable
-private fun AttachedWebView(viewModel: SillyTavernWebViewModel, modifier: Modifier = Modifier) {
+fun WebViewBackHandler(viewModel: SillyTavernWebViewModel = hiltViewModel()) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    BackHandler(enabled = uiState.canGoBack) { viewModel.goBack() }
+}
+
+@Composable
+private fun AttachedWebView(
+    viewModel: SillyTavernWebViewModel,
+    revealed: Boolean,
+    modifier: Modifier = Modifier
+) {
     val activity = LocalActivity.current ?: return
     val host = rememberWebViewHost(viewModel)
 
@@ -65,7 +87,8 @@ private fun AttachedWebView(viewModel: SillyTavernWebViewModel, modifier: Modifi
         factory = { viewModel.webView().apply { removeFromParent() } },
         // AndroidView doesn't clip; without this the WebView can paint over the status bar.
         modifier = modifier.fillMaxSize().clipToBounds(),
-        // Leave the WebView alive and parentless so the next screen can attach it.
+        update = { it.setRevealed(revealed) },
+        // Leave the WebView alive and parentless so the next Activity can attach it.
         onRelease = { it.removeFromParent() }
     )
 }
@@ -91,6 +114,26 @@ private fun rememberWebViewHost(viewModel: SillyTavernWebViewModel): WebViewHost
 
             override fun requestPermissions(permissions: Array<String>) = permissionDialog.launch(permissions)
         }
+    }
+}
+
+/**
+ * While covered, the page stays visible to the system (so its JavaScript keeps running at
+ * full speed) but can't be focused or reached by accessibility services, and gives up the
+ * keyboard if it had it.
+ */
+private fun WebView.setRevealed(revealed: Boolean) {
+    importantForAccessibility = if (revealed) {
+        View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
+    } else {
+        View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+    }
+    isFocusable = revealed
+    isFocusableInTouchMode = revealed
+    if (!revealed && hasFocus()) {
+        clearFocus()
+        val keyboard = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        keyboard?.hideSoftInputFromWindow(windowToken, 0)
     }
 }
 
