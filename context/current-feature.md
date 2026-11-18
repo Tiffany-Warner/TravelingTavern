@@ -1,6 +1,6 @@
 # Current Feature
 
-Phase 1.6b — Lorebooks Tab
+Fix: crash on start after reinstalling with a restored backup
 
 ## Status
 
@@ -8,34 +8,43 @@ Completed
 
 ## Goals
 
-A fourth bottom tab, **Lorebooks** (Chats · Characters · Lorebooks · Me), to browse, filter, create and delete SillyTavern lorebooks (World Info), toggle global activation, and view, add, edit and delete entries — every read and write through SillyTavern's own World Info code via the bridge.
+The app never crashes on start because the saved-credentials key can't be unlocked. Seen on the Pixel 8 after reinstalling 0.1.10: every launch crashed with `InvalidKeyException: Keystore cannot load the key with ID: tt_credentials_master_key` (`SecurityModule.provideCredentialAead`).
+
+### Cause
+
+- Uninstalling deletes the app's Android Keystore keys (`keystore2 clearNamespace`)
+- Android Auto Backup (`allowBackup="true"`, empty template rules) had backed up the app's files, including the Tink keyset in `tt_credentials_keyset_prefs.xml`. Reinstalling restored them (`BackupManagerService: restoreAtInstall`)
+- Keystore keys are never backed up, so the restored keyset is wrapped by a master key that no longer exists. `AndroidKeysetManager.build()` throws, and Hilt fails while creating the first ViewModel → crash on every launch until the app's storage is cleared
 
 ### Deliverables
 
-- **Bridge:** `requestLorebooks()` posts `lorebooks` (name, entry count, global flag, attached character IDs, attached-to-persona flag) after `ready`, on `WORLDINFO_UPDATED` / `WORLDINFO_SETTINGS_UPDATED` and the character events (debounced like `characters`); `requestLorebook(name)` posts `lorebook` (its entries: uid, comment, keys, content, enabled); `createLorebook`, `deleteLorebook`, `setLorebookGlobal`, `saveLorebookEntry`, `createLorebookEntry`, `deleteLorebookEntry`, `countTokens` — each answers with a result message. All World Info names in `st-selectors.js`
-- **Data / domain:** `BridgeMessage` types + parser; `LorebookRepository` + impl; `Lorebook`, `LorebookEntry`, `LorebookFilter`; use cases `GetLorebooksUseCase`, `FilterLorebooksUseCase`, `GetLorebookEntriesUseCase`, `CreateLorebookUseCase`, `DeleteLorebookUseCase`, `SetLorebookActiveUseCase`, `SaveLorebookEntryUseCase`, `DeleteLorebookEntryUseCase`
-- **Navigation:** `Routes.Tab.LOREBOOKS` graph + `TopLevelTab.LOREBOOKS` (book icon pair); full-screen `LorebookDetail(name)` and `LorebookEntry(name, uid)` routes
-- **UI:** `LorebooksScreen` (search, chips All / Global / Character ▾ / Unused, character sheet, 2-column item grid with status line, FAB → create sheet, empty state, banner, pull to refresh, reselect scrolls to top); `LorebookDetailScreen` (entries, global switch, FAB, delete sheet); `LorebookEntryScreen` (title, keywords, content with token count, enabled, delete sheet)
-- **Tests:** unit tests for the use cases (every chip, character filter, search by character name, chip + search), the three ViewModels and the new bridge messages; Compose UI tests for the list content (status-line variants, chips, character sheet apply / ✕ clear, "Clear filters")
-- `ui-guidelines.md` (four tabs, item grids, filter chips, Screen Map row) — done
-- Version `0.1.10` / `versionCode 11`
+- **Backup rules:** exclude the keyset prefs file from cloud backup and device transfer (`data_extraction_rules.xml`, Android 12+) and from the legacy rules (`backup_rules.xml`). The server address (DataStore) is still backed up; the encrypted username / password come back too, but can't be decrypted without the key and are read as empty (`CredentialCipher.decrypt` already returns null)
+- **Recovery:** if the keyset can't be loaded, log a warning, delete the keyset prefs and create a new keyset instead of crashing. Saved credentials then read as empty, so a server with a login asks for it again (auth failed → Server settings)
+- **Tests:** unit test for the recovery path (load fails once → reset → new keyset; load succeeds → no reset; reset doesn't help → error is thrown)
+- **Device check:** reproduce on the emulator before and after the fix (keyset file kept, Keystore key gone), and the real backup → uninstall → reinstall-with-restore flow with the local backup transport
+- Version `0.1.11` / `versionCode 12`
 
 ## Notes
 
-- Decisions (2026-11-17, in the spec): no "Chat" status and Unused = not global / character / persona (chat links wait for "Lore in this chat"); one tap target per card; Character chip hidden when no character has a lorebook; "+2" names the first character alphabetically; empty-state button tonal
-- All SillyTavern World Info findings (where each binding lives, the functions its own panel uses, delete behaviour, events, token count) are in the spec's Notes
-- Deleting a lorebook leaves other characters' primary link pointing at the deleted name (SillyTavern's own behaviour; harmless — it ignores unknown names). The delete sheet lists the attached characters
-- **Found during device testing:**
-  - Scripts the app injects have no base URL (`about:blank`), so `import('/scripts/world-info.js')` failed inside the app (it worked from DevTools). The bridge imports SillyTavern's modules by absolute URL (`new URL(path, location.href)`) — the same URL SillyTavern loaded, so the same module instance
-  - **Create opened the wrong lorebook:** the first version answered `createLorebook` with "the first name that wasn't there before". Lorebooks created on the desktop since the page loaded also looked new, so the app opened one of those, and the UI test then added a test entry to a real lorebook. The entry was removed again right away (that lorebook is back to its original single entry). Fixed: the bridge asks SillyTavern for the sanitized file name first (`getSanitizedFilename`, `utils.js`) and answers only with an exact match; re-checked with a lorebook created on the server behind the page's back
-  - Keywords are edited as comma-separated text; untouched keywords are saved exactly as loaded, so a keyword containing a comma (a regex) survives saving other fields
+- Android applies the exclude rules on restore as well: a backup made by 0.1.10 (keyset included) restored onto 0.1.11 without the keyset file
+- `bmgr backupnow` refuses an app in the stopped state ("Backup is not allowed"), e.g. right after `am force-stop`; launch it and press Home first
+- Restored-but-undecryptable credentials need no extra handling: `CredentialCipher.decrypt` already returns null
 
 ## References
 
-- @context/specs/phase1-6b-lorebooks-tab-spec.md
-- @context/specs/phase1-6-home-character-list-spec.md
+- Android Auto Backup: `dataExtractionRules` (API 31+) and `fullBackupContent`
 
 ## History
+
+### 2026-11-18 — Fix: crash on start after reinstalling with a restored backup (branch `fix/keystore-restore-crash`)
+
+- **Cause:** Android Auto Backup restored the Tink keyset (`tt_credentials_keyset_prefs.xml`) on reinstall, but the Android Keystore master key that wraps it was deleted with the old install (Keystore keys are never backed up). `AndroidKeysetManager.build()` threw `InvalidKeyException` while Hilt created the first ViewModel, so the app crashed on every launch until its storage was cleared. Present since 1.2; found on the Pixel 8 after reinstalling 0.1.10
+- `data_extraction_rules.xml` (cloud backup and device transfer) and `backup_rules.xml` exclude the keyset file; the rest (server address) is still backed up. Restored encrypted credentials read as empty
+- `loadKeysetOrReset()` (`data/settings/KeysetRecovery.kt`): if the keyset can't be loaded (security, storage or Keystore error), `SecurityModule` logs a warning, deletes the keyset prefs and creates a new keyset; other errors and a second failure are thrown
+- Unit tests: `KeysetRecoveryTest` (4); `./gradlew build` green
+- Verified on Medium_Phone_API_35 with the local backup transport: 0.1.10 backup → uninstall → reinstall crashed with the Pixel's exact error (reproduced); 0.1.11 installed over that same backup → keyset not restored, app starts; keyset file kept with its Keystore key removed (`pm clear` + file put back) → warning logged, new keyset, Connect screen usable, second launch clean; 0.1.11 backup → uninstall → reinstall → no keyset restored, app starts
+- Not verified: the Pixel 8 (the restore test would wipe its saved setup; nothing device-specific changed); a restored server address with a server that needs a login (this server has none)
+- Version `0.1.11` / `versionCode 12`
 
 ### 2026-11-17 — Phase 1.6b Lorebooks Tab (branch `feature/lorebooks-tab`)
 
@@ -46,7 +55,8 @@ A fourth bottom tab, **Lorebooks** (Chats · Characters · Lorebooks · Me), to 
 - Unit tests: `FilterLorebooksUseCaseTest` (8), `GetLorebooksUseCaseTest` (4), `CreateLorebookUseCaseTest` (5), `LorebookRepositoryImplTest` (6), `LorebooksViewModelTest` (7), `LorebookDetailViewModelTest` (6), `LorebookEntryViewModelTest` (6), `BridgeMessageParserTest` +4; `./gradlew build` green (all unit tests). Compose UI tests: `LorebooksContentTest` (6) — compiled; run before release per the testing rule
 - Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 over Tailscale: bridge functions on the live page (throwaway lorebooks, deleted afterwards), including fields the app doesn't edit (order, depth, probability, position) surviving an app save; through the app's UI: four tabs, grid with Seraphina's link and "Not active", search by character name, Unused / Global / Clear filters, character sheet and ✕, duplicate name refused, create "TT Test" (opened itself), new entry with token count, edit and switch off ("Off"), global on (Global chip lists it), delete entry, delete lorebook, Eldoria's delete sheet wording (cancelled); the user's lorebooks unchanged at the end (entry counts and global list checked on the server)
 - Found and fixed during testing (see Notes): module import from injected scripts; create answering with a lorebook made on the desktop meanwhile — the UI test added one test entry to a real lorebook, removed right away
-- Not verified: the Pixel 8; pull to refresh by hand (covered by the ViewModel test and the bridge call); persona links (none on this server); a lorebook attached to several characters on device (unit and Compose UI tests)
+- Verified on the Pixel 8 by the user: the Lorebooks tab worked well (after clearing the app's storage to get past the crash fixed in 0.1.11)
+- Not verified: pull to refresh by hand (covered by the ViewModel test and the bridge call); persona links (none on this server); a lorebook attached to several characters on device (unit and Compose UI tests)
 - Version `0.1.10` / `versionCode 11`
 
 ### 2026-11-17 — Fix: 3 s cap on opening a chat (branch `fix/chat-open-timeout`)

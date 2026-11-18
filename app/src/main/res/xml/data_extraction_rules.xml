@@ -1,19 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
+   What Android Auto Backup may copy off the device (Android 12+).
    See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+
+   The credential keyset is wrapped by an Android Keystore key, and Keystore keys are never
+   backed up. A restored keyset could not be unlocked, so it is left out; a fresh install
+   creates a new one. Everything else (the server address) is backed up as before.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="sharedpref" path="tt_credentials_keyset_prefs.xml" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="tt_credentials_keyset_prefs.xml" />
     </device-transfer>
-    -->
 </data-extraction-rules>
