@@ -33,6 +33,13 @@ Inject a stylesheet that hides SillyTavern's settings clutter and makes the chat
 
 ## History
 
+### 2026-11-17 — Docs: Compose UI tests going forward (branch `docs/compose-ui-tests`)
+
+- `coding-standards.md` → Testing: new and changed native Compose screens/components with real behavior get Compose UI tests in `androidTest` (stateless `…Content` composable, fixed `UiState`, fake callbacks; states render, taps call the right callback, enabled/disabled rules). Layout-only composables and the WebView host are exempt; WebView/bridge stays manual on device
+- Unit tests (fast) still run before every commit and merge via `./gradlew build` — now stated explicitly in the workflow's Test step. Android tests (slow) run only before each release: `ai-guidelines.md` → Releasing to main has a new step 2 (run `./gradlew connectedDebugAndroidTest` on an emulator or device, note the result in the PR)
+- `CLAUDE.md`: added `./gradlew connectedDebugAndroidTest`. Not in CI (would need an emulator runner); no tests backfilled for existing screens
+- Dependencies were already present (`ui-test-junit4`, `ui-test-manifest`), so no build changes and no version bump
+
 <!-- Completed work is added here, newest last -->
 
 ### 2026-11-17 — Phase 1.5 Clean Theme (branch `feature/clean-theme`)

@@ -15,7 +15,7 @@ This is the common workflow that we will use for every single feature/fix:
 1. **Document** - Document the feature in @context/current-feature.md.
 2. **Branch** - Create new branch for feature, fix, etc. from `dev`
 3. **Implement** - Implement the feature/fix that I create in @context/current-feature.md
-4. **Test** - Verify it works on device/emulator against the real SillyTavern server. Run `./gradlew build` and fix any errors
+4. **Test** - Verify it works on device/emulator against the real SillyTavern server. Run `./gradlew build` (includes the unit tests) and fix any errors — required before every commit and merge. Android tests (`connectedDebugAndroidTest`) are not part of this step; they run only before a release (see Releasing to main)
 5. **Iterate** - Iterate and change things if needed
 6. **Commit** - Only after build passes and everything works
 7. **Merge** - Merge into `dev` and push `dev`. Never merge or push into `main` (see Branching)
@@ -41,8 +41,9 @@ Never delete `dev`. If you can't merge locally (e.g. a cloud session), push the 
 When I ask to release (usually after a sub-feature is verified on device and its version bump is on `dev`):
 
 1. Make sure `dev` is pushed and its latest CI run is green
-2. Open a pull request from `dev` into `main`, titled with the version (e.g. `Release 0.1.5`) and listing the history entries it includes
-3. I merge it on GitHub with **Create a merge commit** — not squash or rebase, which would make `main` and `dev` drift apart
+2. Run the Compose UI tests (`./gradlew connectedDebugAndroidTest`) on an emulator or device and make sure they pass. Note the result in the PR description
+3. Open a pull request from `dev` into `main`, titled with the version (e.g. `Release 0.1.5`) and listing the history entries it includes
+4. I merge it on GitHub with **Create a merge commit** — not squash or rebase, which would make `main` and `dev` drift apart
 
 ## Private Data
 
