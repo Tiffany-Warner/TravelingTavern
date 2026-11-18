@@ -1,6 +1,6 @@
 # Current Feature
 
-Phase 1.6 — Chats & Characters Tabs
+Fix — 3 s cap on opening a chat
 
 ## Status
 
@@ -8,51 +8,34 @@ Completed
 
 ## Goals
 
-Replace the temporary full-screen WebView in Chats with native screens fed by the JS bridge: **Chats** is a messaging-style list of recent conversations, **Characters** a portrait grid of the whole library. Tapping a character in either opens Chat.
+Never keep Chat covered for long: reveal the page at most 3 s after the chat was requested even if SillyTavern's `chatOpened` hasn't arrived, and log when that happens. Record SillyTavern's "messages to load" setting, which decides how much a chat has to draw.
 
 ### Deliverables
 
-- **Bridge:** `requestRecentChats()` in `bridge.js` — fetches SillyTavern's `/api/chats/recent` with `getRequestHeaders()` and posts a `recentChats` message (avatar, last message trimmed to 200 chars, last-message time, message count); sent after `ready`, refreshed on the same debounced events as `characters`. Parsed into `BridgeMessage.RecentChats`; content is never logged (count only)
-- **Domain:** `RecentChat` model; `CharacterRepository` (interface) + implementation over `BridgeRepository` (`characters`, `recentChats`, `pageState`, `refresh()`, `fullAvatarUrl`); `GetRecentChatsUseCase` (one row per character — newest chat wins — sorted by last message, newest first); `GetCharacterLibraryUseCase` (sorted by name, filtered by query, case-insensitive)
-- **WebView hosting:** the one WebView moves from the Chats screen to the app shell: one host layer behind the `NavHost` (inside the `Scaffold`), attached for the whole session (so JS keeps running), covered by the opaque tab screens, unfocusable and hidden from accessibility while covered; shown on Chat. It always has Chat's size (below the status bar and Chat's bar, above the navigation bar, clear of the cutout), covered or not — only the keyboard resizes it, only on Chat. Back navigation inside the WebView only while it is showing
-- **Chats tab:** top app bar "Chats"; rows of 48dp avatar (thumbnail), name, one-line preview, trailing relative time ("now", "5m", "2h", "Yesterday", "Mar 3", "Mar 3, 2025"); pull to refresh; empty state "No chats yet." + "Browse characters"; re-select scrolls to top
-- **Characters tab:** top app bar "Characters" with a search action that expands to a search field; 2-column grid of 3:4 cards with the **full-size** avatar (`ContentScale.Crop`, crossfade, fixed-size placeholder) and the name over a bottom scrim; FAB → bottom sheet "Create character" / "Import card", both "Coming soon"; empty state + "Open full SillyTavern" → Advanced; re-select scrolls to top
-- **Banners:** "Can't reach your server — Retry" / "Login failed — Server settings" inline at the top of both tabs; nothing when connected
-- **Chat (start of 1.7):** top app bar with back, avatar and name; body is the shared SillyTavern WebView (clean theme). `selectCharacter(id)` answers with a `chatOpened` message once SillyTavern has drawn the chat and it has stopped scrolling; until then Chat covers the page (spinner after 0.8 s). 1.7 adds the Text / Story tabs on top of this
-- Avatars through Coil with the shared OkHttp client (basic auth applies); fallback is a round tile with the initial
-- Tests: unit — parser (`recentChats`), both use cases, both ViewModels, relative time; Compose UI — `ChatsContent` and `CharactersContent` states and callbacks
-- Version `0.1.8` / `versionCode 9`
+- `CharacterRepositoryImpl.openChat()`: wait for `chatOpened` capped at 3 s (was 10 s), counted from the request (waiting for the page to load doesn't count); on timeout log a warning (no character or message data) and return, which reveals the chat
+- Unit tests for `openChat()`: returns on that character's `chatOpened` (another character's doesn't count), gives up after 3 s and logs, page-load wait doesn't count
+- Spec note on "# Msg. to Load" (`chat_truncation`, default 100) in the 1.6 spec
+- Version `0.1.9` / `versionCode 10`
 
 ## Notes
 
-- **(verified on SillyTavern 1.19.0, emulator via DevTools)**
-  - Character IDs are avatar file names (`Bob.png`, `Tide Pods.png`, `default_Seraphina.png`) — confirmed again
-  - **Full-size avatar:** `/characters/<URL-encoded avatar>` → `200 image/png` (Bob: 78 KB vs. 3.5 KB thumbnail at `/thumbnail?type=avatar&file=…`); spaces work (`Tide%20Pods.png`)
-  - **Last message per character:** `POST /api/chats/recent` (headers from `getRequestHeaders()`, body `{ max }` — honored: `max: 2` → 2 rows) returns one row per chat file: `file_id`, `file_name`, `file_size`, `chat_items`, `mes` (last message text), `last_mes` (ISO time), `avatar`. A chat with no messages has `chat_items: 0` and `mes: "[The message is empty]"` → shown with no preview. This is what SillyTavern's own welcome screen uses; read through the bridge, so the page's session and CSRF token apply
-  - Character fields include `date_last_chat` (epoch ms) and `chat_size`; every character with a chat file appears in `/api/chats/recent`
-- **Decisions (user, 2026-11-17):**
-  - **WebView hosted at the app shell**, attached for the whole session. Requirements: tab content is opaque and consumes touches; the covered WebView is hidden from accessibility and loses focus; WebView back handling only while it is revealed. Verify on the Pixel: no blank frame or reload on tab ↔ Chat, and the lists keep updating
-  - **Chat in 1.6 is the start of the 1.7 `ChatScreen` / `ChatViewModel`**: Story mode only, top bar with back + avatar + name, nothing else — 1.7 extends it. Verify on the Pixel: list → Chat → back → another character, no reload or blank frame
-- **Spec deviations:**
-  - Spec says the WebView is hidden "behind the tab content"; it is hosted once at the app shell instead of per screen, so moving between tabs and Chat never detaches it (with a per-screen host, the leaving screen's release would pull the WebView out of the arriving screen)
-  - Chat gets an interim body (the WebView) in 1.6 — otherwise tapping a character would lead to a placeholder and the app couldn't chat at all until 1.7
-  - Chats list data comes from `/api/chats/recent` via the bridge, not only `BridgeRepository.characters`
-- Group chats are left out (rows without an `avatar`)
-- **Found during device testing:**
-  - Resizing the WebView makes SillyTavern lay out the whole page again and the WebView paints nothing meanwhile — a blank on every tab ↔ Chat move while the WebView took the content area's size (which changes with the bottom bar and Chat's bar). Fixed by giving it one fixed size
-  - SillyTavern's `CHAT_CHANGED` fires once the messages are in the DOM (~0.4–0.5 s after selecting on the Pixel), but a long chat keeps growing and scrolling for up to ~0.9 s more (images, long messages) while the page is too busy to paint — the WebView shows blank tiles. Hence `chatOpened`: posted after `CHAT_CHANGED` once the message list's scroll position and height are unchanged across two checks 100 ms apart (capped at 2 s). If the character is already open, `chatOpened` comes right away (SillyTavern sends no event then)
-  - The `Scaffold`'s surface swallows touches: with the WebView behind the `Scaffold`, taps never reached the page (no keyboard). The WebView sits inside the `Scaffold` content instead
-  - In landscape the tab screens leave the display-cutout strip uncovered; the WebView is inset by the cutout too, so nothing of the page shows there
-  - Opening a chat with no messages (Oliver) makes SillyTavern rewrite the file, which moves it to the top of Recent Chats — SillyTavern's own behaviour, also on its welcome screen
+- See the 1.6 spec's Notes for the SillyTavern details (`printMessages`, `scrollOnMediaLoad`)
+- The bridge's own settle wait stays capped at 2 s; the 3 s app-side cap also covers a page that never answers (busy, frozen, or a bridge error that isn't reported)
 
 ## References
 
 - @context/specs/phase1-6-home-character-list-spec.md
-- @context/specs/phase1-7-chat-screen-spec.md
-- @context/ui-guidelines.md
-- @context/coding-standards.md
 
 ## History
+
+### 2026-11-17 — Fix: 3 s cap on opening a chat (branch `fix/chat-open-timeout`)
+
+- `CharacterRepositoryImpl.openChat()` reveals the chat after at most 3 s (was 10 s) from the request even without `chatOpened`, and logs `No chatOpened within 3000 ms; showing the chat anyway` at WARN (no character or message data); the page-load wait before the request doesn't count
+- Verified SillyTavern's "# Msg. to Load (0 = All)" setting (`power_user.chat_truncation`, default 100, this server on the default) and how `printMessages()` / `scrollOnMediaLoad()` use it; noted in the 1.6 spec
+- Unit tests: `CharacterRepositoryImplTest` (3, virtual time); `./gradlew build` green
+- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 over Tailscale: a normal open (Bob) got `chatOpened` and logged nothing; opening Tide Pods with the page's JavaScript frozen for 4.5 s through DevTools logged the warning, revealed the chat at 3 s, and the late `chatOpened` 3.2 s later was ignored
+- Not verified on the Pixel 8 (it was locked during testing); nothing device-specific changed
+- Version `0.1.9` / `versionCode 10`
 
 ### 2026-11-17 — Phase 1.6 Chats & Characters Tabs (branch `feature/chats-characters-tabs`)
 
