@@ -34,6 +34,10 @@ object BridgeMessageParser {
             "chatChanged" -> decode(obj, BridgeMessage.ChatChanged.serializer())
             "chatOpened" -> decode(obj, BridgeMessage.ChatOpened.serializer())
             "messageReceived" -> decode(obj, BridgeMessage.MessageReceived.serializer())
+            "lorebooks" -> decode(obj, BridgeMessage.Lorebooks.serializer())
+            "lorebookEntries" -> decode(obj, BridgeMessage.LorebookEntries.serializer())
+            "lorebookResult" -> decode(obj, BridgeMessage.LorebookResult.serializer())
+            "tokenCount" -> decode(obj, BridgeMessage.TokenCount.serializer())
             "error" -> decode(obj, BridgeMessage.Error.serializer())
             else -> BridgeMessage.Unknown(type)
         }

@@ -144,4 +144,62 @@ class BridgeMessageParserTest {
         assertNull(parse("""{"v":1,"type":"messageReceived","messageId":"fourteen"}"""))
         assertNull(parse("""{"v":1,"type":"error"}"""))
     }
+
+    @Test
+    fun `lorebooks with links, a missing count and defaults`() {
+        val raw = """
+            {"v":1,"type":"lorebooks","items":[
+              {"name":"Eldoria","entryCount":4,"global":false,"characterIds":["default_Seraphina.png"],"personaNames":[]},
+              {"name":"Rules","entryCount":null,"global":true,"characterIds":[],"personaNames":[""]},
+              {"name":"Bare"}
+            ]}
+        """.trimIndent()
+
+        val items = (parse(raw) as BridgeMessage.Lorebooks).items
+
+        assertEquals(LorebookDto("Eldoria", 4, false, listOf("default_Seraphina.png"), emptyList()), items[0])
+        assertEquals(LorebookDto("Rules", null, true, emptyList(), listOf("")), items[1])
+        assertEquals(LorebookDto("Bare"), items[2])
+    }
+
+    @Test
+    fun `lorebook entries`() {
+        val raw = """
+            {"v":1,"type":"lorebookEntries","requestId":"lb1","name":"Eldoria","entries":[
+              {"uid":0,"title":"eldoria","keys":["eldoria","wood"],"content":"A forest","enabled":true},
+              {"uid":3,"title":"","keys":[],"content":"","enabled":false}
+            ]}
+        """.trimIndent()
+
+        val message = parse(raw) as BridgeMessage.LorebookEntries
+
+        assertEquals("lb1", message.requestId)
+        assertEquals(LorebookEntryDto(0, "eldoria", listOf("eldoria", "wood"), "A forest", true), message.entries[0])
+        assertEquals(false, message.entries[1].enabled)
+    }
+
+    @Test
+    fun `lorebook results and token counts`() {
+        assertEquals(
+            BridgeMessage.LorebookResult(requestId = "lb2", ok = true, name = "Kingdoms"),
+            parse("""{"v":1,"type":"lorebookResult","requestId":"lb2","ok":true,"name":"Kingdoms"}""")
+        )
+        assertEquals(
+            BridgeMessage.LorebookResult(requestId = "lb3", ok = false, error = "exists"),
+            parse("""{"v":1,"type":"lorebookResult","requestId":"lb3","ok":false,"error":"exists"}""")
+        )
+        assertEquals(
+            BridgeMessage.LorebookResult(requestId = "lb4", ok = true, uid = 7),
+            parse("""{"v":1,"type":"lorebookResult","requestId":"lb4","ok":true,"uid":7}""")
+        )
+        assertEquals(BridgeMessage.TokenCount("lb5", 16), parse("""{"v":1,"type":"tokenCount","requestId":"lb5","count":16}"""))
+    }
+
+    @Test
+    fun `malformed lorebook messages are dropped`() {
+        assertNull(parse("""{"v":1,"type":"lorebooks","items":[{"entryCount":3}]}"""))
+        assertNull(parse("""{"v":1,"type":"lorebookEntries","requestId":"lb1","name":"E","entries":[{"title":"no uid"}]}"""))
+        assertNull(parse("""{"v":1,"type":"lorebookResult","ok":true}"""))
+        assertNull(parse("""{"v":1,"type":"tokenCount","requestId":"lb5","count":"many"}"""))
+    }
 }

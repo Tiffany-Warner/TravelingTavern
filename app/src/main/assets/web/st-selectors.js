@@ -40,6 +40,8 @@
             selectCharacterById: 'selectCharacterById',
             getThumbnailUrl: 'getThumbnailUrl',
             getRequestHeaders: 'getRequestHeaders',
+            getTokenCountAsync: 'getTokenCountAsync',
+            saveSettingsDebounced: 'saveSettingsDebounced',
         }),
         character: Object.freeze({
             id: 'avatar',
@@ -71,6 +73,60 @@
             lastMessage: 'mes',
             lastMessageAt: 'last_mes',
             messageCount: 'chat_items',
+        }),
+
+        /**
+         * World Info (lorebooks). Most of it isn't on getContext(), so the bridge imports
+         * SillyTavern's own module — the same instance its UI uses. Verified against 1.19.0
+         * (see the 1.6b spec's Notes).
+         */
+        worldInfo: Object.freeze({
+            modulePath: '/scripts/world-info.js',
+            /** utils.js export that turns a name into the file name SillyTavern saves it under. */
+            utilsPath: '/scripts/utils.js',
+            sanitizeName: 'getSanitizedFilename',
+            /** Module exports. `names` and `globalSelected` are reassigned: read them each time. */
+            module: Object.freeze({
+                names: 'world_names',
+                globalSelected: 'selected_world_info',
+                settings: 'world_info',
+                cache: 'worldInfoCache',
+                load: 'loadWorldInfo',
+                save: 'saveWorldInfo',
+                create: 'createNewWorldInfo',
+                remove: 'deleteWorldInfo',
+                createEntry: 'createWorldInfoEntry',
+                removeEntry: 'deleteWorldInfoEntry',
+                updateList: 'updateWorldInfoList',
+            }),
+            /** world_info.charLore: [{ name: avatar without extension, extraBooks: [names] }]. */
+            charLore: 'charLore',
+            charLoreName: 'name',
+            charLoreBooks: 'extraBooks',
+            /** A character's primary lorebook: character.data.extensions.world. */
+            characterPrimary: Object.freeze(['data', 'extensions', 'world']),
+            /** Global on/off: SillyTavern's own multi-select (option value = index into names). */
+            globalSelect: '#world_info',
+            entries: 'entries',
+            entry: Object.freeze({
+                uid: 'uid',
+                title: 'comment',
+                keys: 'key',
+                content: 'content',
+                disabled: 'disable',
+                displayIndex: 'displayIndex',
+            }),
+            /** Event keys after which the lorebook list may have changed. */
+            events: Object.freeze(['WORLDINFO_UPDATED', 'WORLDINFO_SETTINGS_UPDATED']),
+        }),
+
+        /** power_user (getContext().powerUserSettings) fields for persona lorebooks. */
+        powerUser: Object.freeze({
+            context: 'powerUserSettings',
+            personaNames: 'personas',
+            personaDescriptions: 'persona_descriptions',
+            personaLorebook: 'lorebook',
+            currentPersonaLorebook: 'persona_description_lorebook',
         }),
 
         /** selectCharacterById option: false opens the chat without the character editor panel. */

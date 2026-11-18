@@ -47,7 +47,7 @@ import com.tiffles.travelingtavern.R
 import com.tiffles.travelingtavern.domain.model.CharacterSummary
 import com.tiffles.travelingtavern.domain.model.PageError
 import com.tiffles.travelingtavern.ui.characters.components.AddCharacterSheet
-import com.tiffles.travelingtavern.ui.characters.components.CharacterSearchField
+import com.tiffles.travelingtavern.ui.components.AppBarSearchField
 import com.tiffles.travelingtavern.ui.components.CharacterImage
 import com.tiffles.travelingtavern.ui.components.ConnectionBanner
 import com.tiffles.travelingtavern.ui.components.EmptyState
@@ -147,7 +147,11 @@ private fun CharactersTopBar(
     TopAppBar(
         title = {
             if (searchOpen) {
-                CharacterSearchField(query = query, onQueryChange = onQueryChange)
+                AppBarSearchField(
+                    query = query,
+                    onQueryChange = onQueryChange,
+                    placeholder = stringResource(R.string.characters_search)
+                )
             } else {
                 Text(stringResource(R.string.tab_characters))
             }

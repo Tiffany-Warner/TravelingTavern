@@ -23,6 +23,12 @@ enum class TopLevelTab(
         iconRes = R.drawable.ic_people_outline,
         selectedIconRes = R.drawable.ic_people_filled
     ),
+    LOREBOOKS(
+        graphRoute = Routes.Tab.LOREBOOKS,
+        labelRes = R.string.tab_lorebooks,
+        iconRes = R.drawable.ic_book_outline,
+        selectedIconRes = R.drawable.ic_book_filled
+    ),
     ME(
         graphRoute = Routes.Tab.ME,
         labelRes = R.string.tab_me,
