@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraphBuilder
@@ -39,11 +40,14 @@ import com.tiffles.travelingtavern.ui.chat.ChatScreen
 import com.tiffles.travelingtavern.ui.chats.ChatsScreen
 import com.tiffles.travelingtavern.ui.components.SillyTavernWebView
 import com.tiffles.travelingtavern.ui.connect.ConnectScreen
+import com.tiffles.travelingtavern.ui.lorebooks.LorebookDetailScreen
+import com.tiffles.travelingtavern.ui.lorebooks.LorebookEntryScreen
+import com.tiffles.travelingtavern.ui.lorebooks.LorebooksScreen
 import com.tiffles.travelingtavern.ui.me.MeScreen
 
 /**
- * The app shell: a bottom navigation bar over three tab graphs, plus full-screen
- * destinations (Connect, Chat, Advanced) that hide the bar. The bar also hides while
+ * The app shell: a bottom navigation bar over four tab graphs, plus full-screen
+ * destinations (Connect, Chat, Advanced, lorebook detail and entry) that hide the bar. The bar also hides while
  * the keyboard is open.
  *
  * The one SillyTavern WebView lives here, behind everything, attached for the whole session
@@ -168,6 +172,14 @@ private fun NavGraphBuilder.tabGraphs(navController: NavHostController, onOpenSe
             )
         }
     }
+    navigation(startDestination = Routes.Tab.LOREBOOKS_ROOT, route = Routes.Tab.LOREBOOKS) {
+        coveringComposable(Routes.Tab.LOREBOOKS_ROOT) {
+            LorebooksScreen(
+                onOpenLorebook = { name -> navController.navigate(Routes.FullScreen.LorebookDetail.create(name)) },
+                onOpenServerSettings = onOpenServerSettings
+            )
+        }
+    }
     navigation(startDestination = Routes.Tab.ME_ROOT, route = Routes.Tab.ME) {
         coveringComposable(Routes.Tab.ME_ROOT) { MeScreen() }
     }
@@ -187,14 +199,45 @@ private fun NavGraphBuilder.fullScreenDestinations(navController: NavHostControl
         ChatScreen(onBack = { navController.popBackStack() })
     }
     coveringComposable(Routes.FullScreen.ADVANCED) { AdvancedScreen() }
+    lorebookDestinations(navController)
+}
+
+private fun NavGraphBuilder.lorebookDestinations(navController: NavHostController) {
+    coveringComposable(
+        route = Routes.FullScreen.LorebookDetail.ROUTE,
+        arguments = listOf(navArgument(Routes.FullScreen.LorebookDetail.ARG_NAME) { type = NavType.StringType })
+    ) {
+        LorebookDetailScreen(
+            onBack = { navController.popBackStack() },
+            onOpenEntry = { lorebook, uid ->
+                navController.navigate(
+                    Routes.FullScreen.LorebookEntry.create(lorebook, uid ?: Routes.FullScreen.LorebookEntry.NEW_ENTRY)
+                )
+            },
+            onOpenServerSettings = { navController.navigate(Routes.FullScreen.CONNECT) }
+        )
+    }
+    coveringComposable(
+        route = Routes.FullScreen.LorebookEntry.ROUTE,
+        arguments = listOf(
+            navArgument(Routes.FullScreen.LorebookEntry.ARG_NAME) { type = NavType.StringType },
+            navArgument(Routes.FullScreen.LorebookEntry.ARG_UID) { type = NavType.IntType }
+        )
+    ) {
+        LorebookEntryScreen(onBack = { navController.popBackStack() })
+    }
 }
 
 /**
  * A destination drawn over the WebView: an opaque surface that also consumes touches, so
  * nothing reaches the page underneath.
  */
-private fun NavGraphBuilder.coveringComposable(route: String, content: @Composable () -> Unit) {
-    composable(route) {
+private fun NavGraphBuilder.coveringComposable(
+    route: String,
+    arguments: List<NamedNavArgument> = emptyList(),
+    content: @Composable () -> Unit
+) {
+    composable(route, arguments) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             content()
         }

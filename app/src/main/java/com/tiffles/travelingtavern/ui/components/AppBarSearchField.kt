@@ -1,4 +1,4 @@
-package com.tiffles.travelingtavern.ui.characters.components
+package com.tiffles.travelingtavern.ui.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardActions
@@ -20,11 +20,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.tiffles.travelingtavern.R
 import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
 
-/** The search field that replaces the Characters title. Takes focus when it appears. */
+/** A search field that replaces a tab's app bar title. Takes focus when it appears. */
 @Composable
-fun CharacterSearchField(
+fun AppBarSearchField(
     query: String,
     onQueryChange: (String) -> Unit,
+    placeholder: String,
     modifier: Modifier = Modifier
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -35,7 +36,7 @@ fun CharacterSearchField(
     TextField(
         value = query,
         onValueChange = onQueryChange,
-        placeholder = { Text(stringResource(R.string.characters_search)) },
+        placeholder = { Text(placeholder) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
@@ -52,8 +53,8 @@ fun CharacterSearchField(
 
 @Preview(showBackground = true)
 @Composable
-private fun CharacterSearchFieldPreview() {
+private fun AppBarSearchFieldPreview() {
     TravelingTavernTheme {
-        CharacterSearchField(query = "Ser", onQueryChange = {})
+        AppBarSearchField(query = "Ser", onQueryChange = {}, placeholder = stringResource(R.string.characters_search))
     }
 }
