@@ -1,38 +1,30 @@
 # Current Feature
 
-Fix: crash on start after reinstalling with a restored backup
+Phase 1.7 — Chat Screen (EchoText Thread)
 
 ## Status
 
-Completed
+On hold — blocked on EchoText thread storage (the user's EchoText fork, a separate project)
 
 ## Goals
 
-The app never crashes on start because the saved-credentials key can't be unlocked. Seen on the Pixel 8 after reinstalling 0.1.10: every launch crashed with `InvalidKeyException: Keystore cannot load the key with ID: tt_credentials_master_key` (`SecurityModule.provideCredentialAead`).
-
-### Cause
-
-- Uninstalling deletes the app's Android Keystore keys (`keystore2 clearNamespace`)
-- Android Auto Backup (`allowBackup="true"`, empty template rules) had backed up the app's files, including the Tink keyset in `tt_credentials_keyset_prefs.xml`. Reinstalling restored them (`BackupManagerService: restoreAtInstall`)
-- Keystore keys are never backed up, so the restored keyset is wrapped by a master key that no longer exists. `AndroidKeysetManager.build()` throws, and Hilt fails while creating the first ViewModel → crash on every launch until the app's storage is cleared
-
-### Deliverables
-
-- **Backup rules:** exclude the keyset prefs file from cloud backup and device transfer (`data_extraction_rules.xml`, Android 12+) and from the legacy rules (`backup_rules.xml`). The server address (DataStore) is still backed up; the encrypted username / password come back too, but can't be decrypted without the key and are read as empty (`CredentialCipher.decrypt` already returns null)
-- **Recovery:** if the keyset can't be loaded, log a warning, delete the keyset prefs and create a new keyset instead of crashing. Saved credentials then read as empty, so a server with a login asks for it again (auth failed → Server settings)
-- **Tests:** unit test for the recovery path (load fails once → reset → new keyset; load succeeds → no reset; reset doesn't help → error is thrown)
-- **Device check:** reproduce on the emulator before and after the fix (keyset file kept, Keystore key gone), and the real backup → uninstall → reinstall-with-restore flow with the local backup transport
-- Version `0.1.11` / `versionCode 12`
+**Text is the chat** (option B, user, 2026-11-18): opening a character shows their EchoText thread full screen, one conversation per character, Kindroid-style. SillyTavern's main chat stays one tap away as **Story view** in the app bar's ⋮ menu. Switching never reloads the page or loses your place. The full plan (screen, route `view` argument, modes, EchoText availability, opening the thread, ViewModel, tests, device checks) is in the spec; the deliverables get written out here when 1.7 resumes.
 
 ## Notes
 
-- Android applies the exclude rules on restore as well: a backup made by 0.1.10 (keyset included) restored onto 0.1.11 without the keyset file
-- `bmgr backupnow` refuses an app in the stopped state ("Backup is not allowed"), e.g. right after `am force-stop`; launch it and press Home first
-- Restored-but-undecryptable credentials need no extra handling: `CredentialCipher.decrypt` already returns null
+- **On hold (2026-11-18):** EchoText keeps threads in SillyTavern's settings file, which every open page saves whole, so a desktop tab can erase messages sent from the phone. Confirmed with a two-page test (without the EchoText-Proactive plugin); from the plugin's code, its server messages also end up there through the page that polls them — to re-test with the plugin installed. Details in the spec's Notes ("Thread storage")
+- **Decision (2026-11-18, user):** the fix is the user's own fork of EchoText storing threads per thread — a separate project, not in this repo, no upstream PR; don't fork or change EchoText until the user has checked its license. Until then Chat stays as it is from 1.6 (main chat only). What waits and what can go ahead is in `project-schema.md` ("Blocked on EchoText Thread Storage")
+- **Direction changed (2026-11-18, user):** option B replaced the Text | Story tabs (spec rewritten by the user): no tab control or tab memory, `ChatChromeHeight` unchanged
+- Added to the spec from the review: Tethered / Untethered are two separate threads; no banner without EchoText (⋮ → Texting opens a sheet); unknown availability waits within the 3 s cap, then Story view. Duplicate proactive messages went to the Phase 2 notes; Chats list previews are planned as 1.7c
+- EchoText investigation done (selectors, opening, picking the character, availability, scroll keeping) — in the spec's Notes; one item left: scroll keeping on `#et-messages` once a thread exists
+- Group chats are out of scope (spec)
 
 ## References
 
-- Android Auto Backup: `dataExtractionRules` (API 31+) and `fullBackupContent`
+- @context/specs/phase1-7-chat-screen-spec.md
+- @context/specs/phase1-6-home-character-list-spec.md
+- @context/specs/phase1-5-clean-theme-spec.md
+- EchoText: https://github.com/mattjaybe/SillyTavern-EchoText
 
 ## History
 
