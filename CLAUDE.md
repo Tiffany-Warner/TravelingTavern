@@ -20,6 +20,7 @@ Read the following at the start of every session:
 ./gradlew build          # full project build — run before every commit
 ./gradlew assembleDebug  # build debug APK
 ./gradlew test           # run unit tests
+./gradlew connectedDebugAndroidTest  # run Compose UI tests on a connected emulator/device
 ./gradlew lint           # run lint checks
 ```
 
