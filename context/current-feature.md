@@ -39,7 +39,7 @@ Until 1.7 (blocked on EchoText thread storage), the app shows no EchoText UI.
 - 1.7b spec: its `#et-fab` line now points to this fix
 - `./gradlew build` green (no unit-testable code changed)
 - Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 with EchoText 1.2.6 over Tailscale (DevTools + screenshot): clean on → EchoText window and button `display: none`, the element at SillyTavern's input and send button is `#send_textarea` / `#send_but`; `setClean(false)` → EchoText's window back over the chat (Advanced and desktop unchanged); `setClean(true)` → hidden again; Bob's chat in the app shows the main chat and its input row with no EchoText UI
-- Not verified: the Pixel 8
+- Verified on the Pixel 8 (0.1.12, same server): same page check — clean on → EchoText window and button hidden, `#send_textarea` / `#send_but` on top; clean off → EchoText's window back; clean on → hidden again; Bob's chat in the app shows the main chat and its input row with no EchoText UI
 - Version `0.1.12` / `versionCode 13`
 
 ### 2026-11-18 — Fix: crash on start after reinstalling with a restored backup (branch `fix/keystore-restore-crash`)
