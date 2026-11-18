@@ -1,6 +1,6 @@
 # Current Feature
 
-Phase 1.5 — Clean Theme
+Phase 1.6 — Chats & Characters Tabs
 
 ## Status
 
@@ -8,30 +8,63 @@ Completed
 
 ## Goals
 
-Inject a stylesheet that hides SillyTavern's settings clutter and makes the chat feel like a phone app — inside TravelingTavern only. Advanced (1.8) turns it off.
+Replace the temporary full-screen WebView in Chats with native screens fed by the JS bridge: **Chats** is a messaging-style list of recent conversations, **Characters** a portrait grid of the whole library. Tapping a character in either opens Chat.
 
 ### Deliverables
 
-- `assets/web/clean-theme.css`: every rule under `body.tt-clean`, selector list at the top, mirrored in `st-selectors.js`
-- Injected after the bridge on every page load as `<style id="tt-clean-theme">`, Base64-encoded (UTF-8) and decoded in the page; replaced, never duplicated
-- `__ttBridge.setClean(enabled)` toggles `tt-clean`; `PageModeStore` remembers the setting (on by default) and re-applies it after each injection; `BridgeClient.setCleanMode()` for 1.8
-- Unit tests for the stylesheet encoding
-- Version bump to `0.1.7` / `versionCode 8`
+- **Bridge:** `requestRecentChats()` in `bridge.js` — fetches SillyTavern's `/api/chats/recent` with `getRequestHeaders()` and posts a `recentChats` message (avatar, last message trimmed to 200 chars, last-message time, message count); sent after `ready`, refreshed on the same debounced events as `characters`. Parsed into `BridgeMessage.RecentChats`; content is never logged (count only)
+- **Domain:** `RecentChat` model; `CharacterRepository` (interface) + implementation over `BridgeRepository` (`characters`, `recentChats`, `pageState`, `refresh()`, `fullAvatarUrl`); `GetRecentChatsUseCase` (one row per character — newest chat wins — sorted by last message, newest first); `GetCharacterLibraryUseCase` (sorted by name, filtered by query, case-insensitive)
+- **WebView hosting:** the one WebView moves from the Chats screen to the app shell: one host layer behind the `NavHost` (inside the `Scaffold`), attached for the whole session (so JS keeps running), covered by the opaque tab screens, unfocusable and hidden from accessibility while covered; shown on Chat. It always has Chat's size (below the status bar and Chat's bar, above the navigation bar, clear of the cutout), covered or not — only the keyboard resizes it, only on Chat. Back navigation inside the WebView only while it is showing
+- **Chats tab:** top app bar "Chats"; rows of 48dp avatar (thumbnail), name, one-line preview, trailing relative time ("now", "5m", "2h", "Yesterday", "Mar 3", "Mar 3, 2025"); pull to refresh; empty state "No chats yet." + "Browse characters"; re-select scrolls to top
+- **Characters tab:** top app bar "Characters" with a search action that expands to a search field; 2-column grid of 3:4 cards with the **full-size** avatar (`ContentScale.Crop`, crossfade, fixed-size placeholder) and the name over a bottom scrim; FAB → bottom sheet "Create character" / "Import card", both "Coming soon"; empty state + "Open full SillyTavern" → Advanced; re-select scrolls to top
+- **Banners:** "Can't reach your server — Retry" / "Login failed — Server settings" inline at the top of both tabs; nothing when connected
+- **Chat (start of 1.7):** top app bar with back, avatar and name; body is the shared SillyTavern WebView (clean theme). `selectCharacter(id)` answers with a `chatOpened` message once SillyTavern has drawn the chat and it has stopped scrolling; until then Chat covers the page (spinner after 0.8 s). 1.7 adds the Text / Story tabs on top of this
+- Avatars through Coil with the shared OkHttp client (basic auth applies); fallback is a round tile with the initial
+- Tests: unit — parser (`recentChats`), both use cases, both ViewModels, relative time; Compose UI — `ChatsContent` and `CharactersContent` states and callbacks
+- Version `0.1.8` / `versionCode 9`
 
 ## Notes
 
-- **(verified on SillyTavern 1.19.0, live page via DevTools)** — every selector in `clean-theme.css` exists and was checked on the emulator: toolbar `#top-settings-holder` / `#top-bar`; drawer panels `#left-nav-panel`, `#rm_api_block`, `#AdvancedFormatting`, `#WorldInfo`, `#user-settings-block`, `#Backgrounds`, `#rm_extensions_block`, `#PersonaManagement`, `#right-nav-panel`; `#sheld` is offset by `--topBarBlockSize` (`top` + `height: calc(100dvh - …)`, overridden in `mobile-styles.css` under 1000 px); input row `#leftSendForm` (`#options_button`, `#extensionsMenuButton`) and `#rightSendForm` (`#microphone_button`, `#mes_stop`, `#send_but`), 35×35 by default
-- `#extensionTopBar` comes from the third-party **TopInfoBar** extension (chat name, search, new / rename / delete / close chat). Hidden in clean mode; chat management is the app's job
-- The spec says `setMode()` toggles `tt-clean`, but 1.4's `setMode` swaps `tt-mode-*` classes, and 1.7 needs clean mode and a tab mode at the same time — so clean mode got its own `setClean(enabled)`
-- Spec deviation: `selectCharacter` now passes `{ switchMenu: false }` to `selectCharacterById`, so opening a character from the app no longer opens SillyTavern's character editor on top of the chat (what the user hit in 1.4 testing)
-- Until Advanced exists (1.8), the app has no way to reach SillyTavern's settings — use the desktop browser for them
+- **(verified on SillyTavern 1.19.0, emulator via DevTools)**
+  - Character IDs are avatar file names (`Bob.png`, `Tide Pods.png`, `default_Seraphina.png`) — confirmed again
+  - **Full-size avatar:** `/characters/<URL-encoded avatar>` → `200 image/png` (Bob: 78 KB vs. 3.5 KB thumbnail at `/thumbnail?type=avatar&file=…`); spaces work (`Tide%20Pods.png`)
+  - **Last message per character:** `POST /api/chats/recent` (headers from `getRequestHeaders()`, body `{ max }` — honored: `max: 2` → 2 rows) returns one row per chat file: `file_id`, `file_name`, `file_size`, `chat_items`, `mes` (last message text), `last_mes` (ISO time), `avatar`. A chat with no messages has `chat_items: 0` and `mes: "[The message is empty]"` → shown with no preview. This is what SillyTavern's own welcome screen uses; read through the bridge, so the page's session and CSRF token apply
+  - Character fields include `date_last_chat` (epoch ms) and `chat_size`; every character with a chat file appears in `/api/chats/recent`
+- **Decisions (user, 2026-11-17):**
+  - **WebView hosted at the app shell**, attached for the whole session. Requirements: tab content is opaque and consumes touches; the covered WebView is hidden from accessibility and loses focus; WebView back handling only while it is revealed. Verify on the Pixel: no blank frame or reload on tab ↔ Chat, and the lists keep updating
+  - **Chat in 1.6 is the start of the 1.7 `ChatScreen` / `ChatViewModel`**: Story mode only, top bar with back + avatar + name, nothing else — 1.7 extends it. Verify on the Pixel: list → Chat → back → another character, no reload or blank frame
+- **Spec deviations:**
+  - Spec says the WebView is hidden "behind the tab content"; it is hosted once at the app shell instead of per screen, so moving between tabs and Chat never detaches it (with a per-screen host, the leaving screen's release would pull the WebView out of the arriving screen)
+  - Chat gets an interim body (the WebView) in 1.6 — otherwise tapping a character would lead to a placeholder and the app couldn't chat at all until 1.7
+  - Chats list data comes from `/api/chats/recent` via the bridge, not only `BridgeRepository.characters`
+- Group chats are left out (rows without an `avatar`)
+- **Found during device testing:**
+  - Resizing the WebView makes SillyTavern lay out the whole page again and the WebView paints nothing meanwhile — a blank on every tab ↔ Chat move while the WebView took the content area's size (which changes with the bottom bar and Chat's bar). Fixed by giving it one fixed size
+  - SillyTavern's `CHAT_CHANGED` fires once the messages are in the DOM (~0.4–0.5 s after selecting on the Pixel), but a long chat keeps growing and scrolling for up to ~0.9 s more (images, long messages) while the page is too busy to paint — the WebView shows blank tiles. Hence `chatOpened`: posted after `CHAT_CHANGED` once the message list's scroll position and height are unchanged across two checks 100 ms apart (capped at 2 s). If the character is already open, `chatOpened` comes right away (SillyTavern sends no event then)
+  - The `Scaffold`'s surface swallows touches: with the WebView behind the `Scaffold`, taps never reached the page (no keyboard). The WebView sits inside the `Scaffold` content instead
+  - In landscape the tab screens leave the display-cutout strip uncovered; the WebView is inset by the cutout too, so nothing of the page shows there
+  - Opening a chat with no messages (Oliver) makes SillyTavern rewrite the file, which moves it to the top of Recent Chats — SillyTavern's own behaviour, also on its welcome screen
 
 ## References
 
-- @context/specs/phase1-5-clean-theme-spec.md
+- @context/specs/phase1-6-home-character-list-spec.md
+- @context/specs/phase1-7-chat-screen-spec.md
+- @context/ui-guidelines.md
 - @context/coding-standards.md
 
 ## History
+
+### 2026-11-17 — Phase 1.6 Chats & Characters Tabs (branch `feature/chats-characters-tabs`)
+
+- Bridge: `requestRecentChats()` posts `recentChats` from SillyTavern's `POST /api/chats/recent` (`{ max: 100 }`, `getRequestHeaders()`): character ID, last message (≤ 200 chars, null for an empty chat), last-message time, message count; sent with `characters` after `ready` and on the same debounced events. `characters` now also carries `fullAvatarUrl` (`/characters/<encoded avatar>`). `selectCharacter` answers with `chatOpened` once the chat is drawn and settled (see Notes). New selectors (`getRequestHeaders`, `fullAvatarPath`, `api`, `recentChat`, `dom.chat`) in `st-selectors.js`
+- Data / domain: `BridgeMessage.RecentChats` + `ChatOpened`; `BridgeRepository` exposes `chatActivity` and `characters` as nullable (null = not reported yet); `CharacterRepository` + `CharacterRepositoryImpl` (`characters`, `chatActivity`, `pageState`, `refresh()` waits for the answer ≤ 5 s, `retry()`, `openChat()` waits for `chatOpened` ≤ 10 s); `ChatActivity`, `RecentChat`; `CharacterSummary.portraitUrl`; `GetRecentChatsUseCase` (one row per character from its newest chat, newest first, undated last), `GetCharacterLibraryUseCase` (by name, case-insensitive, filtered by query). Coil uses the shared OkHttp client (`TravelingTavernApplication` is the `SingletonImageLoader.Factory`)
+- WebView hosting moved to the app shell (`TravelingTavernNavHost`): always attached, fixed size, every destination but Chat wrapped in an opaque touch-consuming surface; while covered the WebView is unfocusable, gives up the keyboard and is hidden from accessibility (`importantForAccessibility = noHideDescendants`); `WebViewBackHandler` is registered by Chat so it wins over the NavHost
+- UI: `ChatsScreen` / `ChatsViewModel` (list, pull to refresh, empty state → Characters, banner, re-select scrolls to top, times refresh every minute); `CharactersScreen` / `CharactersViewModel` (search field in the app bar, 2-column 3:4 grid with full-size portraits and name on a scrim, "no matches" text, FAB → Create / Import sheet "Coming soon", empty state → Advanced); `ChatScreen` / `ChatViewModel` (top bar, cover until `chatOpened`); shared `CharacterAvatar` / `CharacterImage` (initial until the image loads), `ConnectionBanner`, `EmptyState`, `RelativeTime`
+- Unit tests: `GetRecentChatsUseCaseTest` (5), `GetCharacterLibraryUseCaseTest` (4), `ChatsViewModelTest` (6), `CharactersViewModelTest` (5), `ChatViewModelTest` (3), `RelativeTimeTest` (5), `BridgeMessageParserTest` +4; `./gradlew build` green. Compose UI tests: `ChatsContentTest` (5), `CharactersContentTest` (6) — compiled; run before release per the testing rule
+- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 over Tailscale: Chats list with avatars, previews (emphasis markers stripped), empty-chat row without preview, relative times; Characters grid with full-size portraits, search filtering, add sheet; list → Chat → back for Bob, Seraphina and (from Characters) Oliver with the character panel closed and no reload
+- Verified on the Pixel 8 (dark theme): list data 8 s after a cold start; covered WebView: 10 × 100 ms timers took ~1.01 s (no throttling), `visibilityState` visible, a SillyTavern event while covered produced fresh `characters` + `recentChats`, no WebView in the accessibility tree, a tap on the list where SillyTavern's input sits doesn't reach the page; Chat: WebView in the accessibility tree, tap on the input opens the keyboard (`mInputShown=true`) with the input row right above it; landscape in Chat and on the list (no page visible in the cutout strip); 13 list → Chat → back round trips across Bob, Tide Pods, Seraphina and Jasper with on-device frame capture: no blank or half-drawn page frame (cover, then the settled chat — Bob ~1 s, Tide Pods ~1.5–2 s, Seraphina with images ~2.5 s), reopening the already-open chat is immediate, and a JS marker survived the whole session (no reload); 0 crashes
+- Not verified: pull to refresh by hand (covered by the ViewModel test; `refresh()` exercised through the bridge), the error banners on device (previews + Compose UI tests), a library with no characters, Advanced (still a placeholder)
+- Version `0.1.8` / `versionCode 9`
 
 ### 2026-11-17 — Docs: Compose UI tests going forward (branch `docs/compose-ui-tests`)
 

@@ -5,8 +5,10 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.tiffles.travelingtavern.data.remote.BasicAuthInterceptor
 import com.tiffles.travelingtavern.data.remote.OkHttpConnectionTester
+import com.tiffles.travelingtavern.data.repository.CharacterRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.ServerConfigRepositoryImpl
 import com.tiffles.travelingtavern.data.settings.settingsDataStore
+import com.tiffles.travelingtavern.domain.repository.CharacterRepository
 import com.tiffles.travelingtavern.domain.repository.ConnectionTester
 import com.tiffles.travelingtavern.domain.repository.ServerConfigRepository
 import dagger.Binds
@@ -27,6 +29,9 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindConnectionTester(impl: OkHttpConnectionTester): ConnectionTester
+
+    @Binds
+    abstract fun bindCharacterRepository(impl: CharacterRepositoryImpl): CharacterRepository
 
     companion object {
         @Provides

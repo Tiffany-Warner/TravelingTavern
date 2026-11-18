@@ -50,6 +50,9 @@ Fill the Chats and Characters tabs with real data from the JS bridge. **Chats** 
 
 ## Notes
 
+- **Verified (SillyTavern 1.19.0):** full-size avatar is `/characters/<URL-encoded avatar>`; the last message per chat comes from `POST /api/chats/recent` (`mes`, `last_mes`, `avatar`, `chat_items`; body `{ max }`), read through the bridge; character IDs are avatar file names. Details in the 1.6 entry of `current-feature.md`
+- **Decision:** the WebView is hosted once at the app shell (attached all session, covered by opaque tabs, hidden from accessibility, back handling only when revealed), not per screen
+- **Decision:** Chat in 1.6 is the start of 1.7's `ChatScreen` / `ChatViewModel` — Story mode only, top bar with back + avatar + name — so 1.7 extends it instead of replacing a placeholder
 - Later, data may come from a TravelingTavern-Bridge endpoint instead of the JS bridge. Keep the source behind `CharacterRepository` so swapping it doesn't touch the UI
 - SillyTavern character IDs are avatar file names **(verify)**
 

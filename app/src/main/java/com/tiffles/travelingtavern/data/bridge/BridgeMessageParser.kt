@@ -30,7 +30,9 @@ object BridgeMessageParser {
         return when (type) {
             "ready" -> BridgeMessage.Ready
             "characters" -> decode(obj, BridgeMessage.Characters.serializer())
+            "recentChats" -> decode(obj, BridgeMessage.RecentChats.serializer())
             "chatChanged" -> decode(obj, BridgeMessage.ChatChanged.serializer())
+            "chatOpened" -> decode(obj, BridgeMessage.ChatOpened.serializer())
             "messageReceived" -> decode(obj, BridgeMessage.MessageReceived.serializer())
             "error" -> decode(obj, BridgeMessage.Error.serializer())
             else -> BridgeMessage.Unknown(type)

@@ -26,6 +26,28 @@
     <string name="webview_error_outdated">Your Android System WebView is too old. Update it in the Play Store.</string>
     <string name="webview_retry">Retry</string>
     <string name="webview_server_settings">Server settings</string>
-    <string name="screen_chat">Chat: %1$s</string>
     <string name="screen_advanced">Advanced</string>
+
+    <string name="banner_unreachable">Can\'t reach your server</string>
+    <string name="banner_auth_failed">Login failed</string>
+
+    <string name="time_just_now">now</string>
+    <string name="time_minutes">%1$dm</string>
+    <string name="time_hours">%1$dh</string>
+    <string name="time_yesterday">Yesterday</string>
+
+    <string name="chats_empty">No chats yet.</string>
+    <string name="chats_browse_characters">Browse characters</string>
+
+    <string name="characters_search">Search characters</string>
+    <string name="characters_close_search">Close search</string>
+    <string name="characters_empty">No characters yet. Create or import one in SillyTavern.</string>
+    <string name="characters_open_full">Open full SillyTavern</string>
+    <string name="characters_no_matches">No characters match \"%1$s\".</string>
+    <string name="characters_add">Add character</string>
+    <string name="characters_create">Create character</string>
+    <string name="characters_import">Import card</string>
+    <string name="coming_soon">Coming soon</string>
+
+    <string name="chat_back">Back</string>
 </resources>

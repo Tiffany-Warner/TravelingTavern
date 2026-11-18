@@ -39,6 +39,7 @@
             chat: 'chat',
             selectCharacterById: 'selectCharacterById',
             getThumbnailUrl: 'getThumbnailUrl',
+            getRequestHeaders: 'getRequestHeaders',
         }),
         character: Object.freeze({
             id: 'avatar',
@@ -53,8 +54,33 @@
         }),
         thumbnailType: 'avatar',
 
+        /** Full-size avatar: this path + the URL-encoded avatar file name. */
+        fullAvatarPath: '/characters/',
+
+        /**
+         * POST endpoint behind SillyTavern's welcome-screen "Recent Chats": one row per chat
+         * file, newest first. Body `{ max }`. Needs getRequestHeaders() (CSRF token).
+         */
+        api: Object.freeze({
+            recentChats: '/api/chats/recent',
+            recentChatsMax: 100,
+        }),
+        /** Fields of one /api/chats/recent row. */
+        recentChat: Object.freeze({
+            characterId: 'avatar',
+            lastMessage: 'mes',
+            lastMessageAt: 'last_mes',
+            messageCount: 'chat_items',
+        }),
+
         /** selectCharacterById option: false opens the chat without the character editor panel. */
         selectOptions: Object.freeze({ switchMenu: false }),
+
+        /** DOM nodes the bridge reads. */
+        dom: Object.freeze({
+            /** The message list; its scroll position settles once a chat is fully drawn. */
+            chat: '#chat',
+        }),
 
         /** Body class that turns on clean-theme.css. */
         cleanClass: 'tt-clean',
