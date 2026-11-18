@@ -1,32 +1,46 @@
 # Current Feature
 
-Phase 1.7 — Chat Screen (EchoText Thread)
+Fix: hide EchoText's UI in the app until 1.7
 
 ## Status
 
-On hold — blocked on EchoText thread storage (the user's EchoText fork, a separate project)
+Completed
 
 ## Goals
 
-**Text is the chat** (option B, user, 2026-11-18): opening a character shows their EchoText thread full screen, one conversation per character, Kindroid-style. SillyTavern's main chat stays one tap away as **Story view** in the app bar's ⋮ menu. Switching never reloads the page or loses your place. The full plan (screen, route `view` argument, modes, EchoText availability, opening the thread, ViewModel, tests, device checks) is in the spec; the deliverables get written out here when 1.7 resumes.
+With EchoText installed, its UI covers SillyTavern's main chat inside the app. On a phone EchoText's window is full screen at the top z-index and reopens itself after every page load (`autoOpenOnReload` + `panelWasOpen`), so in the Chat screen the visible list is EchoText's and a tap where SillyTavern's input should be lands in EchoText's input (checked on the emulator, 0.1.11). Its floating button also floats over the chat and can cover the send button (and 1.7b's mic).
+
+Until 1.7 (blocked on EchoText thread storage), the app shows no EchoText UI.
+
+### Deliverables
+
+- `clean-theme.css`: hide everything EchoText puts in its portal while clean mode is on — `body.tt-clean ~ #et-portal > *` (window `#et-panel`, floating button `#et-fab`, its pop-ups and modals). The rule targets the portal's children because `#et-portal` itself carries an inline `display: block !important`, and it uses `~` because the portal sits outside `<body>` (see the 1.7 spec's Notes)
+- Desktop and Advanced (clean mode off) unchanged: EchoText shows as usual. EchoText keeps running in the page; nothing about its settings is changed
+- Selector listed in the stylesheet's header and in `st-selectors.js`'s CSS reference list
+- 1.7b spec: its `#et-fab` line now points to this fix
+- Version `0.1.12` / `versionCode 13`
 
 ## Notes
 
-- **On hold (2026-11-18):** EchoText keeps threads in SillyTavern's settings file, which every open page saves whole, so a desktop tab can erase messages sent from the phone. Confirmed with a two-page test (without the EchoText-Proactive plugin); from the plugin's code, its server messages also end up there through the page that polls them — to re-test with the plugin installed. Details in the spec's Notes ("Thread storage")
-- **Decision (2026-11-18, user):** the fix is the user's own fork of EchoText storing threads per thread — a separate project, not in this repo, no upstream PR; don't fork or change EchoText until the user has checked its license. Until then Chat stays as it is from 1.6 (main chat only). What waits and what can go ahead is in `project-schema.md` ("Blocked on EchoText Thread Storage")
-- **Direction changed (2026-11-18, user):** option B replaced the Text | Story tabs (spec rewritten by the user): no tab control or tab memory, `ChatChromeHeight` unchanged
-- Added to the spec from the review: Tethered / Untethered are two separate threads; no banner without EchoText (⋮ → Texting opens a sheet); unknown availability waits within the 3 s cap, then Story view. Duplicate proactive messages went to the Phase 2 notes; Chats list previews are planned as 1.7c
-- EchoText investigation done (selectors, opening, picking the character, availability, scroll keeping) — in the spec's Notes; one item left: scroll keeping on `#et-messages` once a thread exists
-- Group chats are out of scope (spec)
+- EchoText starts after SillyTavern's `APP_READY` (it fetches its own settings page first), so right after a page load its button and window may not exist yet; the rule applies as soon as they appear
+- With clean mode off, the floating button can still be hidden: EchoText hides it itself (`et-fab-hidden`) while its window is open
 
 ## References
 
-- @context/specs/phase1-7-chat-screen-spec.md
-- @context/specs/phase1-6-home-character-list-spec.md
+- @context/specs/phase1-7-chat-screen-spec.md (EchoText findings)
 - @context/specs/phase1-5-clean-theme-spec.md
-- EchoText: https://github.com/mattjaybe/SillyTavern-EchoText
 
 ## History
+
+### 2026-11-18 — Fix: hide EchoText's UI in the app until 1.7 (branch `fix/hide-echotext-in-app`)
+
+- **Cause:** with EchoText installed, its window — full screen on a phone, top z-index, reopened after every page load (`autoOpenOnReload` + `panelWasOpen`) — covered SillyTavern's main chat in the Chat screen: the visible list was EchoText's and a tap on the input landed in EchoText's input. Its floating button also floats over the chat
+- `clean-theme.css`: `body.tt-clean ~ #et-portal > * { display: none !important }` — EchoText's portal is a sibling of `<body>` and carries an inline `display: block !important`, so its children are hidden. EchoText keeps running; its settings are untouched. Selector listed in the stylesheet header and `st-selectors.js`
+- 1.7b spec: its `#et-fab` line now points to this fix
+- `./gradlew build` green (no unit-testable code changed)
+- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 with EchoText 1.2.6 over Tailscale (DevTools + screenshot): clean on → EchoText window and button `display: none`, the element at SillyTavern's input and send button is `#send_textarea` / `#send_but`; `setClean(false)` → EchoText's window back over the chat (Advanced and desktop unchanged); `setClean(true)` → hidden again; Bob's chat in the app shows the main chat and its input row with no EchoText UI
+- Not verified: the Pixel 8
+- Version `0.1.12` / `versionCode 13`
 
 ### 2026-11-18 — Fix: crash on start after reinstalling with a restored backup (branch `fix/keystore-restore-crash`)
 
