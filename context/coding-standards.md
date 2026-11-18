@@ -160,6 +160,12 @@ app/src/main/assets/web/
 
 - Unit tests for ViewModels and use cases (mockk, kotlinx-coroutines-test)
 - Unit tests for `BridgeMessage` parsing, including unknown and malformed messages
+- Compose UI tests (`app/src/androidTest/`, `createComposeRule`) for every new or changed native screen or component that has behavior worth guarding:
+  - Test the stateless `…Content` composable with a fixed `UiState` and fake callbacks — no Hilt, no ViewModel, no server
+  - Cover what the user can see and do: each state renders (loading, error, empty, content), taps call the right callback, buttons are enabled/disabled when they should be
+  - Find nodes by visible text or content description; add a `Modifier.testTag` only when neither identifies the node
+  - Skip composables that only lay things out, and the WebView host (manual testing below)
+  - Unit tests are fast and run before every merge (`./gradlew build`). Android tests are slow, so they are not run on feature merges into `dev` — only before each release (`dev` → `main`): `./gradlew connectedDebugAndroidTest` on an emulator or device (see Releasing to main in `ai-guidelines.md`; not run in CI — it needs an emulator)
 - WebView and bridge behavior is verified manually on device against the real server; note what was checked in the feature's history entry
 
 ## Code Quality

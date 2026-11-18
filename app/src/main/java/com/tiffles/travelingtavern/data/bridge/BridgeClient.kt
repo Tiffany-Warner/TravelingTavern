@@ -13,16 +13,26 @@ import javax.inject.Singleton
  */
 @Singleton
 class BridgeClient @Inject constructor(
-    private val holder: WebViewHolder
+    private val holder: WebViewHolder,
+    private val pageMode: PageModeStore
 ) {
     /** Asks the page to send a fresh `characters` message. */
     suspend fun requestCharacters() = run(BridgeScript.call("requestCharacters"))
 
-    /** Opens a character in SillyTavern by its avatar file name. */
+    /** Opens a character's chat in SillyTavern by its avatar file name. */
     suspend fun selectCharacter(id: String) = run(BridgeScript.call("selectCharacter", JsonPrimitive(id)))
 
-    /** Sets the page's `tt-mode-*` body class (1.5 / 1.7); an empty [mode] clears it. */
+    /** Sets the page's `tt-mode-*` body class (1.7); an empty [mode] clears it. */
     suspend fun setMode(mode: String) = run(BridgeScript.call("setMode", JsonPrimitive(mode)))
+
+    /**
+     * Turns the clean theme on or off (Advanced, 1.8). Remembered, so it is re-applied after
+     * every page reload.
+     */
+    suspend fun setCleanMode(enabled: Boolean) = withContext(Dispatchers.Main) {
+        pageMode.cleanMode = enabled
+        holder.webView.evaluateJavascript(BridgeScript.call("setClean", JsonPrimitive(enabled)), null)
+    }
 
     private suspend fun run(script: String) = withContext(Dispatchers.Main) {
         holder.webView.evaluateJavascript(script, null)

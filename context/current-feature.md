@@ -1,6 +1,6 @@
 # Current Feature
 
-Fix — WebView load timeout and status-bar strip
+Phase 1.5 — Clean Theme
 
 ## Status
 
@@ -8,27 +8,49 @@ Completed
 
 ## Goals
 
-Two problems found while testing 1.4 on the Pixel 8, both in the 1.3 WebView host.
+Inject a stylesheet that hides SillyTavern's settings clutter and makes the chat feel like a phone app — inside TravelingTavern only. Advanced (1.8) turns it off.
 
 ### Deliverables
 
-- **Load timeout:** if the server hasn't answered 15 s after a page load starts, stop the load and show the Unreachable overlay. Today a silently dropped connection (Tailscale off) leaves the spinner up for ~2 min until the WebView's own timeout. Applies to every main-page load (first load, Retry, reloads started by the page). Unit tests for the timer
-- **Status-bar strip:** during the loading and error states (dark theme) the strip behind the status bar is white and its icons are invisible. Find the cause and make it match the app background
-- Version bump to `0.1.6` / `versionCode 7`
+- `assets/web/clean-theme.css`: every rule under `body.tt-clean`, selector list at the top, mirrored in `st-selectors.js`
+- Injected after the bridge on every page load as `<style id="tt-clean-theme">`, Base64-encoded (UTF-8) and decoded in the page; replaced, never duplicated
+- `__ttBridge.setClean(enabled)` toggles `tt-clean`; `PageModeStore` remembers the setting (on by default) and re-applies it after each injection; `BridgeClient.setCleanMode()` for 1.8
+- Unit tests for the stylesheet encoding
+- Version bump to `0.1.7` / `versionCode 8`
 
 ## Notes
 
-- 15 s is a little longer than the Connect screen's 10 s test, since a full page load does more than one request
-- "Answered" means the WebView started rendering the server's response (`onPageCommitVisible`), not that SillyTavern finished loading — a slow but reachable server must not be cut off
+- **(verified on SillyTavern 1.19.0, live page via DevTools)** — every selector in `clean-theme.css` exists and was checked on the emulator: toolbar `#top-settings-holder` / `#top-bar`; drawer panels `#left-nav-panel`, `#rm_api_block`, `#AdvancedFormatting`, `#WorldInfo`, `#user-settings-block`, `#Backgrounds`, `#rm_extensions_block`, `#PersonaManagement`, `#right-nav-panel`; `#sheld` is offset by `--topBarBlockSize` (`top` + `height: calc(100dvh - …)`, overridden in `mobile-styles.css` under 1000 px); input row `#leftSendForm` (`#options_button`, `#extensionsMenuButton`) and `#rightSendForm` (`#microphone_button`, `#mes_stop`, `#send_but`), 35×35 by default
+- `#extensionTopBar` comes from the third-party **TopInfoBar** extension (chat name, search, new / rename / delete / close chat). Hidden in clean mode; chat management is the app's job
+- The spec says `setMode()` toggles `tt-clean`, but 1.4's `setMode` swaps `tt-mode-*` classes, and 1.7 needs clean mode and a tab mode at the same time — so clean mode got its own `setClean(enabled)`
+- Spec deviation: `selectCharacter` now passes `{ switchMenu: false }` to `selectCharacterById`, so opening a character from the app no longer opens SillyTavern's character editor on top of the chat (what the user hit in 1.4 testing)
+- Until Advanced exists (1.8), the app has no way to reach SillyTavern's settings — use the desktop browser for them
 
 ## References
 
-- @context/specs/phase1-3-webview-host-spec.md
+- @context/specs/phase1-5-clean-theme-spec.md
 - @context/coding-standards.md
 
 ## History
 
+### 2026-11-17 — Docs: Compose UI tests going forward (branch `docs/compose-ui-tests`)
+
+- `coding-standards.md` → Testing: new and changed native Compose screens/components with real behavior get Compose UI tests in `androidTest` (stateless `…Content` composable, fixed `UiState`, fake callbacks; states render, taps call the right callback, enabled/disabled rules). Layout-only composables and the WebView host are exempt; WebView/bridge stays manual on device
+- Unit tests (fast) still run before every commit and merge via `./gradlew build` — now stated explicitly in the workflow's Test step. Android tests (slow) run only before each release: `ai-guidelines.md` → Releasing to main has a new step 2 (run `./gradlew connectedDebugAndroidTest` on an emulator or device, note the result in the PR)
+- `CLAUDE.md`: added `./gradlew connectedDebugAndroidTest`. Not in CI (would need an emulator runner); no tests backfilled for existing screens
+- Dependencies were already present (`ui-test-junit4`, `ui-test-manifest`), so no build changes and no version bump
+
 <!-- Completed work is added here, newest last -->
+
+### 2026-11-17 — Phase 1.5 Clean Theme (branch `feature/clean-theme`)
+
+- `clean-theme.css` (all rules under `body.tt-clean`, colors left to SillyTavern's theme): hides the top toolbar and all nine drawer panels, the TopInfoBar chat bar, and the in-chat `.drawer-opener` shortcut buttons (they would open hidden drawers); `#sheld` fills the viewport (`top: 0`, `100dvh`); message text and input at least 16px (`max(16px, var(--mainFontSize))`); input-row buttons at least 48×48 without touching their `display`, so `#mes_stop` stays hidden until a generation runs
+- Bridge: `setClean(enabled)`, `installStyle(id, base64)` (UTF-8 via `TextDecoder`, replaces an existing tag); `selectCharacter` opens the chat without the character editor (`switchMenu: false`). Kotlin: `BridgeScript.installStyle`, `PageModeStore` (clean on by default), `BridgeInstaller` injects the stylesheet + current mode after the bridge on every page load, `BridgeClient.setCleanMode()`
+- Unit tests: 2 new in `BridgeScriptTest` (Base64 round-trip with quotes, backslashes, newlines and unicode; only Base64-safe characters in the script); `./gradlew build` green
+- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 over Tailscale (DevTools + screenshots): cold start → `tt-clean` on, toolbar and TopInfoBar hidden, `#sheld` at the top and full height, all four input buttons 48×48, messages 16px, one style tag; welcome screen without the drawer shortcuts; opening Bob through the bridge shows his chat directly (character panel stays closed); `setClean(false)` brings back the full UI, `setClean(true)` hides it again; `location.reload()` re-applies clean mode with still one style tag
+- First pass bug fixed during verification: forcing `display: flex` on the input buttons made the hidden stop button appear
+- Not verified on device: `BridgeClient.setCleanMode` from Kotlin (no caller until 1.8; the JS it calls was exercised), the Pixel 8, a light SillyTavern theme
+- Version `0.1.7` / `versionCode 8`
 
 ### 2026-11-17 — Fix: WebView load timeout and status-bar strip (branch `fix/webview-load-timeout`)
 

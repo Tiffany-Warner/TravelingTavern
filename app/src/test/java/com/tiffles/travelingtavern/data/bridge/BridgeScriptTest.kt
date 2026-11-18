@@ -2,10 +2,12 @@ package com.tiffles.travelingtavern.data.bridge
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
+import java.util.Base64
 
 class BridgeScriptTest {
 
@@ -57,6 +59,28 @@ class BridgeScriptTest {
         assertFalse(script.contains(' '))
         assertFalse(script.contains(' '))
         assertEquals(id, roundTrip(id))
+    }
+
+    @Test
+    fun `stylesheet travels as base64 that decodes back to the exact css`() {
+        val css = "body.tt-clean #chat::before { content: \"it's \\ fine\"; }\n/* ünïcode — ✓ */\n"
+        val script = BridgeScript.installStyle("tt-clean-theme", css)
+
+        val args = Json.parseToJsonElement(
+            "[" + script.removePrefix("window.__ttBridge && window.__ttBridge.installStyle(").removeSuffix(");") + "]"
+        ).jsonArray
+        val decoded = String(Base64.getDecoder().decode(args[1].jsonPrimitive.content), Charsets.UTF_8)
+
+        assertEquals("tt-clean-theme", args[0].jsonPrimitive.content)
+        assertEquals(css, decoded)
+    }
+
+    @Test
+    fun `base64 argument contains only safe characters`() {
+        val script = BridgeScript.installStyle("tt-clean-theme", "a { b: \"c\" }\n'quote' \\ backslash")
+        val encoded = script.substringAfter("\"tt-clean-theme\",\"").substringBefore("\");")
+
+        assertEquals(true, encoded.matches(Regex("^[A-Za-z0-9+/=]+$")))
     }
 
     @Test(expected = IllegalArgumentException::class)

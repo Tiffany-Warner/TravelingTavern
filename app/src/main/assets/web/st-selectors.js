@@ -52,5 +52,28 @@
             originalAvatar: 'original_avatar',
         }),
         thumbnailType: 'avatar',
+
+        /** selectCharacterById option: false opens the chat without the character editor panel. */
+        selectOptions: Object.freeze({ switchMenu: false }),
+
+        /** Body class that turns on clean-theme.css. */
+        cleanClass: 'tt-clean',
+
+        // DOM ids used by clean-theme.css (CSS can't import names from here, so they are
+        // listed for reference; keep both files in sync):
+        //   #top-bar, #top-settings-holder        top toolbar
+        //   #left-nav-panel                       drawer: AI response configuration
+        //   #rm_api_block                         drawer: API connections
+        //   #AdvancedFormatting                   drawer: advanced formatting
+        //   #WorldInfo                            drawer: World Info
+        //   #user-settings-block                  drawer: user settings
+        //   #Backgrounds                          drawer: backgrounds
+        //   #rm_extensions_block                  drawer: extensions
+        //   #PersonaManagement                    drawer: persona management
+        //   #right-nav-panel                      drawer: character management
+        //   #extensionTopBar                      TopInfoBar extension's chat bar
+        //   #chat .drawer-opener                  in-chat shortcut buttons that open a drawer
+        //   #sheld, #chat, .mes_text              chat column, message list, message text
+        //   #send_textarea, #leftSendForm, #rightSendForm   message input row
     });
 })();
