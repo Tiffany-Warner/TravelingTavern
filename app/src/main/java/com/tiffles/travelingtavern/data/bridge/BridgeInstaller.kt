@@ -5,6 +5,7 @@ import android.util.Log
 import android.webkit.WebView
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.tiffles.travelingtavern.domain.repository.SpeechInputRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.json.JsonPrimitive
 import javax.inject.Inject
@@ -19,7 +20,8 @@ import javax.inject.Singleton
 class BridgeInstaller @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val repository: BridgeRepository,
-    private val pageMode: PageModeStore
+    private val pageMode: PageModeStore,
+    private val speech: SpeechInputRepository
 ) {
     private var registeredOrigin: String? = null
 
@@ -53,14 +55,16 @@ class BridgeInstaller @Inject constructor(
     }
 
     /**
-     * Runs st-selectors.js and bridge.js, installs the clean theme, and applies the current
-     * clean-mode setting. Safe to run twice: the scripts guard themselves and the style tag
-     * is replaced, not duplicated.
+     * Runs st-selectors.js and bridge.js, installs the clean theme, applies the current
+     * clean-mode setting and adds the mic button if voice input is available. Safe to run
+     * twice: the scripts guard themselves, the style tag is replaced and the mic button is
+     * added only once.
      */
     fun injectScripts(view: WebView) {
         if (!isSupported) return
         val applyMode = BridgeScript.call("setClean", JsonPrimitive(pageMode.cleanMode))
-        view.evaluateJavascript(scripts + "\n" + applyMode, null)
+        val applyVoice = BridgeScript.call("setVoiceInputAvailable", JsonPrimitive(speech.isAvailable()))
+        view.evaluateJavascript(scripts + "\n" + applyMode + "\n" + applyVoice, null)
     }
 
     fun onPageStarted() = repository.onPageStarted()

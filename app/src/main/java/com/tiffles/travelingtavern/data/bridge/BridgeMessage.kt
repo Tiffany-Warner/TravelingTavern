@@ -54,6 +54,13 @@ sealed interface BridgeMessage {
     @Serializable
     data class TokenCount(val requestId: String, val count: Int) : BridgeMessage
 
+    /**
+     * The in-page mic button was tapped. [target] is `story` (SillyTavern's main chat) or
+     * `text` (EchoText's input, from 1.7); anything else is ignored by the receiver.
+     */
+    @Serializable
+    data class MicPressed(val target: String) : BridgeMessage
+
     @Serializable
     data class Error(val message: String) : BridgeMessage
 

@@ -202,4 +202,17 @@ class BridgeMessageParserTest {
         assertNull(parse("""{"v":1,"type":"lorebookResult","ok":true}"""))
         assertNull(parse("""{"v":1,"type":"tokenCount","requestId":"lb5","count":"many"}"""))
     }
+
+    @Test
+    fun `mic presses for both targets`() {
+        assertEquals(BridgeMessage.MicPressed("story"), parse("""{"v":1,"type":"micPressed","target":"story"}"""))
+        assertEquals(BridgeMessage.MicPressed("text"), parse("""{"v":1,"type":"micPressed","target":"text"}"""))
+    }
+
+    @Test
+    fun `mic press with an unknown target is kept for the receiver to ignore, without one it's dropped`() {
+        assertEquals(BridgeMessage.MicPressed("sidebar"), parse("""{"v":1,"type":"micPressed","target":"sidebar"}"""))
+        assertNull(parse("""{"v":1,"type":"micPressed"}"""))
+        assertNull(parse("""{"v":1,"type":"micPressed","target":3}"""))
+    }
 }

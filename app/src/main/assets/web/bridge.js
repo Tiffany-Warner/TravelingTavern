@@ -488,7 +488,82 @@
         setTimeout(function () { waitForSillyTavern(startedAt); }, READY_POLL_MS);
     }
 
-    window.__ttBridge = Object.freeze(Object.assign({}, lorebookActions, {
+    // ---- Voice input (1.7b): the app's mic button, and filling the chat input with what the
+    // phone recognized. Recognition itself runs natively; the page only shows the text.
+
+    const MIC_ID = 'tt-mic';
+    const MIC_LISTENING_CLASS = 'tt-mic-listening';
+    let voiceInput = null;
+    let voiceBase = '';
+
+    /** The input a mic target fills. Only the main chat in 1.7b; 'text' (EchoText) comes with 1.7. */
+    function inputFor(target) {
+        return target === 'story' ? document.querySelector(S.dom.sendTextarea) : null;
+    }
+
+    /** Sets the input's text the way SillyTavern does itself, so it resizes and saves the draft. */
+    function setInputText(input, text) {
+        input.value = text;
+        input.dispatchEvent(new Event(S.inputEvent, { bubbles: true }));
+    }
+
+    function addMicButton() {
+        if (document.getElementById(MIC_ID)) return;
+        const row = document.querySelector(S.dom.rightSendForm);
+        if (!row) return;
+        const mic = document.createElement('div');
+        mic.id = MIC_ID;
+        mic.className = S.micButtonClasses;
+        mic.title = 'Voice input';
+        mic.setAttribute('role', 'button');
+        mic.setAttribute('aria-label', 'Voice input');
+        mic.addEventListener('click', function () { post('micPressed', { target: 'story' }); });
+        row.insertBefore(mic, row.querySelector(S.dom.sendButton));
+    }
+
+    function setMicListening(listening) {
+        const mic = document.getElementById(MIC_ID);
+        if (mic) mic.classList.toggle(MIC_LISTENING_CLASS, listening);
+    }
+
+    const voiceActions = {
+        /** Adds the mic button next to send, or removes it when voice input isn't available. */
+        setVoiceInputAvailable: function (available) {
+            if (available === true) {
+                addMicButton();
+                return;
+            }
+            const mic = document.getElementById(MIC_ID);
+            if (mic) mic.remove();
+        },
+
+        /** Remembers [target]'s current text; recognized text is added after it. */
+        beginVoiceInput: function (target) {
+            voiceInput = inputFor(target);
+            voiceBase = voiceInput ? voiceInput.value : '';
+            setMicListening(voiceInput !== null);
+        },
+
+        /** Shows [text] (everything recognized so far) after the remembered text. */
+        updateVoiceInput: function (text) {
+            if (!voiceInput) return;
+            const gap = voiceBase && text && !/\s$/.test(voiceBase) ? ' ' : '';
+            setInputText(voiceInput, voiceBase + gap + String(text));
+        },
+
+        /** Leaves the text in place and puts the cursor after it, ready to review and send. */
+        endVoiceInput: function () {
+            setMicListening(false);
+            const input = voiceInput;
+            voiceInput = null;
+            voiceBase = '';
+            if (!input) return;
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+        },
+    };
+
+    window.__ttBridge = Object.freeze(Object.assign({}, lorebookActions, voiceActions, {
         requestCharacters: sendCharacters,
         requestRecentChats: sendRecentChats,
 

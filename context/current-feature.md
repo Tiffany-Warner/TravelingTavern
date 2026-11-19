@@ -1,6 +1,6 @@
 # Current Feature
 
-Fix: hide EchoText's UI in the app until 1.7
+Phase 1.7b — Voice Input
 
 ## Status
 
@@ -8,29 +8,45 @@ Completed
 
 ## Goals
 
-With EchoText installed, its UI covers SillyTavern's main chat inside the app. On a phone EchoText's window is full screen at the top z-index and reopens itself after every page load (`autoOpenOnReload` + `panelWasOpen`), so in the Chat screen the visible list is EchoText's and a tap where SillyTavern's input should be lands in EchoText's input (checked on the emulator, 0.1.11). Its floating button also floats over the chat and can cover the send button (and 1.7b's mic).
-
-Until 1.7 (blocked on EchoText thread storage), the app shows no EchoText UI.
+A mic button next to the main chat's send button. Tapping it starts Android's **on-device** speech recognizer; the words appear in SillyTavern's input as you speak, pauses of a few seconds don't end recording, and you review and send yourself. No audio leaves the phone. Main chat only — the EchoText input gets the same mic when 1.7 resumes (`target: "text"` reserved).
 
 ### Deliverables
 
-- `clean-theme.css`: hide everything EchoText puts in its portal while clean mode is on — `body.tt-clean ~ #et-portal > *` (window `#et-panel`, floating button `#et-fab`, its pop-ups and modals). The rule targets the portal's children because `#et-portal` itself carries an inline `display: block !important`, and it uses `~` because the portal sits outside `<body>` (see the 1.7 spec's Notes)
-- Desktop and Advanced (clean mode off) unchanged: EchoText shows as usual. EchoText keeps running in the page; nothing about its settings is changed
-- Selector listed in the stylesheet's header and in `st-selectors.js`'s CSS reference list
-- 1.7b spec: its `#et-fab` line now points to this fix
-- Version `0.1.12` / `versionCode 13`
+- **Investigation (first):** main chat input / send selectors, the event(s) that make programmatic text count as typing, the Speech Recognition extension's mic selector, and whether the Pixel 8's on-device recognizer honours the silence-length extras (needs the user speaking to the phone). Findings in the spec's Notes, names in `st-selectors.js`
+- **Speech (`data/speech/`):** `OnDeviceSpeechInput` around `SpeechRecognizer.createOnDeviceSpeechRecognizer` (main thread, partial results, default language, `listen(): Flow<SpeechEvent>`, released on cancel); never a cloud fallback
+- **Domain:** `SpeechEvent`, `SpeechError`, `SpeechInputRepository`, `IsVoiceInputAvailableUseCase`, `ListenForSpeechUseCase` (pause handling: restart passes, committed text, `PAUSE_TOLERANCE_MS = 4000`, `NoMatch` on a restart isn't an error)
+- **Bridge:** `#tt-mic` next to the main chat's send button (clean mode only, not added when unavailable, 48dp, accent only while listening); `micPressed { target }`; `setVoiceInputAvailable`, `beginVoiceInput`, `updateVoiceInput`, `endVoiceInput`; `BridgeMessage.MicPressed`; hide the Speech Recognition extension's mic under `body.tt-clean`
+- **Chat:** `ChatViewModel` voice state (`Idle` / `Listening` / `Unavailable`), `RECORD_AUDIO` request, tap to start / stop, append on a second session, stop when leaving Chat or going to the background; snackbars for `PermissionDenied` (+ Settings), `LanguagePackMissing`, `NoMatch`
+- **Tests:** parser (`micPressed`), `BridgeClient` escaping, `ChatViewModel` voice states, pause handling with a fake repository and test clock; Compose UI test for the snackbars
+- Version `0.1.13` / `versionCode 14`
 
 ## Notes
 
-- EchoText starts after SillyTavern's `APP_READY` (it fetches its own settings page first), so right after a page load its button and window may not exist yet; the rule applies as soon as they appear
-- With clean mode off, the floating button can still be hidden: EchoText hides it itself (`et-fab-hidden`) while its window is open
+- The emulator reports on-device recognition but has no English speech pack, so speech itself was tested on the Pixel 8 by the user. Everything else was checked on the emulator first
+- Findings (input row, typing event, extension mic, pass behaviour on the Pixel, cold start, spoken punctuation) are in the spec's Notes
+- Not in the spec, added: a generic "Voice input stopped. Try again." for `Busy` / `Other` errors; the theme's inverse colours (snackbar action was Material's default purple)
 
 ## References
 
-- @context/specs/phase1-7-chat-screen-spec.md (EchoText findings)
-- @context/specs/phase1-5-clean-theme-spec.md
+- @context/specs/phase1-7b-voice-input-spec.md
+- @context/specs/phase1-4-js-bridge-spec.md
+- @context/specs/phase1-6-home-character-list-spec.md
 
 ## History
+
+### 2026-11-18 — Phase 1.7b Voice Input (branch `feature/voice-input`)
+
+- Speech: `OnDeviceSpeechInput` (`SpeechRecognizer.createOnDeviceSpeechRecognizer`, main thread, partial results, silence-length extras at 4 s, prefer offline, one recognizer per pass, released on cancel; `triggerModelDownload` when the speech pack is missing); `AndroidMicrophonePermission`. Never a cloud recognizer
+- Domain: `SpeechEvent`, `SpeechError`, `VoiceSessionEvent`, `ChatInputTarget`; `SpeechInputRepository`, `ChatInputRepository`, `MicrophonePermission`; `IsVoiceInputAvailableUseCase`, `ListenForSpeechUseCase` (passes back to back, committed text + current partial, watchdog ends the session after `PAUSE_TOLERANCE_MS = 4000` without a new word — counted from when the recognizer is listening, 10 s start cap; `NoMatch` on a restart isn't an error; 250 ms back-off for passes that never start)
+- Bridge: `#tt-mic` before `#send_but` (row's own icon classes, 48 × 48, added only when on-device recognition is available, re-added after every page load), `micPressed { target: "story" }` (`"text"` reserved for 1.7), `setVoiceInputAvailable` / `beginVoiceInput` / `updateVoiceInput` / `endVoiceInput` (value + bubbling `input` event, as SillyTavern does itself; cursor at the end); `BridgeMessage.MicPressed`; `ChatInputRepositoryImpl`. `clean-theme.css`: extension mic `#microphone_button` hidden in clean mode, `#tt-mic` hidden outside it, `--SmartThemeQuoteColor` while listening. New names in `st-selectors.js`
+- Chat: `ChatViewModel` voice state (`Idle` / `Listening` / `Unavailable`), tap to start / stop, `RECORD_AUDIO` request, stop on leaving Chat and on `ON_STOP`, page mic always reset; snackbars for `PermissionDenied` (+ Settings → app details), `LanguagePackMissing`, `NoMatch`, and a generic failure. Theme: `inversePrimary` / `inverseSurface` / `inverseOnSurface` set (snackbar action amber, not Material purple)
+- Unit tests: `ListenForSpeechUseCaseTest` (7: 2 s pause joins, 5 s pause ends, `NoMatch` on restart, nothing heard, other errors, back-off, slow start), `ChatViewModelTest` +7, `BridgeMessageParserTest` +2, `BridgeScriptTest` +1 (quotes, backslashes, newlines, emoji, U+2028/2029); `./gradlew build` green (150 unit tests). Compose UI tests: `ChatContentTest` (4); the user's connected run (Pixel 8 and emulator) passed 20 of 22 — the 2 failures were `LorebooksContentTest` (1.6b) matching both the Global chip and a card's Global status line, fixed in a separate commit; afterwards 22 / 22 on Medium_Phone_API_35. The run uninstalled the app from the Pixel (now noted in `ai-guidelines.md` → Releasing to main)
+- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 over Tailscale: input-row selectors and the `input` event (box grows and shrinks, nothing sent); mic before send at 48 × 48, extension mic hidden; permission prompt → Don't allow → snackbar with an amber Settings action → app details page; second refusal goes straight to the snackbar; missing speech pack → listening, then idle, and the system's own "Download English (US) update" dialog (declined); one start-up ANR on the first launch after install (main thread in Compose's first composition during class verification on a memory-starved emulator; not reproduced on later starts or on the Pixel)
+- Verified on the Pixel 8: mic present, extension mic hidden, permission granted ("While using the app"), silent session ends 4 s after the recognizer is listening; **user test: dictation works, pauses don't end it, "a lot better than the browser version"**; recognizer log: passes of 16 s and 15 s through pauses with a ~0.75 s restart gap; spoken punctuation ("period", "exclamation mark") comes out as words
+- Found and fixed on the Pixel: the pause tolerance ran from the tap, so a 2.4 s cold start left ~1.6 s to start talking
+- Advanced doesn't exist until 1.8; checked instead on the emulator by turning clean mode off through the bridge: `#tt-mic` hidden and the extension's mic back, and the reverse when it's turned on again
+- Not verified: airplane mode with Tailscale off (on-device proof)
+- Version `0.1.13` / `versionCode 14`
 
 ### 2026-11-18 — Fix: hide EchoText's UI in the app until 1.7 (branch `fix/hide-echotext-in-app`)
 

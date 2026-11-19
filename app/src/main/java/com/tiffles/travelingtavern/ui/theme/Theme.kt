@@ -34,7 +34,11 @@ private val DarkColorScheme = darkColorScheme(
     surfaceContainer = SurfaceContainerDark,
     surfaceContainerHigh = SurfaceContainerHighDark,
     outline = OutlineDark,
-    outlineVariant = OutlineVariantDark
+    outlineVariant = OutlineVariantDark,
+    // Snackbars use the inverse roles: the light theme's values, so their action stays amber.
+    inverseSurface = SurfaceContainerHighLight,
+    inverseOnSurface = OnSurfaceLight,
+    inversePrimary = AmberLight
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -60,7 +64,11 @@ private val LightColorScheme = lightColorScheme(
     surfaceContainer = SurfaceContainerLight,
     surfaceContainerHigh = SurfaceContainerHighLight,
     outline = OutlineLight,
-    outlineVariant = OutlineVariantLight
+    outlineVariant = OutlineVariantLight,
+    // Snackbars use the inverse roles: the dark theme's values, so their action stays amber.
+    inverseSurface = SurfaceContainerHighDark,
+    inverseOnSurface = OnSurfaceDark,
+    inversePrimary = AmberDark
 )
 
 /**
