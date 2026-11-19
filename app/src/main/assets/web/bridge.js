@@ -42,22 +42,45 @@
         return ctx[S.context.characters] || [];
     }
 
+    /**
+     * [path] as an absolute URL that changes when the card file does. The app's image cache
+     * keys on the URL, and a new picture keeps the same file name. The server ignores it.
+     */
+    function versionedUrl(path, changedAt) {
+        const url = new URL(path, location.href);
+        if (changedAt > 0) url.searchParams.set('tt_v', String(Math.floor(changedAt)));
+        return url.href;
+    }
+
     function toSummary(ctx, character) {
         const id = character[S.character.id];
         const thumbnail = ctx[S.context.getThumbnailUrl](S.thumbnailType, id);
         const lastChat = Number(character[S.character.lastChatAt]);
+        const changedAt = Number(character[S.character.changedAt]);
         return {
             id: id,
             name: character[S.character.name] || '',
-            avatarUrl: new URL(thumbnail, location.href).href,
-            fullAvatarUrl: new URL(S.fullAvatarPath + encodeURIComponent(id), location.href).href,
+            avatarUrl: versionedUrl(thumbnail, changedAt),
+            fullAvatarUrl: versionedUrl(S.fullAvatarPath + encodeURIComponent(id), changedAt),
             lastChatAt: lastChat > 0 ? Math.floor(lastChat) : null,
         };
     }
 
-    function sendCharacters() {
+    /**
+     * Posts `characters`. With [fromServer] (a pull to refresh), first has SillyTavern re-read
+     * its list from the server, so changes made elsewhere (e.g. a new avatar on the desktop)
+     * show up. Reselecting the open character there doesn't reload its chat.
+     */
+    async function sendCharacters(fromServer) {
         const ctx = context();
         if (!ctx) return;
+        if (fromServer === true) {
+            try {
+                await ctx[S.context.getCharacters]();
+            } catch (e) {
+                postError('getCharacters failed: ' + e);
+            }
+        }
         const items = characterList(ctx)
             .filter(function (c) { return c && c[S.character.id]; })
             .map(function (c) { return toSummary(ctx, c); });
@@ -564,7 +587,9 @@
     };
 
     window.__ttBridge = Object.freeze(Object.assign({}, lorebookActions, voiceActions, {
-        requestCharacters: sendCharacters,
+        requestCharacters: function (fromServer) {
+            sendCharacters(fromServer === true);
+        },
         requestRecentChats: sendRecentChats,
 
         /**

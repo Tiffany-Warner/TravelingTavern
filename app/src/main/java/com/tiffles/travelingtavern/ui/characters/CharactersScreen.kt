@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +67,7 @@ fun CharactersScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val query by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val gridState = rememberLazyGridState()
 
     OnTabReselected(TopLevelTab.CHARACTERS) { gridState.animateScrollToItem(0) }
@@ -79,6 +81,8 @@ fun CharactersScreen(
         onRetry = viewModel::retry,
         onOpenServerSettings = onOpenServerSettings,
         modifier = modifier,
+        isRefreshing = isRefreshing,
+        onRefresh = viewModel::refresh,
         gridState = gridState
     )
 }
@@ -94,6 +98,8 @@ fun CharactersContent(
     onRetry: () -> Unit,
     onOpenServerSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
     gridState: LazyGridState = rememberLazyGridState()
 ) {
     // Saveable so the open search survives tab switches and rotation, like the query does.
@@ -127,6 +133,8 @@ fun CharactersContent(
                 onOpenAdvanced = onOpenAdvanced,
                 onRetry = onRetry,
                 onOpenServerSettings = onOpenServerSettings,
+                isRefreshing = isRefreshing,
+                onRefresh = onRefresh,
                 gridState = gridState
             )
         }
@@ -170,6 +178,7 @@ private fun CharactersTopBar(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CharactersBody(
     uiState: CharactersUiState,
@@ -177,6 +186,8 @@ private fun CharactersBody(
     onOpenAdvanced: () -> Unit,
     onRetry: () -> Unit,
     onOpenServerSettings: () -> Unit,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
     gridState: LazyGridState
 ) {
     when (uiState) {
@@ -203,7 +214,9 @@ private fun CharactersBody(
                 modifier = Modifier.fillMaxWidth().padding(16.dp)
             )
         } else {
-            CharacterGrid(characters = uiState.characters, onCharacterClick = onCharacterClick, gridState = gridState)
+            PullToRefreshBox(isRefreshing = isRefreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
+                CharacterGrid(characters = uiState.characters, onCharacterClick = onCharacterClick, gridState = gridState)
+            }
         }
     }
 }

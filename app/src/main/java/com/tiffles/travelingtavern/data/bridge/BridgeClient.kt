@@ -20,8 +20,9 @@ class BridgeClient @Inject constructor(
     private val holder: WebViewHolder,
     private val pageMode: PageModeStore
 ) {
-    /** Asks the page to send a fresh `characters` message. */
-    suspend fun requestCharacters() = run(BridgeScript.call("requestCharacters"))
+    /** Asks for a fresh `characters` message; [fromServer] re-reads the list from the server first. */
+    suspend fun requestCharacters(fromServer: Boolean) =
+        run(BridgeScript.call("requestCharacters", JsonPrimitive(fromServer)))
 
     /** Asks the page to send a fresh `recentChats` message. */
     suspend fun requestRecentChats() = run(BridgeScript.call("requestRecentChats"))

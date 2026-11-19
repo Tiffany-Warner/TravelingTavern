@@ -35,7 +35,7 @@ class CharacterRepositoryImpl @Inject constructor(
             // Subscribe before asking, so a fast answer can't slip past.
             bridge.messages
                 .onSubscription {
-                    client.requestCharacters()
+                    client.requestCharacters(fromServer = true)
                     client.requestRecentChats()
                 }
                 .first { it is BridgeMessage.RecentChats || it is BridgeMessage.Error }
