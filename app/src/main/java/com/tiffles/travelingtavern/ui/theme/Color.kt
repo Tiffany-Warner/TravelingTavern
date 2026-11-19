@@ -39,3 +39,7 @@ val OnSurfaceDark = Color(0xFFF5F5F5)
 val OnSurfaceVariantDark = Color(0xFFA3A3A3)
 val OutlineDark = Color(0xFF525252)
 val OutlineVariantDark = Color(0xFF333333)
+
+// Text on the dark scrim over a character portrait — the image is the same in both themes,
+// so this is too.
+val OnImageScrim = Color(0xFFFFFFFF)

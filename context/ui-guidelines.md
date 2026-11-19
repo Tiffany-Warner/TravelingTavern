@@ -33,7 +33,7 @@ The look is **quiet and simple**: neutral surfaces, one accent color, and the ch
 
 ## Navigation
 
-- **Bottom navigation bar** with three tabs: **Chats**, **Characters**, **Me**
+- **Bottom navigation bar** with four tabs: **Chats**, **Characters**, **Lorebooks**, **Me** (Me stays last)
 - Never ship a placeholder tab
 - Icons with short labels, labels always shown
 - Bottom bar is hidden on full-screen destinations: Chat, Advanced, Connect, creator flows
@@ -42,7 +42,9 @@ The look is **quiet and simple**: neutral surfaces, one accent color, and the ch
 ## Common Patterns
 
 - **Lists:** avatar (48dp, round) + name + one line of secondary text + trailing timestamp or dot. No dividers; spacing separates rows
-- **Grids:** portrait cards (2 columns, 3:4 ratio), name over a subtle bottom scrim on the image
+- **Grids:** portrait cards (2 columns, 3:4 ratio), name over a subtle bottom scrim
+- **Item grids** (things without a portrait, e.g. lorebooks): 2 columns, surface card with 16dp corners and no border, a 4:3 neutral cover tile with an icon, then name and one or two lines of secondary text below. One tap target per card
+- **Filter chips:** single-select row under the app bar; the selected chip uses the accent container. Filters and search text survive tab switches on the image
 - **Primary action per screen:** one FAB or one filled button, never both
 - **Empty states:** one short sentence + one action button, no illustrations for now
 - **Errors:** inline banner at the top of the content ("Can't reach your server — Retry"), not dialogs. Connection status is not shown at all when things are working
@@ -57,6 +59,7 @@ Where each core feature lives in the app:
 |---|---|
 | Recent conversations | **Chats** tab (default) |
 | Character library | **Characters** tab — one library, since characters live in SillyTavern |
+| Lorebooks (World Info) | **Lorebooks** tab — browse, filter, create and delete lorebooks; edit entries |
 | Create a character | FAB on Characters → sheet: Create / Import |
 | Settings and profile | **Me** tab — persona, appearance, notifications, server, Advanced |
 | Connection status | Nothing when connected; a banner only when disconnected |

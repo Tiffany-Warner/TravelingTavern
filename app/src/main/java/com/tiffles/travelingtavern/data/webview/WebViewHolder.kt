@@ -137,7 +137,9 @@ class WebViewHolder @Inject constructor(
     /**
      * Loads the saved server when the WebView is created and again only if its URL changes.
      * A settings change while the page is in an error state also retries, so fixing the
-     * login on Connect recovers without a manual Retry.
+     * login on Connect recovers without a manual Retry. So does saving the *same* settings
+     * again (which changes nothing in the store): with the page in an error state, Save on
+     * Connect means "try this server now".
      */
     private fun observeServerConfig(view: WebView) {
         scope.launch {
@@ -146,6 +148,14 @@ class WebViewHolder @Inject constructor(
                 credentials = repository.credentials()
                 val baseUrl = config?.baseUrl ?: return@collect
                 if (baseUrl != loadedBaseUrl || pageState.value is PageState.Error) load(view, baseUrl)
+            }
+        }
+        scope.launch {
+            repository.saves.collect {
+                // Read the store, not serverBaseUrl: this can arrive before the observer above
+                // has seen a changed address. load() records it, so the observer won't load twice.
+                val baseUrl = repository.baseUrl() ?: return@collect
+                if (pageState.value is PageState.Error) load(view, baseUrl)
             }
         }
     }

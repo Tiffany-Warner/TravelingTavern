@@ -1,12 +1,19 @@
 package com.tiffles.travelingtavern.ui.navigation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -14,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraphBuilder
@@ -27,15 +35,29 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.tiffles.travelingtavern.ui.advanced.AdvancedScreen
 import com.tiffles.travelingtavern.ui.characters.CharactersScreen
+import com.tiffles.travelingtavern.ui.chat.ChatChromeHeight
 import com.tiffles.travelingtavern.ui.chat.ChatScreen
 import com.tiffles.travelingtavern.ui.chats.ChatsScreen
+import com.tiffles.travelingtavern.ui.components.SillyTavernWebView
 import com.tiffles.travelingtavern.ui.connect.ConnectScreen
+import com.tiffles.travelingtavern.ui.lorebooks.LorebookDetailScreen
+import com.tiffles.travelingtavern.ui.lorebooks.LorebookEntryScreen
+import com.tiffles.travelingtavern.ui.lorebooks.LorebooksScreen
 import com.tiffles.travelingtavern.ui.me.MeScreen
 
 /**
- * The app shell: a bottom navigation bar over three tab graphs, plus full-screen
- * destinations (Connect, Chat, Advanced) that hide the bar. The bar also hides while
+ * The app shell: a bottom navigation bar over four tab graphs, plus full-screen
+ * destinations (Connect, Chat, Advanced, lorebook detail and entry) that hide the bar. The bar also hides while
  * the keyboard is open.
+ *
+ * The one SillyTavern WebView lives here, behind everything, attached for the whole session
+ * so the JS bridge keeps feeding the tabs. Every destination except Chat covers it with an
+ * opaque surface; Chat is transparent below its top bar, which reveals the page.
+ *
+ * The WebView always has Chat's geometry (below the status bar and Chat's top bar, above
+ * the navigation bar, clear of a display cutout), covered or not: resizing it makes SillyTavern lay out the whole page
+ * again, and the WebView paints nothing until it has — a visible blank on every tab ↔ Chat
+ * move. Only the keyboard resizes it, and only while Chat shows it.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -53,6 +75,8 @@ fun TravelingTavernNavHost(
     val currentDestination = backStackEntry?.destination
     val selectedTab = currentDestination?.topLevelTab()
     val showBottomBar = selectedTab != null && !WindowInsets.isImeVisible
+    val chatShowing = currentDestination?.route == Routes.FullScreen.Chat.ROUTE
+    val openServerSettings = { navController.navigate(Routes.FullScreen.CONNECT) }
     val reselectEvents = remember { TabReselectEvents() }
 
     CompositionLocalProvider(LocalTabReselectEvents provides reselectEvents) {
@@ -73,18 +97,25 @@ fun TravelingTavernNavHost(
                 }
             }
         ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = startDestination,
-                // Consumed so screens that add imePadding() don't count the system bars twice.
-                modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)
-            ) {
-                tabGraphs(
-                    onOpenServerSettings = { navController.navigate(Routes.FullScreen.CONNECT) }
+            // The WebView ignores innerPadding on purpose (see above); it sits inside the
+            // Scaffold so the Scaffold's surface, which swallows touches, stays behind it.
+            Box(modifier = Modifier.fillMaxSize()) {
+                SillyTavernWebView(
+                    revealed = chatShowing,
+                    onOpenServerSettings = openServerSettings,
+                    modifier = Modifier
+                        .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
+                        .padding(top = ChatChromeHeight)
                 )
-                fullScreenDestinations(
-                    onServerSaved = { navController.leaveConnectAfterSave() }
-                )
+                NavHost(
+                    navController = navController,
+                    startDestination = startDestination,
+                    // Consumed so screens that add imePadding() don't count the system bars twice.
+                    modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)
+                ) {
+                    tabGraphs(navController = navController, onOpenServerSettings = openServerSettings)
+                    fullScreenDestinations(navController = navController)
+                }
             }
         }
     }
@@ -121,28 +152,94 @@ private fun NavHostController.leaveConnectAfterSave() {
     }
 }
 
-private fun NavGraphBuilder.tabGraphs(onOpenServerSettings: () -> Unit) {
+private fun NavGraphBuilder.tabGraphs(navController: NavHostController, onOpenServerSettings: () -> Unit) {
+    val openChat = { characterId: String -> navController.navigate(Routes.FullScreen.Chat.create(characterId)) }
     navigation(startDestination = Routes.Tab.CHATS_ROOT, route = Routes.Tab.CHATS) {
-        composable(Routes.Tab.CHATS_ROOT) { ChatsScreen(onOpenServerSettings = onOpenServerSettings) }
+        coveringComposable(Routes.Tab.CHATS_ROOT) {
+            ChatsScreen(
+                onOpenChat = openChat,
+                onBrowseCharacters = { navController.navigateToTab(TopLevelTab.CHARACTERS) },
+                onOpenServerSettings = onOpenServerSettings
+            )
+        }
     }
     navigation(startDestination = Routes.Tab.CHARACTERS_ROOT, route = Routes.Tab.CHARACTERS) {
-        composable(Routes.Tab.CHARACTERS_ROOT) { CharactersScreen() }
+        coveringComposable(Routes.Tab.CHARACTERS_ROOT) {
+            CharactersScreen(
+                onOpenChat = openChat,
+                onOpenAdvanced = { navController.navigate(Routes.FullScreen.ADVANCED) },
+                onOpenServerSettings = onOpenServerSettings
+            )
+        }
+    }
+    navigation(startDestination = Routes.Tab.LOREBOOKS_ROOT, route = Routes.Tab.LOREBOOKS) {
+        coveringComposable(Routes.Tab.LOREBOOKS_ROOT) {
+            LorebooksScreen(
+                onOpenLorebook = { name -> navController.navigate(Routes.FullScreen.LorebookDetail.create(name)) },
+                onOpenServerSettings = onOpenServerSettings
+            )
+        }
     }
     navigation(startDestination = Routes.Tab.ME_ROOT, route = Routes.Tab.ME) {
-        composable(Routes.Tab.ME_ROOT) { MeScreen() }
+        coveringComposable(Routes.Tab.ME_ROOT) { MeScreen() }
     }
 }
 
-private fun NavGraphBuilder.fullScreenDestinations(onServerSaved: () -> Unit) {
-    composable(Routes.FullScreen.CONNECT) { ConnectScreen(onSaved = onServerSaved) }
+private fun NavGraphBuilder.fullScreenDestinations(navController: NavHostController) {
+    coveringComposable(Routes.FullScreen.CONNECT) {
+        ConnectScreen(onSaved = { navController.leaveConnectAfterSave() })
+    }
+    // Not covering: below its top bar, Chat shows the WebView drawn behind the NavHost.
     composable(
         route = Routes.FullScreen.Chat.ROUTE,
         arguments = listOf(
             navArgument(Routes.FullScreen.Chat.ARG_CHARACTER_ID) { type = NavType.StringType }
         )
-    ) { entry ->
-        val characterId = entry.arguments?.getString(Routes.FullScreen.Chat.ARG_CHARACTER_ID).orEmpty()
-        ChatScreen(characterId = characterId)
+    ) {
+        ChatScreen(onBack = { navController.popBackStack() })
     }
-    composable(Routes.FullScreen.ADVANCED) { AdvancedScreen() }
+    coveringComposable(Routes.FullScreen.ADVANCED) { AdvancedScreen() }
+    lorebookDestinations(navController)
+}
+
+private fun NavGraphBuilder.lorebookDestinations(navController: NavHostController) {
+    coveringComposable(
+        route = Routes.FullScreen.LorebookDetail.ROUTE,
+        arguments = listOf(navArgument(Routes.FullScreen.LorebookDetail.ARG_NAME) { type = NavType.StringType })
+    ) {
+        LorebookDetailScreen(
+            onBack = { navController.popBackStack() },
+            onOpenEntry = { lorebook, uid ->
+                navController.navigate(
+                    Routes.FullScreen.LorebookEntry.create(lorebook, uid ?: Routes.FullScreen.LorebookEntry.NEW_ENTRY)
+                )
+            },
+            onOpenServerSettings = { navController.navigate(Routes.FullScreen.CONNECT) }
+        )
+    }
+    coveringComposable(
+        route = Routes.FullScreen.LorebookEntry.ROUTE,
+        arguments = listOf(
+            navArgument(Routes.FullScreen.LorebookEntry.ARG_NAME) { type = NavType.StringType },
+            navArgument(Routes.FullScreen.LorebookEntry.ARG_UID) { type = NavType.IntType }
+        )
+    ) {
+        LorebookEntryScreen(onBack = { navController.popBackStack() })
+    }
+}
+
+/**
+ * A destination drawn over the WebView: an opaque surface that also consumes touches, so
+ * nothing reaches the page underneath.
+ */
+private fun NavGraphBuilder.coveringComposable(
+    route: String,
+    arguments: List<NamedNavArgument> = emptyList(),
+    content: @Composable () -> Unit
+) {
+    composable(route, arguments) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            content()
+        }
+    }
 }

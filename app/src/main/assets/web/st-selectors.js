@@ -39,11 +39,18 @@
             chat: 'chat',
             selectCharacterById: 'selectCharacterById',
             getThumbnailUrl: 'getThumbnailUrl',
+            /** Re-reads the character list from the server (/api/characters/all). */
+            getCharacters: 'getCharacters',
+            getRequestHeaders: 'getRequestHeaders',
+            getTokenCountAsync: 'getTokenCountAsync',
+            saveSettingsDebounced: 'saveSettingsDebounced',
         }),
         character: Object.freeze({
             id: 'avatar',
             name: 'name',
             lastChatAt: 'date_last_chat',
+            /** The card file's ctimeMs: changes whenever the card or its picture is written. */
+            changedAt: 'date_added',
         }),
         message: Object.freeze({
             isUser: 'is_user',
@@ -53,8 +60,103 @@
         }),
         thumbnailType: 'avatar',
 
+        /** Full-size avatar: this path + the URL-encoded avatar file name. */
+        fullAvatarPath: '/characters/',
+
+        /**
+         * POST endpoint behind SillyTavern's welcome-screen "Recent Chats": one row per chat
+         * file, newest first. Body `{ max }`. Needs getRequestHeaders() (CSRF token).
+         */
+        api: Object.freeze({
+            recentChats: '/api/chats/recent',
+            recentChatsMax: 100,
+        }),
+        /** Fields of one /api/chats/recent row. */
+        recentChat: Object.freeze({
+            characterId: 'avatar',
+            lastMessage: 'mes',
+            lastMessageAt: 'last_mes',
+            messageCount: 'chat_items',
+        }),
+
+        /**
+         * World Info (lorebooks). Most of it isn't on getContext(), so the bridge imports
+         * SillyTavern's own module — the same instance its UI uses. Verified against 1.19.0
+         * (see the 1.6b spec's Notes).
+         */
+        worldInfo: Object.freeze({
+            modulePath: '/scripts/world-info.js',
+            /** utils.js export that turns a name into the file name SillyTavern saves it under. */
+            utilsPath: '/scripts/utils.js',
+            sanitizeName: 'getSanitizedFilename',
+            /** Module exports. `names` and `globalSelected` are reassigned: read them each time. */
+            module: Object.freeze({
+                names: 'world_names',
+                globalSelected: 'selected_world_info',
+                settings: 'world_info',
+                cache: 'worldInfoCache',
+                load: 'loadWorldInfo',
+                save: 'saveWorldInfo',
+                create: 'createNewWorldInfo',
+                remove: 'deleteWorldInfo',
+                createEntry: 'createWorldInfoEntry',
+                removeEntry: 'deleteWorldInfoEntry',
+                updateList: 'updateWorldInfoList',
+            }),
+            /** world_info.charLore: [{ name: avatar without extension, extraBooks: [names] }]. */
+            charLore: 'charLore',
+            charLoreName: 'name',
+            charLoreBooks: 'extraBooks',
+            /** A character's primary lorebook: character.data.extensions.world. */
+            characterPrimary: Object.freeze(['data', 'extensions', 'world']),
+            /** Global on/off: SillyTavern's own multi-select (option value = index into names). */
+            globalSelect: '#world_info',
+            entries: 'entries',
+            entry: Object.freeze({
+                uid: 'uid',
+                title: 'comment',
+                keys: 'key',
+                content: 'content',
+                disabled: 'disable',
+                displayIndex: 'displayIndex',
+            }),
+            /** Event keys after which the lorebook list may have changed. */
+            events: Object.freeze(['WORLDINFO_UPDATED', 'WORLDINFO_SETTINGS_UPDATED']),
+        }),
+
+        /** power_user (getContext().powerUserSettings) fields for persona lorebooks. */
+        powerUser: Object.freeze({
+            context: 'powerUserSettings',
+            personaNames: 'personas',
+            personaDescriptions: 'persona_descriptions',
+            personaLorebook: 'lorebook',
+            currentPersonaLorebook: 'persona_description_lorebook',
+        }),
+
         /** selectCharacterById option: false opens the chat without the character editor panel. */
         selectOptions: Object.freeze({ switchMenu: false }),
+
+        /** DOM nodes the bridge reads. */
+        dom: Object.freeze({
+            /** The message list; its scroll position settles once a chat is fully drawn. */
+            chat: '#chat',
+            /** Main chat input; send reads its value directly (`sendTextareaMessage`). */
+            sendTextarea: '#send_textarea',
+            /** Right-hand buttons of the input row; the in-app mic goes in here. */
+            rightSendForm: '#rightSendForm',
+            /** Send button; the in-app mic sits right before it. */
+            sendButton: '#send_but',
+        }),
+
+        /**
+         * Programmatic text counts as typing after this event (bubbling): SillyTavern's own
+         * listener resizes the input and saves the draft. SillyTavern fills the input the same
+         * way itself (impersonate, restoring a draft). Verified against 1.19.0.
+         */
+        inputEvent: 'input',
+
+        /** Classes the in-app mic button borrows so it looks like the row's other buttons. */
+        micButtonClasses: 'fa-solid fa-microphone interactable',
 
         /** Body class that turns on clean-theme.css. */
         cleanClass: 'tt-clean',
@@ -75,5 +177,8 @@
         //   #chat .drawer-opener                  in-chat shortcut buttons that open a drawer
         //   #sheld, #chat, .mes_text              chat column, message list, message text
         //   #send_textarea, #leftSendForm, #rightSendForm   message input row
+        //   #et-portal (sibling of <body>)        EchoText's window, floating button and pop-ups
+        //   #microphone_button                    Speech Recognition extension's mic (hidden in the app)
+        //   #tt-mic, .tt-mic-listening            the app's own mic button (added by bridge.js)
     });
 })();

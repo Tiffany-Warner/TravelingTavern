@@ -22,6 +22,12 @@
      #send_textarea           message input
      #leftSendForm            input row, left buttons (options menu, extensions menu)
      #rightSendForm           input row, right buttons (microphone, send)
+     #et-portal               EchoText extension's container (window, floating button, pop-ups);
+                              a sibling of <body>, not inside it (verified on EchoText 1.2.6)
+     #microphone_button       Speech Recognition extension's mic
+     #tt-mic                  the app's own mic button (added by bridge.js); `.tt-mic-listening`
+                              while recording. The one rule outside body.tt-clean hides it when
+                              clean mode is off (Advanced)
    Colors are never set here: everything keeps SillyTavern's theme variables. */
 
 /* Toolbar, its drawers, and the TopInfoBar chat bar: the app provides these natively. */
@@ -39,6 +45,29 @@ body.tt-clean #right-nav-panel,
 body.tt-clean #extensionTopBar,
 body.tt-clean #chat .drawer-opener {
     display: none !important;
+}
+
+/* EchoText: no EchoText UI in the app until the Chat screen shows its thread (1.7). On a phone
+   its window is full screen at the top z-index and reopens itself after each page load, so it
+   would cover the main chat and take its taps; its floating button would cover the send button.
+   EchoText mounts #et-portal on <html> after <body>, hence `~`. The portal itself has an inline
+   `display: block !important`, which a stylesheet can't override, so its children are hidden. */
+body.tt-clean ~ #et-portal > * {
+    display: none !important;
+}
+
+/* Voice input: the app's mic replaces the Speech Recognition extension's (which sends audio
+   to Google and stops at short pauses). In Advanced the extension's mic is back and the app's
+   is hidden. */
+body.tt-clean #microphone_button,
+body:not(.tt-clean) #tt-mic {
+    display: none !important;
+}
+
+/* While recording, the mic takes the theme's accent (the quote color) instead of the icon color. */
+body.tt-clean #tt-mic.tt-mic-listening {
+    color: var(--SmartThemeQuoteColor);
+    opacity: 1;
 }
 
 /* With the toolbar gone, the chat column takes the whole viewport. */

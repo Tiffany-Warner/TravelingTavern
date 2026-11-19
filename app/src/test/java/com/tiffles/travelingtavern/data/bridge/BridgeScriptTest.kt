@@ -87,4 +87,24 @@ class BridgeScriptTest {
     fun `function names other than plain identifiers are rejected`() {
         BridgeScript.call("selectCharacter(1);alert")
     }
+
+    @Test
+    fun `recognized text with quotes, backslashes, newlines and emoji reaches the page unchanged`() {
+        val texts = listOf(
+            "She said \"hi\" and it's fine",
+            "a back\\slash and a </script> tag",
+            "line one\nline two\r\nline three",
+            "emoji \uD83D\uDE00\uD83D\uDC4D\uD83C\uDFFD and line\u2028separator\u2029paragraph",
+        )
+        texts.forEach { text ->
+            val script = BridgeScript.call("updateVoiceInput", JsonPrimitive(text))
+            val argument = script
+                .removePrefix("window.__ttBridge && window.__ttBridge.updateVoiceInput(")
+                .removeSuffix(");")
+
+            val breaksLine = listOf('\n', '\r', '\u2028', '\u2029').any { it in script }
+            assertFalse("line break left in: $script", breaksLine)
+            assertEquals(text, Json.parseToJsonElement(argument).jsonPrimitive.content)
+        }
+    }
 }

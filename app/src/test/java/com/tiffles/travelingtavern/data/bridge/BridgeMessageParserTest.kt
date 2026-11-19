@@ -32,6 +32,57 @@ class BridgeMessageParserTest {
     }
 
     @Test
+    fun `characters carry the full-size avatar when the bridge sends it`() {
+        val raw = """
+            {"v":1,"type":"characters","items":[
+              {"id":"Bob.png","name":"Bob","avatarUrl":"http://h:8000/thumbnail?type=avatar&file=Bob.png","fullAvatarUrl":"http://h:8000/characters/Bob.png"},
+              {"id":"Old.png","name":"Old","avatarUrl":"http://h:8000/thumbnail?type=avatar&file=Old.png"}
+            ]}
+        """.trimIndent()
+
+        val message = parse(raw) as BridgeMessage.Characters
+
+        assertEquals("http://h:8000/characters/Bob.png", message.items[0].fullAvatarUrl)
+        assertNull(message.items[1].fullAvatarUrl)
+    }
+
+    @Test
+    fun `recent chats with a message, an empty chat and missing fields`() {
+        val raw = """
+            {"v":1,"type":"recentChats","items":[
+              {"characterId":"Bob.png","lastMessage":"Hi there","lastMessageAt":1794925197539,"messageCount":17},
+              {"characterId":"Oliver.png","lastMessage":null,"lastMessageAt":1794943178395,"messageCount":0},
+              {"characterId":"New.png"}
+            ]}
+        """.trimIndent()
+
+        val message = parse(raw) as BridgeMessage.RecentChats
+
+        assertEquals(
+            listOf(
+                RecentChatDto("Bob.png", "Hi there", 1794925197539L, 17),
+                RecentChatDto("Oliver.png", null, 1794943178395L, 0),
+                RecentChatDto("New.png", null, null, 0)
+            ),
+            message.items
+        )
+    }
+
+    @Test
+    fun `recent chats with a row missing its character id are rejected as malformed`() {
+        assertNull(parse("""{"v":1,"type":"recentChats","items":[{"lastMessage":"x"}]}"""))
+    }
+
+    @Test
+    fun `chat opened needs a character id`() {
+        assertEquals(
+            BridgeMessage.ChatOpened(characterId = "Tide Pods.png"),
+            parse("""{"v":1,"type":"chatOpened","characterId":"Tide Pods.png"}""")
+        )
+        assertNull(parse("""{"v":1,"type":"chatOpened"}"""))
+    }
+
+    @Test
     fun `chat changed with a character and with none`() {
         assertEquals(
             BridgeMessage.ChatChanged(characterId = "Bob.png"),
@@ -92,5 +143,76 @@ class BridgeMessageParserTest {
         assertNull(parse("""{"v":1,"type":"messageReceived","characterId":"Bob.png"}"""))
         assertNull(parse("""{"v":1,"type":"messageReceived","messageId":"fourteen"}"""))
         assertNull(parse("""{"v":1,"type":"error"}"""))
+    }
+
+    @Test
+    fun `lorebooks with links, a missing count and defaults`() {
+        val raw = """
+            {"v":1,"type":"lorebooks","items":[
+              {"name":"Eldoria","entryCount":4,"global":false,"characterIds":["default_Seraphina.png"],"personaNames":[]},
+              {"name":"Rules","entryCount":null,"global":true,"characterIds":[],"personaNames":[""]},
+              {"name":"Bare"}
+            ]}
+        """.trimIndent()
+
+        val items = (parse(raw) as BridgeMessage.Lorebooks).items
+
+        assertEquals(LorebookDto("Eldoria", 4, false, listOf("default_Seraphina.png"), emptyList()), items[0])
+        assertEquals(LorebookDto("Rules", null, true, emptyList(), listOf("")), items[1])
+        assertEquals(LorebookDto("Bare"), items[2])
+    }
+
+    @Test
+    fun `lorebook entries`() {
+        val raw = """
+            {"v":1,"type":"lorebookEntries","requestId":"lb1","name":"Eldoria","entries":[
+              {"uid":0,"title":"eldoria","keys":["eldoria","wood"],"content":"A forest","enabled":true},
+              {"uid":3,"title":"","keys":[],"content":"","enabled":false}
+            ]}
+        """.trimIndent()
+
+        val message = parse(raw) as BridgeMessage.LorebookEntries
+
+        assertEquals("lb1", message.requestId)
+        assertEquals(LorebookEntryDto(0, "eldoria", listOf("eldoria", "wood"), "A forest", true), message.entries[0])
+        assertEquals(false, message.entries[1].enabled)
+    }
+
+    @Test
+    fun `lorebook results and token counts`() {
+        assertEquals(
+            BridgeMessage.LorebookResult(requestId = "lb2", ok = true, name = "Kingdoms"),
+            parse("""{"v":1,"type":"lorebookResult","requestId":"lb2","ok":true,"name":"Kingdoms"}""")
+        )
+        assertEquals(
+            BridgeMessage.LorebookResult(requestId = "lb3", ok = false, error = "exists"),
+            parse("""{"v":1,"type":"lorebookResult","requestId":"lb3","ok":false,"error":"exists"}""")
+        )
+        assertEquals(
+            BridgeMessage.LorebookResult(requestId = "lb4", ok = true, uid = 7),
+            parse("""{"v":1,"type":"lorebookResult","requestId":"lb4","ok":true,"uid":7}""")
+        )
+        assertEquals(BridgeMessage.TokenCount("lb5", 16), parse("""{"v":1,"type":"tokenCount","requestId":"lb5","count":16}"""))
+    }
+
+    @Test
+    fun `malformed lorebook messages are dropped`() {
+        assertNull(parse("""{"v":1,"type":"lorebooks","items":[{"entryCount":3}]}"""))
+        assertNull(parse("""{"v":1,"type":"lorebookEntries","requestId":"lb1","name":"E","entries":[{"title":"no uid"}]}"""))
+        assertNull(parse("""{"v":1,"type":"lorebookResult","ok":true}"""))
+        assertNull(parse("""{"v":1,"type":"tokenCount","requestId":"lb5","count":"many"}"""))
+    }
+
+    @Test
+    fun `mic presses for both targets`() {
+        assertEquals(BridgeMessage.MicPressed("story"), parse("""{"v":1,"type":"micPressed","target":"story"}"""))
+        assertEquals(BridgeMessage.MicPressed("text"), parse("""{"v":1,"type":"micPressed","target":"text"}"""))
+    }
+
+    @Test
+    fun `mic press with an unknown target is kept for the receiver to ignore, without one it's dropped`() {
+        assertEquals(BridgeMessage.MicPressed("sidebar"), parse("""{"v":1,"type":"micPressed","target":"sidebar"}"""))
+        assertNull(parse("""{"v":1,"type":"micPressed"}"""))
+        assertNull(parse("""{"v":1,"type":"micPressed","target":3}"""))
     }
 }
