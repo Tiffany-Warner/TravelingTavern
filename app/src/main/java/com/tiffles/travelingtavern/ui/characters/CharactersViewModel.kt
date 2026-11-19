@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 sealed interface CharactersUiState {
@@ -48,8 +49,26 @@ class CharactersViewModel @Inject constructor(
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), CharactersUiState.Loading)
 
+    private val _isRefreshing = MutableStateFlow(false)
+
+    /** True while a pull-to-refresh is waiting for SillyTavern's answer. */
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     fun setQuery(text: String) {
         query.value = text
+    }
+
+    /** Re-reads the characters from the server, e.g. to pick up an avatar changed on the desktop. */
+    fun refresh() {
+        if (_isRefreshing.value) return
+        _isRefreshing.value = true
+        viewModelScope.launch {
+            try {
+                repository.refresh()
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
     }
 
     fun retry() = repository.retry()

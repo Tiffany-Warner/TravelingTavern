@@ -1,6 +1,6 @@
 # Current Feature
 
-Fix: stuck on "Can't reach your server" after a reinstall
+Fix: a character's new avatar doesn't show in the app
 
 ## Status
 
@@ -8,33 +8,43 @@ Completed
 
 ## Goals
 
-A fresh install always starts at Connect, and a wrong server address can always be fixed from the app.
+An avatar changed in SillyTavern (on the desktop) shows in the app after a pull to refresh, without reinstalling or clearing the app.
 
-Found by the user on the Pixel 8 (0.1.13): after a fresh install the app showed "Can't reach your server" with only Retry, and no way to the Connect screen.
+Found by the user on the Pixel 8 (0.1.13): Jasper Mercier's avatar was changed on the desktop; the Characters tab kept the old picture.
 
 ### Cause
 
-- Android Auto Backup restored the app's settings DataStore on install (`restoreAtInstall`), including a **stale** server address (the server's previous Tailscale IP). The start destination saw a saved server and skipped Connect
-- The connection banner offers **Server settings** only for a failed login; for "can't reach" it offers only Retry, and the Me tab (1.8) doesn't exist yet — so a wrong address could not be changed from the app. That also applies whenever the server's address changes, not only after a reinstall
+- **Image cache:** the bridge builds each avatar address from the avatar file name only (`/thumbnail?type=avatar&file=<name>`, `/characters/<name>`), which doesn't change when the picture does. Coil 3 caches by address and ignores the server's `Cache-Control: max-age=0`, so it keeps showing its saved copy
+- **Stale list:** the page's character list (`characters`) is read from the server once, when SillyTavern loads. Nothing re-reads it later, so a change on the desktop doesn't reach the app until it restarts
 
 ### Deliverables
 
-- **Backup (user decision, option A):** exclude the settings DataStore (`files/datastore/settings.preferences_pb`) from cloud backup and device transfer, alongside the credential keyset. The login couldn't be restored anyway (its key is never backed up), and a restored address can be stale. A fresh install always starts at Connect
-- **Banner:** "Can't reach your server" shows **Retry** and **Server settings**; a failed login keeps Server settings; an HTTP error keeps Retry
-- **Reload on Save:** saving on Connect while the page is in an error state loads the server, even when nothing changed (same address, server reachable again). DataStore emits only changes, so a save of the same values used to leave the banner up until Retry
-- **Tests:** Compose UI test for the banner's actions (Chats list)
-- Version `0.1.14` / `versionCode 15`
+- **Versioned addresses:** the bridge adds the character file's change time (`date_added`, the file's `ctimeMs`, which SillyTavern updates whenever the card or its picture is written) to both avatar addresses as `tt_v=<ms>`. A new picture → a new address → a fresh download. The server ignores the extra parameter; editing a card's text also changes it (one extra download)
+- **Refresh from the server:** `requestCharacters(fromServer)` first calls SillyTavern's own `getCharacters()` (re-reads `/api/characters/all`; reselecting the open character doesn't reload its chat). `CharacterRepository.refresh()` uses it
+- **Pull to refresh on Characters**, like Chats and Lorebooks (it only had none because nothing needed it)
+- **Tests:** `CharactersViewModelTest` (refresh), `CharacterRepositoryImplTest` (asks the server), `BridgeScriptTest`; Compose UI test unchanged (pull gestures aren't worth one)
+- Version `0.1.15` / `versionCode 16`
 
 ## Notes
 
-- Connect doesn't fill in the saved address when opened from Server settings; the user types it again. Left as is (Connect is reworked in 1.8's server settings)
+- SillyTavern regenerates a thumbnail when the original file is newer (`generateThumbnail`: `originalStat.mtimeMs > cachedStat.ctimeMs`), so the server side needs nothing
 
 ## References
 
-- @context/specs/phase1-2-connect-screen-spec.md
-- Android Auto Backup: `dataExtractionRules` (API 31+) and `fullBackupContent`
+- @context/specs/phase1-6-home-character-list-spec.md
+- SillyTavern `src/endpoints/characters.js` (`date_added = charStat.ctimeMs`), `src/endpoints/thumbnails.js`, `public/script.js` (`getCharacters`, `selectCharacterById`)
 
 ## History
+
+### 2026-11-18 — Fix: a character's new avatar doesn't show in the app (branch `fix/avatar-updates`)
+
+- **Cause:** avatar addresses were built from the file name only, and Coil 3 caches by address (ignoring the server's `max-age=0`); and the page's character list was read from the server only when SillyTavern loaded
+- `bridge.js`: both avatar addresses carry `tt_v=<date_added>` (the card file's `ctimeMs`); `requestCharacters(fromServer)` calls SillyTavern's `getCharacters()` first. New names `getCharacters` and `character.changedAt` in `st-selectors.js`. `BridgeClient.requestCharacters(fromServer)`; `CharacterRepositoryImpl.refresh()` asks the server
+- Characters tab: pull to refresh (`CharactersViewModel.refresh` / `isRefreshing`, `PullToRefreshBox` around the grid)
+- Unit tests: `CharactersViewModelTest` +1, `CharacterRepositoryImplTest` +1; `./gradlew build` green
+- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 over Tailscale (DevTools): pull to refresh on Characters → one `/api/characters/all` request, SillyTavern's list objects replaced, the open chat untouched; the `characters` message carries `tt_v` on both addresses; the server serves both, including a name with a space encoded as `+`; the grid shows every picture
+- Verified on the Pixel 8 by the user: an avatar changed on the desktop showed in the app after a pull to refresh
+- Version `0.1.15` / `versionCode 16`
 
 ### 2026-11-18 — Fix: stuck on "Can't reach your server" after a reinstall (branch `fix/connect-after-restore`)
 

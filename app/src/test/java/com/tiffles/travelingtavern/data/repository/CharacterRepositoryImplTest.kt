@@ -102,4 +102,16 @@ class CharacterRepositoryImplTest {
         runCurrent()
         assertTrue(done)
     }
+
+    @Test
+    fun `refresh re-reads the characters from the server and waits for the recent chats`() = runTest {
+        coEvery { client.requestRecentChats() } coAnswers {
+            bridge.onRawMessage("""{"v":1,"type":"recentChats","items":[]}""")
+        }
+
+        repository.refresh()
+
+        coVerify(exactly = 1) { client.requestCharacters(fromServer = true) }
+        coVerify(exactly = 1) { client.requestRecentChats() }
+    }
 }

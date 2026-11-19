@@ -39,6 +39,8 @@
             chat: 'chat',
             selectCharacterById: 'selectCharacterById',
             getThumbnailUrl: 'getThumbnailUrl',
+            /** Re-reads the character list from the server (/api/characters/all). */
+            getCharacters: 'getCharacters',
             getRequestHeaders: 'getRequestHeaders',
             getTokenCountAsync: 'getTokenCountAsync',
             saveSettingsDebounced: 'saveSettingsDebounced',
@@ -47,6 +49,8 @@
             id: 'avatar',
             name: 'name',
             lastChatAt: 'date_last_chat',
+            /** The card file's ctimeMs: changes whenever the card or its picture is written. */
+            changedAt: 'date_added',
         }),
         message: Object.freeze({
             isUser: 'is_user',
