@@ -6,7 +6,7 @@ A persona is who you are in a chat: a name, a picture and a description the char
 
 - In the chat's input bar (1.7), a **chip** shows the persona you're chatting as
 - Tapping it opens a **full-screen Personas list**; tapping a persona there switches to it
-- From the same screen you can create, edit and delete personas, and use SillyTavern's own default and lock options
+- From the same screen you can create, edit and delete personas and set the default. Picking a persona in a chat locks it to that chat
 
 **Only SillyTavern's persona features.** Every field, badge and action maps to something SillyTavern already has (`public/scripts/personas.js`). SillyTavern personas have no age, gender or other structured fields, and the app doesn't add any.
 
@@ -29,8 +29,8 @@ What SillyTavern 1.19.0 has (read from `personas.js`, 2026-11-19), to confirm on
 ### Chip in the chat input bar
 
 - In the 1.7 input bar's control row, in the space 1.7 left for it: a filter-chip-style pill with the persona's small round picture, "Chatting as {name}" and a ▾. Long names are ellipsized
-- Tapping it opens the Personas screen in **pick** mode
-- It follows the active persona, including changes made on the desktop or by SillyTavern's own auto-selection (locked or connected personas switch when a chat opens)
+- Tapping it opens the Personas screen
+- It follows the active persona, including changes made on the desktop or by SillyTavern's own auto-selection (a locked persona is selected when its chat opens)
 
 ### Personas screen (`ui/personas/PersonasScreen.kt`)
 
@@ -45,22 +45,25 @@ What SillyTavern 1.19.0 has (read from `personas.js`, 2026-11-19), to confirm on
 - **Create** at the bottom: the screen's one filled button (per `ui-guidelines.md`)
 - Empty or unreachable states as on other screens (banner for "Can't reach your server"; empty: one sentence + Create)
 
-### Two modes
+### Picking a persona (one behavior everywhere)
 
-- **Pick** (from the chat's chip): tapping a card switches to that persona the way SillyTavern does, then closes back to the chat. If the current persona is locked to this chat, switching asks first: "This chat is locked to {name}. Switch and move the lock to {new name}?" — matching what SillyTavern does when you pick another persona in a locked chat **(verify the exact behavior and follow it)**
-- **Manage** (from the Me tab, 1.8): tapping a card opens its editor. Nothing switches
+- **Tap a card to use that persona.** The same screen and the same behavior wherever it's opened from; ⋯ holds everything else
+- **In a chat** (opened from the chat's chip): picking a persona switches to it **and locks it to this chat automatically** (user decision, 2026-11-19), using SillyTavern's own switch and chat lock. Every time that chat opens, SillyTavern selects that persona, until you pick another one, which moves the lock. No confirmation: picking is the choice. Then the screen closes back to the chat
+- **Without a chat** (opened from the Me tab): picking makes it the active persona, as clicking it in SillyTavern's own list does. Nothing is locked
+- Chats that were never locked (for example old ones) show whatever SillyTavern selects for them (the current or default persona), until you pick one
+- Prefer SillyTavern's own path if it has one (for example an auto-lock setting when choosing a persona); otherwise switch, then lock with `setPersonaLockState(true, 'chat')` **(verify)**
 
 ### Card actions (⋯ → bottom sheet)
 
-Only SillyTavern's own options:
+Only SillyTavern's own options, kept short:
 
 | Action | What runs |
 |---|---|
 | Edit | Opens the persona editor |
-| Set as default / Remove default | SillyTavern's default lock |
-| Lock to this chat / Unlock from this chat | SillyTavern's chat lock (only shown in pick mode, when a chat is open) |
-| Connect to {character} / Disconnect | SillyTavern's character connection (pick mode only) |
+| Set as default / Remove default | SillyTavern's default persona |
 | Delete | Destructive confirmation sheet ("Delete {name}? Chats keep their messages, but this persona is gone."), then SillyTavern deletes it. Not offered for the active persona while it's in use, if SillyTavern doesn't allow that **(verify)** |
+
+- Not offered (user decision, 2026-11-19): connecting a persona to a character, and a separate lock / unlock action (picking already locks). Both stay available in Advanced
 
 ### Persona editor (`ui/personas/PersonaEditorScreen.kt`)
 
@@ -75,13 +78,13 @@ Only SillyTavern's own options:
 
 ### Bridge
 
-- `personas` message: list of `{ avatarId, name, title, description (≤ 300 chars for previews), pictureUrl, isActive, isDefault, isLockedToChat, connectedCharacterIds }`, sent after `ready`, on persona changes and on request (`requestPersonas`)
-- Commands, each answering with a request ID and success or error, like the lorebook commands: `selectPersona`, `setPersonaLock(type, state)`, `requestPersona(avatarId)` (full description and fields), `savePersona(…)`, `createPersona(…)`, `deletePersona(avatarId)`, `countTokens` (already exists)
+- `personas` message: list of `{ avatarId, name, title, description (≤ 300 chars for previews), pictureUrl, isActive, isDefault, isLockedToChat }`, sent after `ready`, on persona changes and on request (`requestPersonas`)
+- Commands, each answering with a request ID and success or error, like the lorebook commands: `selectPersona(avatarId, lockToChat)`, `requestPersona(avatarId)` (full description and fields), `savePersona(…)`, `createPersona(…)`, `deletePersona(avatarId)`, `countTokens` (already exists)
 - Picture upload: the app picks the image; how it reaches SillyTavern's upload (through the page or the shared `OkHttpClient` with SillyTavern's request headers) is decided by the investigation; prefer SillyTavern's own upload path **(verify)**
 
 ### Me tab (1.8)
 
-- 1.8's "persona" entry becomes a **Personas** row that opens this screen in manage mode. No separate persona UI in the Me tab
+- 1.8's "persona" entry becomes a **Personas** row that opens this same screen (no chat open, so picking doesn't lock). No separate persona UI in the Me tab
 
 ### Out of scope
 
@@ -94,19 +97,19 @@ Only SillyTavern's own options:
 - Unit tests:
     - `BridgeMessageParser`: `personas` (valid, missing fields, malformed)
     - `PersonaRepositoryImpl`: list, select, lock, save, create, delete with request-ID matching and timeouts
-    - `PersonasViewModel`: pick vs manage taps; badges; active first; locked-chat confirmation; delete confirmation; errors
+    - `PersonasViewModel`: tap in a chat selects and locks, tap without a chat selects only; badges; active first; delete confirmation; errors
     - `PersonaEditorViewModel`: Save enabled rules; unchanged fields kept; create vs edit
     - `BridgeScript`: the new commands (argument encoding)
-- Compose UI tests: `PersonasContent` (cards, the three badges, active marking, ⋯ sheet actions per mode, Create, empty and error states); `PersonaEditorContent` (Save enabled / disabled, token count shown); the chat's persona chip shows the name and calls back
+- Compose UI tests: `PersonasContent` (cards, the three badges, active marking, ⋯ sheet with Edit / default / Delete, Create, empty and error states); `PersonaEditorContent` (Save enabled / disabled, token count shown); the chat's persona chip shows the name and calls back
 - Version bump per `CLAUDE.md`
 
 ## Verify on Device
 
-- [ ] The chip shows the active persona; tapping it opens the list in pick mode; picking switches and returns to the chat, and the next reply addresses the new persona
-- [ ] A persona locked to a chat or connected to a character is the one shown when that chat opens
+- [ ] The chip shows the active persona; tapping it opens the list; picking switches, returns to the chat, and the next reply addresses the new persona
+- [ ] After picking, the chat shows "Locked to this chat" for that persona; closing and reopening the chat (in the app and on the desktop) keeps it; picking another moves the lock
 - [ ] Badges match SillyTavern's own persona panel on the desktop (active, default, locked to this chat)
 - [ ] Create with a picture, edit name / title / description, delete: each shows the same on the desktop after a reload, and fields the app doesn't edit are unchanged
-- [ ] From the Me tab, tapping a card opens the editor and doesn't switch persona
+- [ ] From the Me tab, tapping a card makes it the active persona without locking any chat; ⋯ → Edit opens the editor
 - [ ] A persona picture changed on the desktop shows in the app after a refresh
 
 ## Notes
@@ -114,6 +117,8 @@ Only SillyTavern's own options:
 ### Decision (2026-11-19, user)
 
 Personas get their own sub-feature instead of being part of 1.7: a chip in the chat's input bar shows the active persona, and tapping it opens a full-screen list. The layout follows a screenshot the user shared; the fields and actions are SillyTavern's own.
+
+Kept simple on purpose: one behavior everywhere (tap to use, ⋯ for Edit / default / Delete); picking in a chat locks the persona to that chat automatically; three badges only (Active, Default, Locked to this chat); no character connections.
 
 ## References
 
