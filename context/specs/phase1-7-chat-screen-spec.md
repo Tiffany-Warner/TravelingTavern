@@ -44,7 +44,7 @@ Each style changes **both** the look and how the character writes, for chats in 
 
 - CSS only for the look, both only under `body.tt-clean`: message content, swipes, edit and SillyTavern's message buttons keep working in both styles
 - **Per chat** (character avatar file + chat file name), stored in the app's DataStore (`ChatStylePreferences`). This is the one deliberate exception to "settings that affect generation live in SillyTavern" (see `project-schema.md`)
-- **Default** for a chat with no saved choice: texting (user to confirm in spec review). Note that this also changes how existing roleplay chats reply in the app until they're switched to story
+- **Default** for a chat with no saved choice: **story** (user decision, 2026-11-19). Existing chats look and reply as they do today until you switch them to texting
 - Top app bar: a ⋮ overflow menu with one item, **Story style** while texting and **Texting style** while story. Same chrome height as 1.6, so `ChatChromeHeight` doesn't change and the WebView is never resized
 
 #### Editing and deleting messages (texting style)
@@ -127,7 +127,7 @@ When the app comes back to the foreground:
 ## Tests
 
 - Unit tests:
-    - `ChatViewModel`: saved style applied on enter, default when nothing saved, `toggleChatStyle`, `chatFile` passed to the open
+    - `ChatViewModel`: saved style applied on enter, story when nothing saved, `toggleChatStyle`, `chatFile` passed to the open
     - `ChatStylePreferences`: per-chat read and write; the texting template's default and saved value
     - `BridgeScript`: `editMessage`, `deleteMessage`; `setChatStyle` with and without an instruction (quotes, newlines, macros kept as written), `setAppState`, `reloadChat`, `selectCharacter` with a chat file (argument encoding)
     - `BridgeMessageParser`: `messageLongPressed` (valid, missing or malformed fields); `chatOpened` with and without `chatFile`; `micPressed` with `"text"` is an unknown target

@@ -38,6 +38,7 @@ Update the docs for two decisions (2026-11-18, user):
 - Review against `dev` (2026-11-19) folded into the 1.7 spec: remove `bridge.js`'s early return without the port, delete `setMode` / `tt-mode-*`, remove the mic's `"text"` target, chat file in the "already showing" check and `chatOpened`, `ProcessLifecycleOwner` instead of Activity events, stale chat + Chats list refresh on return, state re-sent after a page reload, `singleTop` deep link with Connect and Back rules, no reload during a generation. `project-schema.md` (Phase 7: `post()` has no port in the headless page) and `coding-standards.md` updated to match
 - Texting / story styles decided as an app-only feature (user, 2026-11-19, option C): texting also adds an instruction to the prompt (an in-memory extension prompt in the app's page, never saved in SillyTavern), stored per chat in the app with an app-wide template; the desktop is unaffected. Written into the 1.7 spec, with the exception noted in `project-schema.md` and `coding-standards.md`
 - Texting style gains editing and deleting messages (user, 2026-11-19): long press on a bubble → sheet with Edit (SillyTavern's own inline editor) and Delete (confirmation, then SillyTavern deletes it); story style keeps SillyTavern's buttons
+- Default style for a chat with no saved choice: story (user, 2026-11-19)
 - No code changed, so no version bump
 
 ### 2026-11-18 — Fix: a character's new avatar doesn't show in the app (branch `fix/avatar-updates`)
