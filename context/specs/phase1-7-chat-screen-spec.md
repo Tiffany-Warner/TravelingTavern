@@ -132,7 +132,7 @@ When the app comes back to the foreground:
 ### Out of scope
 
 - Texting style (Phase 2)
-- Personas: the persona chip in the input bar and the persona screen come in 1.9; leave room for the chip in the input bar's control row
+- Personas: the persona chip in the input bar and the persona screen come in 1.9 (`phase1-9-personas-spec.md`); leave room for the chip in the input bar's control row
 - Group chats
 - Picking among a character's older chats in the app (SillyTavern's chat list stays in Advanced)
 - Extension message buttons (translate, narrate, generate image) in the actions sheet

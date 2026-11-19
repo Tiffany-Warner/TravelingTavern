@@ -8,6 +8,8 @@ A native Settings screen with the few things a phone user needs, and an Advanced
 
 ### Settings (`ui/settings/SettingsScreen.kt`)
 
+- **Personas**
+    - "Personas" → the 1.9 Personas screen in manage mode (`phase1-9-personas-spec.md`); no separate persona UI here. If 1.8 ships before 1.9, this row comes with 1.9
 - **Server**
     - Shows the current server URL and whether a login is saved
     - "Change server" → Connect

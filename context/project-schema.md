@@ -63,7 +63,7 @@ Proactive messages and reminders come last, but every phase before them keeps to
 - [x] 1.7b Voice input — on-device speech-to-text mic in the main chat, tolerates pauses, never auto-sends
 - [ ] 1.7 Chat screen — story chat: message cards, tap for SillyTavern's message actions, new input bar; reload on resume, lifecycle events, deep link to a chat
 - [ ] 1.8 Me tab & Advanced — persona, appearance, server, full SillyTavern UI behind Advanced, open-source licenses
-- [ ] 1.9 Personas — a chip in the chat's input bar shows the active persona; tapping it opens a full-screen persona list (spec to come)
+- [ ] 1.9 Personas — a chip in the chat's input bar shows the active persona; tapping it opens a full-screen persona list to switch, create, edit and delete personas, with SillyTavern's default and lock options
 
 ---
 
