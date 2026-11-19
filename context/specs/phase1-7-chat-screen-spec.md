@@ -32,11 +32,11 @@ This is the **story** style. A second, texting style comes in Phase 2 (`phase2-t
 
 ### Look (CSS in `clean-theme.css`, under `body.tt-clean`)
 
-- **Theme colors reach the page.** The page can't read the app's Compose theme, so `BridgeInstaller` sends the current colors (surface, on-surface, secondary text, the user-message color, accent; light or dark) as CSS variables (`--tt-*`) after every page load and whenever the app's theme changes. The CSS uses only those variables
+- **Theme colors reach the page.** The page can't read the app's Compose theme, so `BridgeInstaller` sends the current colors (surface, on-surface, secondary text, primary container and on-primary-container for user cards, accent; light or dark) as CSS variables (`--tt-*`) after every page load and whenever the app's theme changes. The CSS uses only those variables
 - **Background:** SillyTavern's own chat background stays (whatever is set in SillyTavern), under a dark scrim so text stays readable. No background set → the theme's background
 - **Messages as cards:**
     - Character messages on the left, user messages on the right, each at most about 85% of the width, 20dp rounded corners, 16dp inner padding, 12dp between messages
-    - Character cards use the theme's surface color; user cards use the user-message color (a distinct tonal color from the theme; the amber container is one option — decide in spec review, within `ui-guidelines.md`)
+    - Character cards use the theme's surface color; user cards use the theme's amber container color (`primaryContainer`, with `onPrimaryContainer` text; user decision, 2026-11-19), so your messages stand apart in both light and dark
     - The sender's name sits under each card in small secondary text, left under the character's and right under the user's
     - Hidden: per-message avatars, the header timestamp, message numbers, token counts and timers. The time is in the message actions sheet
 - **Text:** narration (SillyTavern's `*asterisks*`, rendered as `<em>`) in italic secondary color; dialogue and plain text in the primary text color; message text at least 16px as in 1.5
