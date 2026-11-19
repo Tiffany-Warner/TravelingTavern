@@ -60,7 +60,7 @@ Proactive messages and reminders come last, but every phase before them keeps to
 - [x] 1.5 Clean theme — injected CSS that hides SillyTavern clutter inside the app only
 - [x] 1.6 Chats & Characters tabs — recent-chats list and portrait grid
 - [x] 1.6b Lorebooks tab — browse, create and delete lorebooks; view, add, edit and delete entries
-- [x] 1.7b Voice input — on-device speech-to-text mic in the main chat, tolerates pauses, never auto-sends
+- [x] 1.7b Voice input — on-device speech-to-text mic in the main chat. **Replaced (2026-11-19):** voice typing comes from the keyboard's own mic; 1.7 removes the in-app mic
 - [ ] 1.7 Chat screen — story chat: message cards, tap for SillyTavern's message actions, new input bar; reload on resume, lifecycle events, deep link to a chat
 - [ ] 1.8 Me tab & Advanced — persona, appearance, server, full SillyTavern UI behind Advanced, open-source licenses
 - [ ] 1.9 Personas — a chip in the chat's input bar shows the active persona; tapping it opens a full-screen persona list to switch, create, edit and delete personas, with SillyTavern's default and lock options

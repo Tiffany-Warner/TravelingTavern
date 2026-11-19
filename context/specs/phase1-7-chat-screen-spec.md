@@ -27,7 +27,12 @@ This is the **story** style. A second, texting style comes in Phase 2 (`phase2-t
 
 - **`bridge.js` runs without the app.** Today it ends with `if (!port) return;`, so in a desktop browser or a headless page it never hooks SillyTavern's events. Remove the early return: everything runs in any page, and only `post()` does nothing when the `TravelingTavern` port is missing
 - **Delete `setMode` / `tt-mode-*`** (`bridge.js`, `BridgeScript`, `BridgeClient.setMode`; nothing calls them). Phase 2 adds `setChatStyle` / `tt-style-*`
-- **Remove the mic's `"text"` target:** `ChatInputTarget.Text`, the `"text"` wire name in `BridgeMessageParser`, and the `bridge.js` comment "'text' (EchoText) comes with 1.7". A `micPressed` with `"text"` then parses as an unknown target (logged and ignored)
+- **Remove the 1.7b in-app mic; voice typing comes from the keyboard** (decision 2026-11-19, user). Android keyboards (for example Gboard) already have a voice-typing mic that works in SillyTavern's input, and in chat apps an in-app mic usually means sending a voice note, so the app's own speech-to-text button goes. Remove, with their tests:
+    - `#tt-mic`, `micPressed`, `setVoiceInputAvailable` / `beginVoiceInput` / `updateVoiceInput` / `endVoiceInput` (`bridge.js`, `st-selectors.js`, `BridgeScript`, `BridgeClient`, `BridgeMessage.MicPressed`) and the `#tt-mic` rules in `clean-theme.css`
+    - `data/speech/` (`OnDeviceSpeechInput`), `AndroidMicrophonePermission`, `SpeechEvent`, `SpeechError`, `VoiceSessionEvent`, `ChatInputTarget`, `SpeechInputRepository`, `ChatInputRepository`, `MicrophonePermission`, `IsVoiceInputAvailableUseCase`, `ListenForSpeechUseCase`
+    - `ChatViewModel`'s voice state and its snackbars (permission, language pack, no match)
+    - Keep: the `RECORD_AUDIO` permission in the manifest and the WebView's permission handling (SillyTavern's own extensions and later features such as calls may ask for the mic), and the rule that hides the Speech Recognition extension's mic in clean mode
+    - Ask before deleting files, per `ai-guidelines.md`; list them in the history entry
 
 ### Look (CSS in `clean-theme.css`, under `body.tt-clean`)
 
@@ -81,10 +86,10 @@ This is the **story** style. A second, texting style comes in Phase 2 (`phase2-t
 - A rounded panel at the bottom: the message field on top (SillyTavern's own `#send_textarea`, placeholder "Message"), and a row of controls below it:
     - **+** (left): SillyTavern's "Attach a file"
     - **Impersonate** (wand icon): SillyTavern's impersonate, which writes a message for you into the field to edit or send
-    - **Mic / Send** (right): the 1.7b mic while the field is empty, the send button once there's text; SillyTavern's stop button replaces both while a reply is generating
+    - **Send** (right): SillyTavern's send button, dimmed while the field is empty; SillyTavern's stop button replaces it while a reply is generating
 - SillyTavern's own left-side menu buttons in the input row are hidden in clean mode; everything they offered that the app needs is above or in the message actions
 - The keyboard pushes the whole panel up (IME insets), as now
-- The 1.7b mic keeps working exactly as before; only its position changes
+- No in-app mic: voice typing is the keyboard's own mic. The slot right of the field stays free for a possible later voice-note button (not on the roadmap)
 
 ### Foreground and background
 
@@ -142,7 +147,7 @@ When the app comes back to the foreground:
 
 - Unit tests:
     - `ChatViewModel`: `chatFile` passed to the open; tap → actions for that message (latest character message vs others); actions disabled while generating; Delete asks first, then calls the bridge; a stale answer shows the message and re-reads the chat; Start new chat and Restart chat call SillyTavern with the right `deleteCurrentChat` only after confirming
-    - `BridgeMessageParser`: `messageTapped`, `generationState`, `chatOpened` with and without `chatFile` (valid, missing, malformed); `micPressed` with `"text"` is an unknown target
+    - `BridgeMessageParser`: `messageTapped`, `generationState`, `chatOpened` with and without `chatFile` (valid, missing, malformed); `micPressed` is now an unknown type (logged and ignored)
     - `BridgeScript`: `messageAction`, `setAppState`, `reloadChat`, the theme variables, `selectCharacter` with a chat file (argument encoding)
     - `CharacterRepositoryImpl.openChat()`: matches on character and chat file; another chat of the same character doesn't count
     - Return handling: reload when Chat is showing, wait for a running generation, stale mark when it isn't, Chats list refreshed; no reload for a configuration change
@@ -158,7 +163,8 @@ When the app comes back to the foreground:
 - [ ] Each action does what SillyTavern's own button does, and the desktop shows the same result after a reload: copy, edit (nothing regenerates), branch, hide / show, delete (including a message in the middle), regenerate, continue
 - [ ] Actions are disabled while a reply is generating; a message changed on the desktop gives "This message has changed" instead of acting on the wrong one
 - [ ] ⋮ Start new chat opens a new chat and the old one is still in SillyTavern's chat list; Restart chat deletes the current chat (gone from the list on the desktop too) and opens a fresh one; both ask first
-- [ ] Input bar: + attaches a file; impersonate fills the field; the mic shows when empty and send when there's text; stop shows while generating; the keyboard pushes the panel up
+- [ ] Input bar: + attaches a file; impersonate fills the field; send is dimmed when empty; stop shows while generating; the keyboard pushes the panel up
+- [ ] The keyboard's own voice typing (Gboard mic) fills SillyTavern's input and nothing sends until you tap send; no in-app mic is shown
 - [ ] "…" shows before a reply starts; the scroll-to-newest button appears when scrolled up and works
 - [ ] Advanced and the desktop look unchanged
 - [ ] A message added from a desktop tab while the app is in the background shows after returning to the app, with the view at the newest message
@@ -181,7 +187,7 @@ The previous 1.7 (EchoText thread as the chat, main chat as Story view) is dropp
 
 ### Review of this spec against the code (2026-11-19)
 
-A review against `dev` found the early `if (!port) return;` in `bridge.js`, the unused `setMode` / `tt-mode-*`, the mic's leftover `"text"` target, the character-only "already showing" check and `chatOpened`, Activity-level lifecycle events firing on rotation, no stale handling when returning through the Chats list, state lost on a page reload, the deep link's launch mode, reloading during a generation, no generation state for Kotlin, and message indexes moving when the desktop deletes a message. All are written into the sections above.
+A review against `dev` found the early `if (!port) return;` in `bridge.js`, the unused `setMode` / `tt-mode-*`, the mic's leftover `"text"` target (now moot: the whole in-app mic is removed), the character-only "already showing" check and `chatOpened`, Activity-level lifecycle events firing on rotation, no stale handling when returning through the Chats list, state lost on a page reload, the deep link's launch mode, reloading during a generation, no generation state for Kotlin, and message indexes moving when the desktop deletes a message. All are written into the sections above.
 
 ### From 1.6
 

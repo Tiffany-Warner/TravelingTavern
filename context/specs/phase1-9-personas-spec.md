@@ -38,9 +38,7 @@ What SillyTavern 1.19.0 has (read from `personas.js`, 2026-11-19), to confirm on
 - One line of secondary text under the bar: "Who you are in your chats. Characters see your persona's description."
 - **List of persona cards** (surface cards, 16dp corners, no borders; per `ui-guidelines.md`):
     - Left: the persona's picture, 3:4, rounded
-    - Right: the name (`titleMedium`); the description, two lines, ellipsized (`bodyMedium`, secondary); then small badges from SillyTavern's data, only those that apply:
-        - the persona's **title** (SillyTavern's optional short tagline), if set
-        - **Active** (the one in use), **Default**, **Locked to this chat**, **Connected to {character}**
+    - Right: the name (`titleMedium`); the description, two lines, ellipsized (`bodyMedium`, secondary); then small badges from SillyTavern's data, only those that apply: **Active** (the one in use), **Default**, **Locked to this chat** (user decision, 2026-11-19: only these three)
     - A ⋯ button at the top right of each card (48dp target) for its actions
     - The active persona's card is marked with the accent (a thin amber outline or the selected container); one marked card only
 - Sorted as SillyTavern sorts its own list (by name), the active persona first
@@ -99,14 +97,14 @@ Only SillyTavern's own options:
     - `PersonasViewModel`: pick vs manage taps; badges; active first; locked-chat confirmation; delete confirmation; errors
     - `PersonaEditorViewModel`: Save enabled rules; unchanged fields kept; create vs edit
     - `BridgeScript`: the new commands (argument encoding)
-- Compose UI tests: `PersonasContent` (cards, badges, active marking, ⋯ sheet actions per mode, Create, empty and error states); `PersonaEditorContent` (Save enabled / disabled, token count shown); the chat's persona chip shows the name and calls back
+- Compose UI tests: `PersonasContent` (cards, the three badges, active marking, ⋯ sheet actions per mode, Create, empty and error states); `PersonaEditorContent` (Save enabled / disabled, token count shown); the chat's persona chip shows the name and calls back
 - Version bump per `CLAUDE.md`
 
 ## Verify on Device
 
 - [ ] The chip shows the active persona; tapping it opens the list in pick mode; picking switches and returns to the chat, and the next reply addresses the new persona
 - [ ] A persona locked to a chat or connected to a character is the one shown when that chat opens
-- [ ] Badges match SillyTavern's own persona panel on the desktop (default, locked, connected, title)
+- [ ] Badges match SillyTavern's own persona panel on the desktop (active, default, locked to this chat)
 - [ ] Create with a picture, edit name / title / description, delete: each shows the same on the desktop after a reload, and fields the app doesn't edit are unchanged
 - [ ] From the Me tab, tapping a card opens the editor and doesn't switch persona
 - [ ] A persona picture changed on the desktop shows in the app after a refresh

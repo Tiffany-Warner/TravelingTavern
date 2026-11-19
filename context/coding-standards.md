@@ -120,7 +120,6 @@ app/src/main/java/com/tiffles/travelingtavern/
 │   ├── bridge/              # BridgeClient, BridgeMessage, listeners
 │   ├── webview/             # WebViewHolder, clients, file chooser, permissions
 │   ├── settings/            # DataStore + encrypted credentials
-│   ├── speech/              # on-device speech recognizer (1.7b)
 │   ├── remote/
 │   └── repository/
 ├── di/

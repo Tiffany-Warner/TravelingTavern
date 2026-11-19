@@ -1,3 +1,5 @@
+> **Replaced (2026-11-19, user):** voice typing now comes from the phone's keyboard (its own mic). The in-app mic built here is removed in 1.7 (see its Cleanup section). This spec is kept as a record.
+
 # Phase 1.7b — Voice Input
 
 ## Overview
