@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?><!--
    Legacy Auto Backup rules (android:fullBackupContent). Android 12+ uses
    data_extraction_rules.xml instead; kept in step with it. See that file for why the
-   credential keyset is excluded.
+   credential keyset and the settings DataStore are excluded.
 -->
 <full-backup-content>
     <exclude domain="sharedpref" path="tt_credentials_keyset_prefs.xml" />
+    <exclude domain="file" path="datastore/settings.preferences_pb" />
 </full-backup-content>

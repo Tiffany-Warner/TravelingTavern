@@ -10,6 +10,9 @@ import com.tiffles.travelingtavern.data.settings.SettingsKeys
 import com.tiffles.travelingtavern.domain.model.ServerConfig
 import com.tiffles.travelingtavern.domain.repository.ServerConfigRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -30,12 +33,22 @@ class ServerConfigRepositoryImpl @Inject constructor(
         )
     }
 
+    private val _saves = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /**
+     * Fires after every [save], even one that wrote the same values. [observe] stays quiet then
+     * (DataStore only emits changes), but a save is still the user saying "use this server
+     * now" — e.g. the same address again once the server is reachable.
+     */
+    val saves: SharedFlow<Unit> = _saves.asSharedFlow()
+
     override suspend fun save(config: ServerConfig, password: String?) {
         dataStore.edit { prefs ->
             prefs[SettingsKeys.SERVER_BASE_URL] = config.baseUrl
             prefs.putEncrypted(SettingsKeys.SERVER_USERNAME_ENCRYPTED, config.username)
             prefs.putEncrypted(SettingsKeys.SERVER_PASSWORD_ENCRYPTED, password)
         }
+        _saves.tryEmit(Unit)
     }
 
     override suspend fun clear() {

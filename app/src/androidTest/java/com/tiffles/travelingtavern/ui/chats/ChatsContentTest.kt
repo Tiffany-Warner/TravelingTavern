@@ -95,13 +95,21 @@ class ChatsContentTest {
     }
 
     @Test
-    fun unreachableBannerRetries() {
+    fun unreachableBannerRetriesOrOpensServerSettings() {
         var retried = false
-        show(ChatsUiState.Error(PageError.Unreachable), onRetry = { retried = true })
+        var settingsOpened = false
+        show(
+            ChatsUiState.Error(PageError.Unreachable),
+            onRetry = { retried = true },
+            onOpenServerSettings = { settingsOpened = true }
+        )
 
         composeRule.onNodeWithText(string(R.string.banner_unreachable)).assertIsDisplayed()
         composeRule.onNodeWithText(string(R.string.webview_retry)).performClick()
         assertEquals(true, retried)
+        // A wrong saved address (e.g. the server's IP changed) can only be fixed from here.
+        composeRule.onNodeWithText(string(R.string.webview_server_settings)).performClick()
+        assertEquals(true, settingsOpened)
     }
 
     @Test

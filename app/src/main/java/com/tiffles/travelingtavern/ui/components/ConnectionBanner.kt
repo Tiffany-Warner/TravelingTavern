@@ -20,8 +20,8 @@ import com.tiffles.travelingtavern.domain.model.PageError
 import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
 
 /**
- * Inline banner at the top of a tab when the server can't be used, with the one action that
- * can fix it. Not shown at all while connected.
+ * Inline banner at the top of a tab when the server can't be used, with the actions that can
+ * fix it. Not shown at all while connected.
  */
 @Composable
 fun ConnectionBanner(
@@ -54,7 +54,13 @@ fun ConnectionBanner(
 @Composable
 private fun BannerAction(error: PageError, onRetry: () -> Unit, onOpenServerSettings: () -> Unit) {
     when (error) {
-        PageError.Unreachable, is PageError.HttpError -> TextButton(onClick = onRetry) {
+        // Tailscale may just be off (Retry), or the saved address may be wrong — e.g. the
+        // server's IP changed — and Server settings is the only way to change it.
+        PageError.Unreachable -> Row {
+            TextButton(onClick = onRetry) { Text(stringResource(R.string.webview_retry)) }
+            TextButton(onClick = onOpenServerSettings) { Text(stringResource(R.string.webview_server_settings)) }
+        }
+        is PageError.HttpError -> TextButton(onClick = onRetry) {
             Text(stringResource(R.string.webview_retry))
         }
         PageError.AuthFailed -> TextButton(onClick = onOpenServerSettings) {
