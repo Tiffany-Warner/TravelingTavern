@@ -47,6 +47,23 @@ Each style changes **both** the look and how the character writes, for chats in 
 - **Default** for a chat with no saved choice: texting (user to confirm in spec review). Note that this also changes how existing roleplay chats reply in the app until they're switched to story
 - Top app bar: a ⋮ overflow menu with one item, **Story style** while texting and **Texting style** while story. Same chrome height as 1.6, so `ChatChromeHeight` doesn't change and the WebView is never resized
 
+#### Editing and deleting messages (texting style)
+
+Bubbles have no room for SillyTavern's row of message buttons, so in texting style a **long press on any bubble** (yours or the character's) opens a bottom sheet with **Edit** and **Delete**. Story style keeps SillyTavern's own message buttons.
+
+- **Edit:** opens SillyTavern's own inline editor for that message, in the bubble, with its confirm and cancel. The keyboard pushes the input up as usual. Editing never regenerates the reply
+- **Delete:** a confirmation sheet first (the shared `ConfirmDeleteSheet`, "Delete this message?"), then SillyTavern deletes it. Any message can be deleted, not only the last
+- Both run through SillyTavern's own code, so the chat file, swipes and message numbering stay as SillyTavern keeps them, and the desktop sees the same result. Never edit the chat file or the DOM directly
+- Bridge:
+    - `bridge.js` detects the long press on a message in texting style (about 500 ms, cancelled by scrolling) and posts `messageLongPressed { messageId, isUser }`. A normal tap, text selection and swipe arrows keep working
+    - `editMessage(messageId)` and `deleteMessage(messageId)`, each answering with a request ID and success or error, like the lorebook commands
+- **While a reply is generating:** the sheet's actions are disabled (SillyTavern doesn't allow editing or deleting during a generation)
+- A message that no longer exists when the action runs (for example, deleted on the desktop meanwhile): show "This message has changed. Try again." and re-read the chat
+- Investigation **(verify)**:
+    - How SillyTavern starts editing a message from script (e.g. clicking its `.mes_edit` button, or an exported function), and how it deletes one message by index (e.g. `/cut <id>` through the slash-command executor, or an exported function). Prefer whatever SillyTavern's own buttons call
+    - The message index attribute on each message element (e.g. `mesid`)
+    - Whether a long press conflicts with SillyTavern's own touch handling (text selection, swipe gestures)
+
 #### The texting instruction
 
 - One app-wide template, stored in the app's DataStore with a default, for example: *"{{char}} and {{user}} are texting on their phones. Reply as {{char}}'s next text message: short and casual, no narration or actions, emoji are fine."* SillyTavern macros (`{{char}}`, `{{user}}`) are left for SillyTavern to fill
@@ -112,12 +129,13 @@ When the app comes back to the foreground:
 - Unit tests:
     - `ChatViewModel`: saved style applied on enter, default when nothing saved, `toggleChatStyle`, `chatFile` passed to the open
     - `ChatStylePreferences`: per-chat read and write; the texting template's default and saved value
-    - `BridgeScript`: `setChatStyle` with and without an instruction (quotes, newlines, macros kept as written), `setAppState`, `reloadChat`, `selectCharacter` with a chat file (argument encoding)
-    - `BridgeMessageParser`: `chatOpened` with and without `chatFile`; `micPressed` with `"text"` is an unknown target
+    - `BridgeScript`: `editMessage`, `deleteMessage`; `setChatStyle` with and without an instruction (quotes, newlines, macros kept as written), `setAppState`, `reloadChat`, `selectCharacter` with a chat file (argument encoding)
+    - `BridgeMessageParser`: `messageLongPressed` (valid, missing or malformed fields); `chatOpened` with and without `chatFile`; `micPressed` with `"text"` is an unknown target
     - `CharacterRepositoryImpl.openChat()`: matches on character and chat file; another chat of the same character doesn't count
     - Return handling: reload when Chat is showing, wait for a running generation, stale mark when it isn't, Chats list refreshed; no reload for a configuration change
     - Navigation: the route and deep link parse `characterId` and an optional `chatFile` (including names with spaces)
-- Compose UI tests (`ChatContent`): the ⋮ menu shows the right style item and calls back
+- Compose UI tests (`ChatContent`): the ⋮ menu shows the right style item and calls back; the message sheet shows Edit and Delete, both disabled while generating; Delete asks for confirmation before calling back
+- `ChatViewModel`: long press opens the sheet, Delete confirms then calls the bridge, a failed or stale action shows the message and re-reads the chat
 - Version bump per `CLAUDE.md`
 
 ## Verify on Device
@@ -127,6 +145,8 @@ When the app comes back to the foreground:
 - [ ] In a texting chat, replies (including swipes and regenerations) come as short texts; in a story chat, normal roleplay replies
 - [ ] The instruction never appears in the chat file, the chat's metadata or SillyTavern's settings, and the desktop's replies in the same chat stay normal roleplay
 - [ ] Switching to story, to another chat, or leaving Chat removes the instruction (the next reply is normal)
+- [ ] Texting style: long press on a user and on a character bubble → Edit changes the text in place (nothing regenerates); Delete asks first, then removes the message, including one in the middle of the chat; both show the same on the desktop after a reload
+- [ ] Long press doesn't fire while scrolling, and text selection and swipe arrows still work; the actions are disabled while a reply is generating
 - [ ] Swipe, edit and the message buttons work in both styles; sending works with the keyboard pushing the input up
 - [ ] A message added from a desktop tab while the app is in the background shows after returning to the app, with the view at the newest message
 - [ ] Same, but leaving from the Chats tab and then opening that character: the new message is there, and the Chats list shows it too
