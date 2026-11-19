@@ -39,7 +39,7 @@
 - All actions inside SillyTavern (select character, send message, generate) go through the JS bridge so SillyTavern's own code runs
 - `bridge.js` must run in any SillyTavern page, not only the app's WebView: with no `TravelingTavern` port it still hooks SillyTavern's events and runs its commands; only `post()` does nothing. The final phase runs it in a headless page on the desktop (see `project-schema.md` → Built Toward the Final Phase)
 - Chats are identified by SillyTavern's own keys (character avatar file + chat file name); message times come from SillyTavern's `send_date`. No app-side chat IDs or chat copies
-- Anything that affects generation is saved in SillyTavern, never applied only in the app's WebView session. Exception: the texting / story style (1.7), an app-only feature stored per chat in the app (see `project-schema.md`)
+- Anything that affects generation is saved in SillyTavern, never applied only in the app's WebView session. Exception: the texting / story style (Phase 2), an app-only feature stored per chat in the app (see `project-schema.md`)
 
 ## WebView
 

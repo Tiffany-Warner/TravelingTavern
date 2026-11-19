@@ -14,7 +14,7 @@ A native Settings screen with the few things a phone user needs, and an Advanced
 - **Advanced**
     - "Open full SillyTavern" → Advanced screen
 - **Notifications**
-    - Notify me toggle, shown disabled with "Coming soon" (wired up in Phase 7, the final phase)
+    - Notify me toggle, shown disabled with "Coming soon" (wired up in Phase 8, the final phase)
 - **About**
     - App version
     - Open-source licenses → screen listing each third-party notice, including the Aegis wrapper's ISC license in full
@@ -22,14 +22,14 @@ A native Settings screen with the few things a phone user needs, and an Advanced
 ### Advanced (`ui/advanced/AdvancedScreen.kt`)
 
 - Top app bar: back, title "Full SillyTavern"
-- Body: the shared `SillyTavernWebView` with `tt-clean` and mode classes **removed**
-- On leaving: restore `tt-clean` and the mode that was active before
+- Body: the shared `SillyTavernWebView` with `tt-clean` **removed** (the 1.7 layout and, later, the Phase 2 `tt-style-*` classes only apply under it)
+- On leaving: restore `tt-clean`
 - A small info banner on first visit: "Changes here save to your SillyTavern, same as on desktop"
 
 ### ViewModels
 
 - `SettingsViewModel` — observes `ServerConfig`; exposes `UiState(serverUrl, hasLogin, appVersion)`
-- `AdvancedViewModel` — calls `setMode` on enter and restores on exit
+- `AdvancedViewModel` — calls `setClean(false)` on enter and `setClean(true)` on exit
 
 ## Notes
 

@@ -58,6 +58,6 @@ Injected web assets (JS bridge script, clean-theme CSS) live in `app/src/main/as
 
 ## Related Repos
 
-- **TravelingTavern-Bridge** — SillyTavern server plugin on the desktop (push events, media, reminders, card writes). In Phase 7 it also drives a headless SillyTavern page that generates proactive messages and reminders in the main chat, running this repo's `bridge.js`
+- **TravelingTavern-Bridge** — SillyTavern server plugin on the desktop (push events, media, reminders, card writes). In Phase 8 it also drives a headless SillyTavern page that generates proactive messages and reminders in the main chat, running this repo's `bridge.js`
 
 Changes needed on the desktop side go in that repo, not here. EchoText and EchoText-Proactive are not used (see `context/project-schema.md` → One Conversation).

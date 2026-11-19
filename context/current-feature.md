@@ -1,6 +1,6 @@
 # Current Feature
 
-Docs: the main chat is the only conversation; proactive messages and reminders become the final phase
+Docs: 1.7 becomes the story chat; texting style becomes Phase 2
 
 ## Status
 
@@ -8,26 +8,35 @@ Completed
 
 ## Goals
 
-Update the docs for two decisions (2026-11-18, user):
+Follow-up to the 2026-11-18 docs change (PR #8), from Claude Code's review of the 1.7 spec against `dev` and the user's decisions on 2026-11-19:
 
-- **The main chat is the only conversation.** EchoText is dropped, as the chat and as a Text tab: SillyTavern's memory tools (Memory Books, keyword lorebooks, vector storage) only work on the main chat
-- **Proactive messages and reminders are the final phase.** They need a desktop-side generator and are the most advanced feature, so the rest of the app comes first, built so the final phase adds to it instead of undoing it
+- **1.7 is the story chat:** a clean phone layout on SillyTavern's own features (message cards, a tap for SillyTavern's message actions, a new input bar), plus the groundwork for the final phase
+- **Texting style is its own phase (Phase 2):** app-only, story by default; decisions and open items in its own spec
 
 ### Deliverables
 
-- `project-schema.md`: How It Fits Together without EchoText; new sections One Conversation and Built Toward the Final Phase (the rules every phase keeps); "Blocked on EchoText Thread Storage" removed; 1.7c removed; phases reordered (2 creator, 3 voice notes and selfies in replies, 4 real-time awareness, 5 calls, 6 avatar generation, 7 proactive messages and reminders, final)
-- 1.7 spec rewritten for the main chat: texting / story display styles, reload on return, lifecycle events, opening a specific chat with a deep link. The EchoText findings stay in Git history
-- 1.7b spec, `README.md`, `CLAUDE.md`, `ai-guidelines.md`, `coding-standards.md` (three boundary rules), `ui-guidelines.md`, and the 1.6, 1.6b and 1.8 specs: EchoText and phase references updated
+- 1.7 spec rewritten: story layout, message actions sheet, input bar, theme colors in the page, and the review fixes (early return in `bridge.js`, `setMode` and the mic's `"text"` target removed, chat file in the open check and `chatOpened`, `ProcessLifecycleOwner`, stale chats on return, state re-sent after a page reload, `singleTop` deep link, no reload during a generation, `generationState`, `send_date` stale check)
+- New `phase2-texting-style-spec.md`; `project-schema.md` gains Phase 2 and renumbers the later phases (final phase is now Phase 8)
+- `project-schema.md`, `coding-standards.md`, `CLAUDE.md`, `README.md`, and the 1.6, 1.7b and 1.8 specs updated to match
 - Docs only, no version bump
 
 ## References
 
-- @context/project-schema.md
 - @context/specs/phase1-7-chat-screen-spec.md
+- @context/specs/phase2-texting-style-spec.md
+- @context/project-schema.md
 
 ## History
 
 <!-- Completed work is added here, newest first -->
+
+### 2026-11-19 — Docs: 1.7 story chat; texting style as Phase 2 (branch `docs/1-7-spec-review`)
+
+- **Review against `dev` folded into the 1.7 spec:** remove `bridge.js`'s early return without the port, delete `setMode` / `tt-mode-*`, remove the mic's `"text"` target, chat file in the "already showing" check and `chatOpened`, `ProcessLifecycleOwner` instead of Activity events, stale chat + Chats list refresh on return, state re-sent after a page reload, `singleTop` deep link with Connect and Back rules, no reload during a generation; `project-schema.md` (final phase: `post()` has no port in the headless page) and `coding-standards.md` updated to match
+- **Story chat (user, 2026-11-19):** message cards (character left, user right, name under each card, narration in italic secondary color), a tap on a message opens a sheet with SillyTavern's own actions (regenerate and continue on the latest character message; copy, edit, branch, hide / show, delete on every message), `send_date` stale check, `generationState`; input bar with attach, persona chip, impersonate, mic / send; theme colors passed to the page as CSS variables; only SillyTavern's features, nothing it doesn't have
+- **Texting style (user, 2026-11-19):** its own spec and Phase 2: app-only (instruction in an in-memory extension prompt, never saved in SillyTavern), per chat, story by default, uses the 1.7 tap actions; open items from the review listed in the spec. Later phases renumbered (final phase now Phase 8)
+- `README.md`, `CLAUDE.md`, and the 1.6, 1.7b and 1.8 specs: phase numbers and references updated; 1.8's Advanced uses `setClean` instead of the removed mode classes
+- No code changed, so no version bump
 
 ### 2026-11-18 — Docs: main chat only; proactive messages and reminders as the final phase (branch `docs/main-chat-final-phase`)
 
@@ -35,10 +44,6 @@ Update the docs for two decisions (2026-11-18, user):
 - `project-schema.md`: One Conversation and Built Toward the Final Phase sections; roadmap reordered; Phase 7 holds the use cases (on-time reminders with the character's words in the notification; spontaneous messages), the desktop design and the app checklist
 - 1.7 spec rewritten (main chat, display styles, reload on return, lifecycle events, `chatFile` route + deep link); 1.7c dropped
 - Other docs: EchoText references removed or marked historical; phase numbers updated; `coding-standards.md` gains rules for `bridge.js` running in any page, SillyTavern's own chat keys and times, and generation settings living in SillyTavern
-- Review against `dev` (2026-11-19) folded into the 1.7 spec: remove `bridge.js`'s early return without the port, delete `setMode` / `tt-mode-*`, remove the mic's `"text"` target, chat file in the "already showing" check and `chatOpened`, `ProcessLifecycleOwner` instead of Activity events, stale chat + Chats list refresh on return, state re-sent after a page reload, `singleTop` deep link with Connect and Back rules, no reload during a generation. `project-schema.md` (Phase 7: `post()` has no port in the headless page) and `coding-standards.md` updated to match
-- Texting / story styles decided as an app-only feature (user, 2026-11-19, option C): texting also adds an instruction to the prompt (an in-memory extension prompt in the app's page, never saved in SillyTavern), stored per chat in the app with an app-wide template; the desktop is unaffected. Written into the 1.7 spec, with the exception noted in `project-schema.md` and `coding-standards.md`
-- Texting style gains editing and deleting messages (user, 2026-11-19): long press on a bubble → sheet with Edit (SillyTavern's own inline editor) and Delete (confirmation, then SillyTavern deletes it); story style keeps SillyTavern's buttons
-- Default style for a chat with no saved choice: story (user, 2026-11-19)
 - No code changed, so no version bump
 
 ### 2026-11-18 — Fix: a character's new avatar doesn't show in the app (branch `fix/avatar-updates`)
