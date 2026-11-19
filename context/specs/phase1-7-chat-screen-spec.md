@@ -20,7 +20,6 @@ This is the **story** style. A second, texting style comes in Phase 2 (`phase2-t
 - How to re-read the open chat from script without reloading the page, keeping the view at the newest message: `reloadCurrentChat()` or equivalent **(verify)**
 - The open chat's file name from `getContext()` (e.g. `chatId` / `getCurrentChatId()`), and how to open a given chat file (e.g. `openCharacterChat(fileName)`) **(verify)**
 - Whether `/api/chats/recent` (used by 1.6) returns each row's chat file name **(verify)**
-- Personas: how to list them with their names and avatars, which one is active for this chat, and how SillyTavern switches persona (its own persona selection, or the `/persona` command) **(verify)**
 - Attaching a file: what SillyTavern's own "Attach a file" control calls **(verify)**
 - Write the findings into Notes and add every name to `st-selectors.js`
 
@@ -48,7 +47,10 @@ This is the **story** style. A second, texting style comes in Phase 2 (`phase2-t
 ### Top app bar (native, from 1.6)
 
 - Back, character avatar and name, as now
-- ⋮ overflow menu with **Start new chat** (SillyTavern's own new chat for this character, after a confirmation sheet; the new chat opens). Phase 2 adds the style switch here
+- ⋮ overflow menu, kept small on purpose (more can come later; Phase 2 adds the style switch):
+    - **Start new chat:** SillyTavern's own new chat for this character (its greeting starts it). The current chat is kept and stays in SillyTavern's chat list. A confirmation sheet first; then the new chat opens
+    - **Restart chat:** the same, but SillyTavern also deletes the current chat, exactly like ticking "Delete the current chat" in SillyTavern's own "Start new chat" popup. A destructive confirmation sheet first ("Restart this chat? This deletes every message in it and can't be undone.", red Restart button). Memories already saved to lorebooks (for example by Memory Books) are not removed
+    - Both run SillyTavern's `doNewChat({ deleteCurrentChat })` (`public/script.js`, found 2026-11-19), reached the way its own menu reaches it **(verify how to call it from the bridge)**
 
 ### Message actions
 
@@ -78,7 +80,6 @@ This is the **story** style. A second, texting style comes in Phase 2 (`phase2-t
 
 - A rounded panel at the bottom: the message field on top (SillyTavern's own `#send_textarea`, placeholder "Message"), and a row of controls below it:
     - **+** (left): SillyTavern's "Attach a file"
-    - **Persona chip** ("Chatting as {persona} ▾"): shows the active persona; a tap opens a native sheet listing SillyTavern's personas (avatar and name); picking one switches persona the way SillyTavern does
     - **Impersonate** (wand icon): SillyTavern's impersonate, which writes a message for you into the field to edit or send
     - **Mic / Send** (right): the 1.7b mic while the field is empty, the send button once there's text; SillyTavern's stop button replaces both while a reply is generating
 - SillyTavern's own left-side menu buttons in the input row are hidden in clean mode; everything they offered that the app needs is above or in the message actions
@@ -126,11 +127,12 @@ When the app comes back to the foreground:
 
 - Takes `characterId` and optional `chatFile` from the nav arguments
 - Holds the message actions state: the tapped message, its actions, whether a generation is running, the delete confirmation, stale and error messages
-- Persona sheet state: the list and the active persona
+- Holds the ⋮ menu's confirmation state (start new / restart)
 
 ### Out of scope
 
 - Texting style (Phase 2)
+- Personas: the persona chip in the input bar and the persona screen come in 1.9; leave room for the chip in the input bar's control row
 - Group chats
 - Picking among a character's older chats in the app (SillyTavern's chat list stays in Advanced)
 - Extension message buttons (translate, narrate, generate image) in the actions sheet
@@ -139,13 +141,13 @@ When the app comes back to the foreground:
 ## Tests
 
 - Unit tests:
-    - `ChatViewModel`: `chatFile` passed to the open; tap → actions for that message (latest character message vs others); actions disabled while generating; Delete asks first, then calls the bridge; a stale answer shows the message and re-reads the chat; persona list and switch
+    - `ChatViewModel`: `chatFile` passed to the open; tap → actions for that message (latest character message vs others); actions disabled while generating; Delete asks first, then calls the bridge; a stale answer shows the message and re-reads the chat; Start new chat and Restart chat call SillyTavern with the right `deleteCurrentChat` only after confirming
     - `BridgeMessageParser`: `messageTapped`, `generationState`, `chatOpened` with and without `chatFile` (valid, missing, malformed); `micPressed` with `"text"` is an unknown target
     - `BridgeScript`: `messageAction`, `setAppState`, `reloadChat`, the theme variables, `selectCharacter` with a chat file (argument encoding)
     - `CharacterRepositoryImpl.openChat()`: matches on character and chat file; another chat of the same character doesn't count
     - Return handling: reload when Chat is showing, wait for a running generation, stale mark when it isn't, Chats list refreshed; no reload for a configuration change
     - Navigation: the route and deep link parse `characterId` and an optional `chatFile` (including names with spaces)
-- Compose UI tests (`ChatContent` and the sheets): the actions grid shows the right actions for the latest character message and for other messages; all but Copy disabled while generating; Delete asks for confirmation before calling back; the persona sheet lists personas and calls back; the ⋮ menu's Start new chat asks first
+- Compose UI tests (`ChatContent` and the sheets): the actions grid shows the right actions for the latest character message and for other messages; all but Copy disabled while generating; Delete asks for confirmation before calling back; the ⋮ menu's Start new chat and Restart chat each ask first, and Restart's sheet uses the destructive style
 - Version bump per `CLAUDE.md`
 
 ## Verify on Device
@@ -155,7 +157,8 @@ When the app comes back to the foreground:
 - [ ] Tap on a message opens the sheet with its time and sender; the latest character message shows Regenerate and Continue, others don't; long press still selects text; links and swipe arrows still work
 - [ ] Each action does what SillyTavern's own button does, and the desktop shows the same result after a reload: copy, edit (nothing regenerates), branch, hide / show, delete (including a message in the middle), regenerate, continue
 - [ ] Actions are disabled while a reply is generating; a message changed on the desktop gives "This message has changed" instead of acting on the wrong one
-- [ ] Input bar: + attaches a file; the persona chip lists personas and switches; impersonate fills the field; the mic shows when empty and send when there's text; stop shows while generating; the keyboard pushes the panel up
+- [ ] ⋮ Start new chat opens a new chat and the old one is still in SillyTavern's chat list; Restart chat deletes the current chat (gone from the list on the desktop too) and opens a fresh one; both ask first
+- [ ] Input bar: + attaches a file; impersonate fills the field; the mic shows when empty and send when there's text; stop shows while generating; the keyboard pushes the panel up
 - [ ] "…" shows before a reply starts; the scroll-to-newest button appears when scrolled up and works
 - [ ] Advanced and the desktop look unchanged
 - [ ] A message added from a desktop tab while the app is in the background shows after returning to the app, with the view at the newest message
