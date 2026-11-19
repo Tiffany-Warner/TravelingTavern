@@ -70,11 +70,11 @@ This repo is public. Nothing that identifies my network, devices or accounts goe
 
 ## Investigating SillyTavern and Extensions
 
-Several features depend on SillyTavern's and EchoText's live DOM and JavaScript APIs, which can change between versions.
+Several features depend on SillyTavern's (and extensions') live DOM and JavaScript APIs, which can change between versions.
 
-- Never guess a DOM selector, global, or `getContext()` member. Confirm it first — inspect the live page via `chrome://inspect` (WebView debugging is on in debug builds) or read the SillyTavern / EchoText source
+- Never guess a DOM selector, global, or `getContext()` member. Confirm it first — inspect the live page via `chrome://inspect` (WebView debugging is on in debug builds) or read the SillyTavern / extension source
 - When a spec marks something **(verify)**, confirm it before building on it, and write what you found into the spec's Notes section
-- Keep every SillyTavern/EchoText selector and global name in one place (see coding standards) so a SillyTavern update is a one-file fix
+- Keep every SillyTavern and extension selector and global name in one place (see coding standards) so a SillyTavern update is a one-file fix
 
 ## Code Changes
 

@@ -37,6 +37,9 @@
 - Never write SillyTavern chat or character files directly, and never re-implement prompt assembly
 - All reads from SillyTavern go through the JS bridge (or, later, TravelingTavern-Bridge endpoints)
 - All actions inside SillyTavern (select character, send message, generate) go through the JS bridge so SillyTavern's own code runs
+- `bridge.js` must run in any SillyTavern page, not only the app's WebView: with no `TravelingTavern` port it still works and `post()` does nothing. The final phase runs it in a headless page on the desktop (see `project-schema.md` → Built Toward the Final Phase)
+- Chats are identified by SillyTavern's own keys (character avatar file + chat file name); message times come from SillyTavern's `send_date`. No app-side chat IDs or chat copies
+- Anything that affects generation is saved in SillyTavern, never applied only in the app's WebView session
 
 ## WebView
 
@@ -53,7 +56,7 @@
 - Every message is JSON with a `v` (version) and `type` field, parsed with Kotlin Serialization into a sealed `BridgeMessage` class. Unknown types are logged and ignored, never crash
 - Kotlin → JS calls go through one `BridgeClient` wrapper around `evaluateJavascript` — no scattered JS strings in ViewModels
 - Injected scripts and CSS live in `app/src/main/assets/web/`
-- All SillyTavern/EchoText selectors and global names live in `assets/web/st-selectors.js` (JS side) and `data/bridge/StSelectors.kt` (Kotlin side, if needed). Nowhere else
+- All SillyTavern and extension selectors and global names live in `assets/web/st-selectors.js` (JS side) and `data/bridge/StSelectors.kt` (Kotlin side, if needed). Nowhere else
 
 ## Dependency Injection
 

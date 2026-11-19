@@ -1,6 +1,6 @@
 # Current Feature
 
-Fix: a character's new avatar doesn't show in the app
+Docs: the main chat is the only conversation; proactive messages and reminders become the final phase
 
 ## Status
 
@@ -8,33 +8,34 @@ Completed
 
 ## Goals
 
-An avatar changed in SillyTavern (on the desktop) shows in the app after a pull to refresh, without reinstalling or clearing the app.
+Update the docs for two decisions (2026-11-18, user):
 
-Found by the user on the Pixel 8 (0.1.13): Jasper Mercier's avatar was changed on the desktop; the Characters tab kept the old picture.
-
-### Cause
-
-- **Image cache:** the bridge builds each avatar address from the avatar file name only (`/thumbnail?type=avatar&file=<name>`, `/characters/<name>`), which doesn't change when the picture does. Coil 3 caches by address and ignores the server's `Cache-Control: max-age=0`, so it keeps showing its saved copy
-- **Stale list:** the page's character list (`characters`) is read from the server once, when SillyTavern loads. Nothing re-reads it later, so a change on the desktop doesn't reach the app until it restarts
+- **The main chat is the only conversation.** EchoText is dropped, as the chat and as a Text tab: SillyTavern's memory tools (Memory Books, keyword lorebooks, vector storage) only work on the main chat
+- **Proactive messages and reminders are the final phase.** They need a desktop-side generator and are the most advanced feature, so the rest of the app comes first, built so the final phase adds to it instead of undoing it
 
 ### Deliverables
 
-- **Versioned addresses:** the bridge adds the character file's change time (`date_added`, the file's `ctimeMs`, which SillyTavern updates whenever the card or its picture is written) to both avatar addresses as `tt_v=<ms>`. A new picture → a new address → a fresh download. The server ignores the extra parameter; editing a card's text also changes it (one extra download)
-- **Refresh from the server:** `requestCharacters(fromServer)` first calls SillyTavern's own `getCharacters()` (re-reads `/api/characters/all`; reselecting the open character doesn't reload its chat). `CharacterRepository.refresh()` uses it
-- **Pull to refresh on Characters**, like Chats and Lorebooks (it only had none because nothing needed it)
-- **Tests:** `CharactersViewModelTest` (refresh), `CharacterRepositoryImplTest` (asks the server), `BridgeScriptTest`; Compose UI test unchanged (pull gestures aren't worth one)
-- Version `0.1.15` / `versionCode 16`
-
-## Notes
-
-- SillyTavern regenerates a thumbnail when the original file is newer (`generateThumbnail`: `originalStat.mtimeMs > cachedStat.ctimeMs`), so the server side needs nothing
+- `project-schema.md`: How It Fits Together without EchoText; new sections One Conversation and Built Toward the Final Phase (the rules every phase keeps); "Blocked on EchoText Thread Storage" removed; 1.7c removed; phases reordered (2 creator, 3 voice notes and selfies in replies, 4 real-time awareness, 5 calls, 6 avatar generation, 7 proactive messages and reminders, final)
+- 1.7 spec rewritten for the main chat: texting / story display styles, reload on return, lifecycle events, opening a specific chat with a deep link. The EchoText findings stay in Git history
+- 1.7b spec, `README.md`, `CLAUDE.md`, `ai-guidelines.md`, `coding-standards.md` (three boundary rules), `ui-guidelines.md`, and the 1.6, 1.6b and 1.8 specs: EchoText and phase references updated
+- Docs only, no version bump
 
 ## References
 
-- @context/specs/phase1-6-home-character-list-spec.md
-- SillyTavern `src/endpoints/characters.js` (`date_added = charStat.ctimeMs`), `src/endpoints/thumbnails.js`, `public/script.js` (`getCharacters`, `selectCharacterById`)
+- @context/project-schema.md
+- @context/specs/phase1-7-chat-screen-spec.md
 
 ## History
+
+<!-- Completed work is added here, newest first -->
+
+### 2026-11-18 — Docs: main chat only; proactive messages and reminders as the final phase (branch `docs/main-chat-final-phase`)
+
+- **Decisions (user):** SillyTavern's main chat is the only conversation (EchoText dropped: its threads are invisible to Memory Books, keyword lorebooks and vector storage); proactive messages and reminders move to the final phase (Phase 7) and are generated on the desktop by SillyTavern itself, in a headless page driven by TravelingTavern-Bridge
+- `project-schema.md`: One Conversation and Built Toward the Final Phase sections; roadmap reordered; Phase 7 holds the use cases (on-time reminders with the character's words in the notification; spontaneous messages), the desktop design and the app checklist
+- 1.7 spec rewritten (main chat, display styles, reload on return, lifecycle events, `chatFile` route + deep link); 1.7c dropped
+- Other docs: EchoText references removed or marked historical; phase numbers updated; `coding-standards.md` gains rules for `bridge.js` running in any page, SillyTavern's own chat keys and times, and generation settings living in SillyTavern
+- No code changed, so no version bump
 
 ### 2026-11-18 — Fix: a character's new avatar doesn't show in the app (branch `fix/avatar-updates`)
 
