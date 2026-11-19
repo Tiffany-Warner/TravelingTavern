@@ -14,7 +14,7 @@ A native Settings screen with the few things a phone user needs, and an Advanced
 - **Advanced**
     - "Open full SillyTavern" → Advanced screen
 - **Notifications**
-    - Notify me toggle, shown disabled with "Coming soon" (wired up in Phase 2)
+    - Notify me toggle, shown disabled with "Coming soon" (wired up in Phase 7, the final phase)
 - **About**
     - App version
     - Open-source licenses → screen listing each third-party notice, including the Aegis wrapper's ISC license in full

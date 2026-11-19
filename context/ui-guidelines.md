@@ -49,7 +49,7 @@ The look is **quiet and simple**: neutral surfaces, one accent color, and the ch
 - **Empty states:** one short sentence + one action button, no illustrations for now
 - **Errors:** inline banner at the top of the content ("Can't reach your server — Retry"), not dialogs. Connection status is not shown at all when things are working
 - **Sheets over dialogs** for choices (e.g. Create vs Import)
-- **Motion:** Material defaults only; no custom animations until Phase 7 polish
+- **Motion:** Material defaults only; no custom animations until a later polish pass
 
 ## Screen Map
 

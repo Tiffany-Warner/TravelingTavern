@@ -24,7 +24,7 @@ Fill the Chats and Characters tabs with real data from the JS bridge. **Chats** 
 - Sorted by last chat time, newest first
 - Pull to refresh → `requestCharacters()`
 - Empty state: "No chats yet." + button "Browse characters" → Characters tab
-- Unread dots come in Phase 2
+- Unread dots come in Phase 7 (proactive messages)
 
 ### Characters tab (`ui/characters/CharactersScreen.kt`)
 
@@ -34,7 +34,7 @@ Fill the Chats and Characters tabs with real data from the JS bridge. **Chats** 
 - Crossfade images in; keep a placeholder surface at the card's 3:4 size so the grid doesn't jump while images load
 - Sorted alphabetically
 - FAB (`+`) opens a bottom sheet with two options, both "Coming soon" in Phase 1:
-    - Create character (Phase 5 creator)
+    - Create character (Phase 2 creator)
     - Import card
 - Empty state: "No characters yet. Create or import one in SillyTavern." + button "Open full SillyTavern" → Advanced
 

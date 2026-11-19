@@ -8,7 +8,7 @@ This replaces the Speech Recognition extension's mic inside the app. That extens
 
 The app doesn't type into SillyTavern directly. Recognized text goes to the page through the JS bridge (1.4), which fills SillyTavern's own input the same way typing would.
 
-**Scope:** main chat only. 1.7 (Text is the chat, EchoText thread) is on hold until EchoText's thread storage is fixed. When 1.7 resumes, the EchoText input gets the same mic; the bridge's `target` field already allows for it (see Bridge additions).
+**Scope:** main chat, the only conversation (decision 2026-11-18: no EchoText, see `project-schema.md` → One Conversation).
 
 ## Requirements
 
@@ -19,7 +19,6 @@ The app doesn't type into SillyTavern directly. Recognized text goes to the page
 - Confirm the Speech Recognition extension's mic button selector **(verify)**
 - Check whether the on-device recognizer honors `EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS` / `EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS` on the Pixel 8 **(verify)** — this decides whether the restart approach under "Pauses" is needed
 - Write the findings into this spec's Notes section and add the names to `st-selectors.js`
-- EchoText's input and send button selectors are already recorded in the 1.7 spec's Notes; they're not needed until 1.7 resumes
 
 ### Speech recognizer (`data/speech/`)
 
@@ -43,7 +42,7 @@ The app doesn't type into SillyTavern directly. Recognized text goes to the page
     - Not added at all if Kotlin reports voice input as unavailable
     - Min 48dp-equivalent touch target; uses the page's own icon color, accent color only while listening
 - JS → Kotlin: `micPressed` — `{ target: "story" | "text" }`
-    - Only `"story"` (the main chat) is sent in 1.7b. `"text"` is reserved for the EchoText input when 1.7 resumes, so the message format doesn't change later
+    - Only `"story"` (the main chat) is sent. `"text"` was reserved for an EchoText input that is no longer planned; it stays accepted so the message format doesn't change, and can be removed in a later cleanup
 - Kotlin → JS (through `BridgeClient`, arguments JSON-encoded):
     - `setVoiceInputAvailable(available)` — show or skip the mic button
     - `beginVoiceInput(target)` — remember the input's current text as the base; add `tt-mic-listening` to the button
@@ -52,7 +51,7 @@ The app doesn't type into SillyTavern directly. Recognized text goes to the page
 - Add `MicPressed` to the `BridgeMessage` sealed class
 - In `clean-theme.css`, under `body.tt-clean`:
     - Hide the Speech Recognition extension's mic button, so the in-app mic is the only one. It stays visible in Advanced and on desktop
-    - EchoText's floating button and window are already hidden by the 0.1.12 fix (`body.tt-clean ~ #et-portal > *`, all EchoText UI in the app until 1.7 resumes), so nothing covers the mic or send button. Nothing to add here
+    - EchoText's floating button and window are hidden by the 0.1.12 fix (`body.tt-clean ~ #et-portal > *`) in case EchoText is still installed, so nothing covers the mic or send button. Nothing to add here
 
 ### Behavior (`ChatViewModel`, as it exists from 1.6)
 
@@ -118,7 +117,6 @@ Pausing for a few seconds mid-thought must not end recording.
 - Verify on device: no EchoText UI over the chat or the mic in the app (0.1.12 fix), and EchoText still appears on desktop
 - If restarts play a start/stop sound on each pass, or drop words at the seam, write that down here and raise it before working around it
 - Auto-send and continuous (hands-free, always-on) listening are out of scope for this spec
-- **When 1.7 resumes:** add `#tt-mic` to EchoText's input row (`.et-input-bar`, next to `#et-send-btn`) with `target: "text"`, and stop listening when switching between the thread and Story view
 
 ## References
 
@@ -126,4 +124,4 @@ Pausing for a few seconds mid-thought must not end recording.
 - @context/ui-guidelines.md
 - @context/specs/phase1-4-js-bridge-spec.md
 - @context/specs/phase1-6-home-character-list-spec.md
-- @context/specs/phase1-7-chat-screen-spec.md (EchoText findings, for later)
+- @context/specs/phase1-7-chat-screen-spec.md
