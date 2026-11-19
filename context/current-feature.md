@@ -1,6 +1,6 @@
 # Current Feature
 
-Phase 1.7b — Voice Input
+Fix: stuck on "Can't reach your server" after a reinstall
 
 ## Status
 
@@ -8,31 +8,44 @@ Completed
 
 ## Goals
 
-A mic button next to the main chat's send button. Tapping it starts Android's **on-device** speech recognizer; the words appear in SillyTavern's input as you speak, pauses of a few seconds don't end recording, and you review and send yourself. No audio leaves the phone. Main chat only — the EchoText input gets the same mic when 1.7 resumes (`target: "text"` reserved).
+A fresh install always starts at Connect, and a wrong server address can always be fixed from the app.
+
+Found by the user on the Pixel 8 (0.1.13): after a fresh install the app showed "Can't reach your server" with only Retry, and no way to the Connect screen.
+
+### Cause
+
+- Android Auto Backup restored the app's settings DataStore on install (`restoreAtInstall`), including a **stale** server address (the server's previous Tailscale IP). The start destination saw a saved server and skipped Connect
+- The connection banner offers **Server settings** only for a failed login; for "can't reach" it offers only Retry, and the Me tab (1.8) doesn't exist yet — so a wrong address could not be changed from the app. That also applies whenever the server's address changes, not only after a reinstall
 
 ### Deliverables
 
-- **Investigation (first):** main chat input / send selectors, the event(s) that make programmatic text count as typing, the Speech Recognition extension's mic selector, and whether the Pixel 8's on-device recognizer honours the silence-length extras (needs the user speaking to the phone). Findings in the spec's Notes, names in `st-selectors.js`
-- **Speech (`data/speech/`):** `OnDeviceSpeechInput` around `SpeechRecognizer.createOnDeviceSpeechRecognizer` (main thread, partial results, default language, `listen(): Flow<SpeechEvent>`, released on cancel); never a cloud fallback
-- **Domain:** `SpeechEvent`, `SpeechError`, `SpeechInputRepository`, `IsVoiceInputAvailableUseCase`, `ListenForSpeechUseCase` (pause handling: restart passes, committed text, `PAUSE_TOLERANCE_MS = 4000`, `NoMatch` on a restart isn't an error)
-- **Bridge:** `#tt-mic` next to the main chat's send button (clean mode only, not added when unavailable, 48dp, accent only while listening); `micPressed { target }`; `setVoiceInputAvailable`, `beginVoiceInput`, `updateVoiceInput`, `endVoiceInput`; `BridgeMessage.MicPressed`; hide the Speech Recognition extension's mic under `body.tt-clean`
-- **Chat:** `ChatViewModel` voice state (`Idle` / `Listening` / `Unavailable`), `RECORD_AUDIO` request, tap to start / stop, append on a second session, stop when leaving Chat or going to the background; snackbars for `PermissionDenied` (+ Settings), `LanguagePackMissing`, `NoMatch`
-- **Tests:** parser (`micPressed`), `BridgeClient` escaping, `ChatViewModel` voice states, pause handling with a fake repository and test clock; Compose UI test for the snackbars
-- Version `0.1.13` / `versionCode 14`
+- **Backup (user decision, option A):** exclude the settings DataStore (`files/datastore/settings.preferences_pb`) from cloud backup and device transfer, alongside the credential keyset. The login couldn't be restored anyway (its key is never backed up), and a restored address can be stale. A fresh install always starts at Connect
+- **Banner:** "Can't reach your server" shows **Retry** and **Server settings**; a failed login keeps Server settings; an HTTP error keeps Retry
+- **Reload on Save:** saving on Connect while the page is in an error state loads the server, even when nothing changed (same address, server reachable again). DataStore emits only changes, so a save of the same values used to leave the banner up until Retry
+- **Tests:** Compose UI test for the banner's actions (Chats list)
+- Version `0.1.14` / `versionCode 15`
 
 ## Notes
 
-- The emulator reports on-device recognition but has no English speech pack, so speech itself was tested on the Pixel 8 by the user. Everything else was checked on the emulator first
-- Findings (input row, typing event, extension mic, pass behaviour on the Pixel, cold start, spoken punctuation) are in the spec's Notes
-- Not in the spec, added: a generic "Voice input stopped. Try again." for `Busy` / `Other` errors; the theme's inverse colours (snackbar action was Material's default purple)
+- Connect doesn't fill in the saved address when opened from Server settings; the user types it again. Left as is (Connect is reworked in 1.8's server settings)
 
 ## References
 
-- @context/specs/phase1-7b-voice-input-spec.md
-- @context/specs/phase1-4-js-bridge-spec.md
-- @context/specs/phase1-6-home-character-list-spec.md
+- @context/specs/phase1-2-connect-screen-spec.md
+- Android Auto Backup: `dataExtractionRules` (API 31+) and `fullBackupContent`
 
 ## History
+
+### 2026-11-18 — Fix: stuck on "Can't reach your server" after a reinstall (branch `fix/connect-after-restore`)
+
+- **Cause:** Android Auto Backup restored the settings DataStore on install with a stale server address (the server's previous Tailscale IP), so Connect was skipped; and the "can't reach" banner offered only Retry, so the address couldn't be changed from the app
+- `data_extraction_rules.xml` (cloud backup and device transfer) and `backup_rules.xml` exclude `datastore/settings.preferences_pb` as well as the keyset (user decision): a fresh install always starts at Connect
+- `ConnectionBanner`: Unreachable shows Retry **and** Server settings; AuthFailed keeps Server settings, HttpError keeps Retry
+- `ServerConfigRepositoryImpl.saves` fires on every save; `WebViewHolder` reloads on it while the page is in an error state (reads the stored address, so a changed address isn't retried at the old one first, and `load()` records it so it isn't loaded twice)
+- Compose UI test: `ChatsContentTest.unreachableBannerRetriesOrOpensServerSettings`; `./gradlew build` green
+- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 over Tailscale with the local backup transport: 0.1.13 backed up with a saved server → uninstall → 0.1.14 installed over that backup → no settings restored, Connect on six cold starts in a row; offline start → banner with Retry and Server settings on one line → Server settings opens Connect; stale address planted → banner → new address saved → list loads without Retry; offline start, network back, **same** address saved → list loads without Retry (before the reload-on-save change it stayed on the banner for 2 min)
+- Verified on the Pixel 8 (0.1.14 installed as an update, stale address still saved): banner with Server settings → new address → Test "Connected to SillyTavern" → Save; the user needed one Retry afterwards (that build had no reload-on-save; a changed address did reload by itself on the emulator, so the Pixel's first load may simply have failed — not reproduced)
+- Version `0.1.14` / `versionCode 15`
 
 ### 2026-11-18 — Phase 1.7b Voice Input (branch `feature/voice-input`)
 
