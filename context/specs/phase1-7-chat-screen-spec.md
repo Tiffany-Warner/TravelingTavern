@@ -101,7 +101,7 @@ When the app comes back to the foreground:
 
 ### After a page reload
 
-- `BridgeInstaller` already re-sends clean mode after every page load. It also re-sends the current app state and the theme colors (Look, below)
+- `BridgeInstaller` already re-sends clean mode after every page load. It also re-sends the current app state and the theme colors (Look, above)
 - Anything sent before the bridge exists (before the first load finishes) is lost, so state is pushed by the installer after each load instead of relying on earlier calls
 
 ### Opening a specific chat
