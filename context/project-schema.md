@@ -47,7 +47,7 @@ EchoText keeps every thread in SillyTavern's settings file, which each open page
 - [x] 1.6b Lorebooks tab — browse, create and delete lorebooks; view, add, edit and delete entries
 - [ ] 1.7 Chat screen — EchoText thread as the chat, main chat as Story view, no reloads (blocked on EchoText thread storage, see below)
 - [ ] 1.7c Chats list previews from EchoText threads (blocked on EchoText thread storage)
-- [ ] 1.7b Voice input — on-device speech-to-text mic, tolerates pauses, never auto-sends (in the main chat for now; the EchoText thread once 1.7 lands)
+- [x] 1.7b Voice input — on-device speech-to-text mic, tolerates pauses, never auto-sends (in the main chat for now; the EchoText thread once 1.7 lands)
 - [ ] 1.8 Me tab & Advanced — persona, appearance, server, full SillyTavern UI behind Advanced, open-source licenses
 
 ---

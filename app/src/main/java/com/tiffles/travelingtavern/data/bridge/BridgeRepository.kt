@@ -64,7 +64,8 @@ class BridgeRepository @Inject constructor() {
             is BridgeMessage.Error -> Log.w(TAG, "Bridge reported an error")
             is BridgeMessage.Unknown -> Log.d(TAG, "Ignored unknown bridge message type: ${message.type}")
             is BridgeMessage.ChatChanged, is BridgeMessage.ChatOpened, is BridgeMessage.MessageReceived,
-            is BridgeMessage.LorebookEntries, is BridgeMessage.LorebookResult, is BridgeMessage.TokenCount -> Unit
+            is BridgeMessage.LorebookEntries, is BridgeMessage.LorebookResult, is BridgeMessage.TokenCount,
+            is BridgeMessage.MicPressed -> Unit
         }
         _messages.tryEmit(message)
     }

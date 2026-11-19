@@ -24,6 +24,10 @@
      #rightSendForm           input row, right buttons (microphone, send)
      #et-portal               EchoText extension's container (window, floating button, pop-ups);
                               a sibling of <body>, not inside it (verified on EchoText 1.2.6)
+     #microphone_button       Speech Recognition extension's mic
+     #tt-mic                  the app's own mic button (added by bridge.js); `.tt-mic-listening`
+                              while recording. The one rule outside body.tt-clean hides it when
+                              clean mode is off (Advanced)
    Colors are never set here: everything keeps SillyTavern's theme variables. */
 
 /* Toolbar, its drawers, and the TopInfoBar chat bar: the app provides these natively. */
@@ -50,6 +54,20 @@ body.tt-clean #chat .drawer-opener {
    `display: block !important`, which a stylesheet can't override, so its children are hidden. */
 body.tt-clean ~ #et-portal > * {
     display: none !important;
+}
+
+/* Voice input: the app's mic replaces the Speech Recognition extension's (which sends audio
+   to Google and stops at short pauses). In Advanced the extension's mic is back and the app's
+   is hidden. */
+body.tt-clean #microphone_button,
+body:not(.tt-clean) #tt-mic {
+    display: none !important;
+}
+
+/* While recording, the mic takes the theme's accent (the quote color) instead of the icon color. */
+body.tt-clean #tt-mic.tt-mic-listening {
+    color: var(--SmartThemeQuoteColor);
+    opacity: 1;
 }
 
 /* With the toolbar gone, the chat column takes the whole viewport. */

@@ -4,8 +4,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -31,6 +35,14 @@ class LorebooksContentTest {
 
     private fun string(id: Int, vararg args: Any) =
         InstrumentationRegistry.getInstrumentation().targetContext.getString(id, *args)
+
+    /** Filter chips report the Checkbox role; a card's status line with the same text doesn't. */
+    private val isChip = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Checkbox)
+
+    private fun chip(labelRes: Int) = composeRule.onNode(hasText(string(labelRes)) and isChip)
+
+    /** Text on a card, not a chip with the same label ("Global" is both). */
+    private fun cardText(text: String) = composeRule.onNode(hasText(text) and !isChip)
 
     // No image URLs: the initial shows instead, and nothing touches the network.
     private fun character(name: String) = CharacterSummary("$name.png", name, "", "", null)
@@ -81,7 +93,7 @@ class LorebooksContentTest {
         show()
         composeRule.onNodeWithText("Seraphina").assertIsDisplayed()
         composeRule.onNodeWithText(string(R.string.lorebooks_status_more, "Bob", 2)).assertIsDisplayed()
-        composeRule.onNodeWithText(string(R.string.lorebooks_status_global)).assertIsDisplayed()
+        cardText(string(R.string.lorebooks_status_global)).assertIsDisplayed()
         composeRule.onNodeWithText(string(R.string.lorebooks_status_persona)).assertIsDisplayed()
         composeRule.onNodeWithText(string(R.string.lorebooks_status_not_active)).assertIsDisplayed()
     }
@@ -91,9 +103,9 @@ class LorebooksContentTest {
         val chosen = mutableListOf<LorebookFilter>()
         show(onFilter = { chosen += it })
 
-        composeRule.onNodeWithText(string(R.string.lorebooks_filter_unused)).performClick()
-        composeRule.onNodeWithText(string(R.string.lorebooks_filter_unused)).assertIsSelected()
-        composeRule.onNodeWithText(string(R.string.lorebooks_filter_global)).performClick()
+        chip(R.string.lorebooks_filter_unused).performClick()
+        chip(R.string.lorebooks_filter_unused).assertIsSelected()
+        chip(R.string.lorebooks_filter_global).performClick()
 
         assertEquals(listOf(LorebookFilter.Unused, LorebookFilter.Global), chosen)
     }

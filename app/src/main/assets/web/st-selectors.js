@@ -136,7 +136,23 @@
         dom: Object.freeze({
             /** The message list; its scroll position settles once a chat is fully drawn. */
             chat: '#chat',
+            /** Main chat input; send reads its value directly (`sendTextareaMessage`). */
+            sendTextarea: '#send_textarea',
+            /** Right-hand buttons of the input row; the in-app mic goes in here. */
+            rightSendForm: '#rightSendForm',
+            /** Send button; the in-app mic sits right before it. */
+            sendButton: '#send_but',
         }),
+
+        /**
+         * Programmatic text counts as typing after this event (bubbling): SillyTavern's own
+         * listener resizes the input and saves the draft. SillyTavern fills the input the same
+         * way itself (impersonate, restoring a draft). Verified against 1.19.0.
+         */
+        inputEvent: 'input',
+
+        /** Classes the in-app mic button borrows so it looks like the row's other buttons. */
+        micButtonClasses: 'fa-solid fa-microphone interactable',
 
         /** Body class that turns on clean-theme.css. */
         cleanClass: 'tt-clean',
@@ -158,5 +174,7 @@
         //   #sheld, #chat, .mes_text              chat column, message list, message text
         //   #send_textarea, #leftSendForm, #rightSendForm   message input row
         //   #et-portal (sibling of <body>)        EchoText's window, floating button and pop-ups
+        //   #microphone_button                    Speech Recognition extension's mic (hidden in the app)
+        //   #tt-mic, .tt-mic-listening            the app's own mic button (added by bridge.js)
     });
 })();

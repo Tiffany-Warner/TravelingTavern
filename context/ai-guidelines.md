@@ -42,6 +42,7 @@ When I ask to release (usually after a sub-feature is verified on device and its
 
 1. Make sure `dev` is pushed and its latest CI run is green
 2. Run the Compose UI tests (`./gradlew connectedDebugAndroidTest`) on an emulator or device and make sure they pass. Note the result in the PR description
+    - Use the emulator (or a spare device), not the phone I use every day: the test run **uninstalls the app** afterwards, which deletes its saved data (server address, login, permissions). With several devices connected, pick one with `ANDROID_SERIAL=<serial>` — otherwise Gradle runs on every connected device
 3. Open a pull request from `dev` into `main`, titled with the version (e.g. `Release 0.1.5`) and listing the history entries it includes
 4. I merge it on GitHub with **Create a merge commit** — not squash or rebase, which would make `main` and `dev` drift apart
 

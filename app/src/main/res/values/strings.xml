@@ -51,6 +51,11 @@
     <string name="coming_soon">Coming soon</string>
 
     <string name="chat_back">Back</string>
+    <string name="chat_voice_permission_denied">Microphone access is off. You can turn it on in Settings.</string>
+    <string name="chat_voice_settings">Settings</string>
+    <string name="chat_voice_language_pack">Download the speech pack for your language to use voice input.</string>
+    <string name="chat_voice_no_match">Didn\'t catch that. Try again.</string>
+    <string name="chat_voice_failed">Voice input stopped. Try again.</string>
 
     <string name="lorebooks_search">Search lorebooks</string>
     <string name="lorebooks_close_search">Close search</string>

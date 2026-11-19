@@ -56,6 +56,18 @@ class BridgeClient @Inject constructor(
     suspend fun countTokens(requestId: String, text: String) =
         run(BridgeScript.call("countTokens", JsonPrimitive(requestId), JsonPrimitive(text)))
 
+    /** Adds the in-page mic button (or removes it, when [available] is false). */
+    suspend fun setVoiceInputAvailable(available: Boolean) =
+        run(BridgeScript.call("setVoiceInputAvailable", JsonPrimitive(available)))
+
+    /** Starts filling the [target] input (`story` or `text`) with recognized text. */
+    suspend fun beginVoiceInput(target: String) = run(BridgeScript.call("beginVoiceInput", JsonPrimitive(target)))
+
+    /** Sets the input to its text from before [beginVoiceInput] plus [text]. */
+    suspend fun updateVoiceInput(text: String) = run(BridgeScript.call("updateVoiceInput", JsonPrimitive(text)))
+
+    suspend fun endVoiceInput() = run(BridgeScript.call("endVoiceInput"))
+
     /** Sets the page's `tt-mode-*` body class (1.7); an empty [mode] clears it. */
     suspend fun setMode(mode: String) = run(BridgeScript.call("setMode", JsonPrimitive(mode)))
 
