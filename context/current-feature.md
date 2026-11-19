@@ -35,6 +35,7 @@ Update the docs for two decisions (2026-11-18, user):
 - `project-schema.md`: One Conversation and Built Toward the Final Phase sections; roadmap reordered; Phase 7 holds the use cases (on-time reminders with the character's words in the notification; spontaneous messages), the desktop design and the app checklist
 - 1.7 spec rewritten (main chat, display styles, reload on return, lifecycle events, `chatFile` route + deep link); 1.7c dropped
 - Other docs: EchoText references removed or marked historical; phase numbers updated; `coding-standards.md` gains rules for `bridge.js` running in any page, SillyTavern's own chat keys and times, and generation settings living in SillyTavern
+- Review against `dev` (2026-11-19) folded into the 1.7 spec: remove `bridge.js`'s early return without the port, delete `setMode` / `tt-mode-*`, remove the mic's `"text"` target, chat file in the "already showing" check and `chatOpened`, `ProcessLifecycleOwner` instead of Activity events, stale chat + Chats list refresh on return, state re-sent after a page reload, `singleTop` deep link with Connect and Back rules, no reload during a generation. `project-schema.md` (Phase 7: `post()` has no port in the headless page) and `coding-standards.md` updated to match
 - No code changed, so no version bump
 
 ### 2026-11-18 — Fix: a character's new avatar doesn't show in the app (branch `fix/avatar-updates`)

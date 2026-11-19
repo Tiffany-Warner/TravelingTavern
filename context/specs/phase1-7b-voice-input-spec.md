@@ -42,7 +42,7 @@ The app doesn't type into SillyTavern directly. Recognized text goes to the page
     - Not added at all if Kotlin reports voice input as unavailable
     - Min 48dp-equivalent touch target; uses the page's own icon color, accent color only while listening
 - JS → Kotlin: `micPressed` — `{ target: "story" | "text" }`
-    - Only `"story"` (the main chat) is sent. `"text"` was reserved for an EchoText input that is no longer planned; it stays accepted so the message format doesn't change, and can be removed in a later cleanup
+    - Only `"story"` (the main chat) is sent. `"text"` was reserved for an EchoText input that is no longer planned; 1.7 removes it (`ChatInputTarget.Text`, the wire name and the `bridge.js` comment)
 - Kotlin → JS (through `BridgeClient`, arguments JSON-encoded):
     - `setVoiceInputAvailable(available)` — show or skip the mic button
     - `beginVoiceInput(target)` — remember the input's current text as the base; add `tt-mic-listening` to the button

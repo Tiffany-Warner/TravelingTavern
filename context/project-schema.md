@@ -36,12 +36,12 @@
 
 Proactive messages and reminders come last, but every phase before them keeps to these rules, so Phase 7 adds to the app instead of undoing it. In Phase 7, a SillyTavern page on the desktop (a headless browser driven by TravelingTavern-Bridge) runs the same `bridge.js` as the app and generates the character's message in the main chat.
 
-- **`bridge.js` never requires the app.** It already does nothing when the `TravelingTavern` port is missing; keep it that way. New commands work in any SillyTavern page and report through `post()`. Nothing in it assumes Android
+- **`bridge.js` never requires the app.** It runs in any SillyTavern page: it hooks SillyTavern's events and its commands work whether or not the `TravelingTavern` port exists, and only `post()` does nothing without the port. (Today it returns early without the port; 1.7 removes that.) Nothing in it assumes Android
 - **SillyTavern's own IDs.** A chat is identified by the character's avatar file plus SillyTavern's chat file name, the same keys the Bridge will use. No app-side chat IDs
 - **No chat copies.** The app never keeps its own copy of messages as a source of truth (Room or otherwise); caching for display is fine, SillyTavern's file always wins. A second writer is what Phase 7 has to avoid
 - **Settings live in SillyTavern.** Anything that affects generation (model, preset, prompt) is saved in SillyTavern, never applied only in the app's WebView session, so a message generated on the desktop matches one generated in the app
 - **Reload the open chat when the app comes back** (resume, and later a notification tap). SillyTavern doesn't sync open pages, so another page may have added messages
-- **Lifecycle events reach the page:** pause, resume and chat switch go to `bridge.js`. In Phase 7 the same events become the heartbeat that tells the Bridge which chat the app has open
+- **Lifecycle events reach the page:** the app going to the background and back (`ProcessLifecycleOwner`, not Activity events, which also fire on rotation) and chat switches go to `bridge.js`. In Phase 7 the same state becomes the heartbeat that tells the Bridge which chat the app has open
 - **A deep link to a chat** (character + chat) exists before Phase 7, so a notification tap only has to use it
 - **Times come from SillyTavern's `send_date`**, never from app-side tracking. The Bridge's scheduler reads the same field
 - **Login stays simple:** whatever auth the Connect screen supports must also work for a desktop browser page, since the headless page signs in the same way
@@ -135,6 +135,7 @@ Proactive messages and reminders come last, but every phase before them keeps to
 - Generation in a SillyTavern page on the PC (headless Chromium via Playwright) running `bridge.js`: open the chat, add a one-time hidden instruction (`/inject … ephemeral=true`), then `/trigger`. SillyTavern builds the full prompt (lorebooks, Memory Books) and saves only the character's reply
 - Never generates into a chat the app has open in the foreground: the app generates it there instead, using the same command
 - Reminder delivery: generate a minute or two early, push at the due time; if generation fails, push the plain reminder text on time
+- In the headless page `post()` has no port: Playwright supplies a `TravelingTavern` stand-in, or the Bridge reads `__ttBridge.appState` and command results directly. Decide in the Phase 7 spec
 - When-to-text logic ported from EchoText's `lib/proactive-messaging.js` (MIT, keep its copyright notice): trigger types and templates, daily jitter, day patterns, cooldowns
 
 **App**
