@@ -39,7 +39,7 @@ Proactive messages and reminders come last, but every phase before them keeps to
 - **`bridge.js` never requires the app.** It runs in any SillyTavern page: it hooks SillyTavern's events and its commands work whether or not the `TravelingTavern` port exists, and only `post()` does nothing without the port. (Today it returns early without the port; 1.7 removes that.) Nothing in it assumes Android
 - **SillyTavern's own IDs.** A chat is identified by the character's avatar file plus SillyTavern's chat file name, the same keys the Bridge will use. No app-side chat IDs
 - **No chat copies.** The app never keeps its own copy of messages as a source of truth (Room or otherwise); caching for display is fine, SillyTavern's file always wins. A second writer is what Phase 7 has to avoid
-- **Settings live in SillyTavern.** Anything that affects generation (model, preset, prompt) is saved in SillyTavern, never applied only in the app's WebView session, so a message generated on the desktop matches one generated in the app
+- **Settings live in SillyTavern.** Anything that affects generation (model, preset, prompt) is saved in SillyTavern, never applied only in the app's WebView session, so a message generated on the desktop matches one generated in the app. **One deliberate exception:** the texting / story style (1.7) is a TravelingTavern-only feature, stored per chat in the app, so SillyTavern on the desktop never changes
 - **Reload the open chat when the app comes back** (resume, and later a notification tap). SillyTavern doesn't sync open pages, so another page may have added messages
 - **Lifecycle events reach the page:** the app going to the background and back (`ProcessLifecycleOwner`, not Activity events, which also fire on rotation) and chat switches go to `bridge.js`. In Phase 7 the same state becomes the heartbeat that tells the Bridge which chat the app has open
 - **A deep link to a chat** (character + chat) exists before Phase 7, so a notification tap only has to use it
@@ -144,7 +144,7 @@ Proactive messages and reminders come last, but every phase before them keeps to
 - [ ] Notify me toggle (global) + per-character on/off
 - [ ] One notification channel per character, avatar as large icon, hide text on lock screen option
 - [ ] Tap opens that character's chat, reloaded
-- [ ] Heartbeat to the Bridge (from the lifecycle events built in 1.7)
+- [ ] Heartbeat to the Bridge (from the lifecycle events built in 1.7), including each chat's texting / story style, so the headless page adds the texting instruction for texting chats
 - [ ] Reminder chip under the message that set it; reminders list per character (upcoming / past, delete, snooze)
 - [ ] Backup alarm on the phone for a confirmed reminder, cancelled when it's delivered (covers the PC being asleep)
 - [ ] Proactive voice notes and selfies, with Play action (MediaSession) and selfie preview (BigPictureStyle) on the notification

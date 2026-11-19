@@ -20,6 +20,7 @@ No EchoText. Switching styles never reloads the page.
 - The open chat's file name from `getContext()` (e.g. `chatId` / `getCurrentChatId()`) **(verify)**
 - How to open a given chat file for the selected character (e.g. `openCharacterChat(fileName)`) **(verify)**
 - Whether `/api/chats/recent` (used by 1.6) returns each row's chat file name, so the Chats list can pass it **(verify)**
+- SillyTavern's in-memory extension prompt API (`setExtensionPrompt` and its position / role constants) from `getContext()`, and confirm it is never saved to the chat file or settings **(verify)**
 - How to tell a generation is running: SillyTavern's generation started / ended / stopped events, or a flag such as `is_send_press` **(verify)**
 - The message elements and attributes the texting style needs: message block, text, name, timestamp, and how user vs character messages are marked (e.g. `.mes[is_user="true"]`) **(verify)**
 - Write the findings into Notes and add every name to `st-selectors.js`
@@ -30,16 +31,31 @@ No EchoText. Switching styles never reloads the page.
 - **Delete `setMode` / `tt-mode-*`** (`bridge.js`, `BridgeScript`, `BridgeClient.setMode`; nothing calls them). `setChatStyle` / `tt-style-*` replaces them
 - **Remove the mic's `"text"` target:** `ChatInputTarget.Text`, the `"text"` wire name in `BridgeMessageParser`, and the `bridge.js` comment "'text' (EchoText) comes with 1.7". A `micPressed` with `"text"` then parses as an unknown target (logged and ignored, as for any unknown value)
 
-### Display style (CSS in `clean-theme.css`)
+### Texting and story styles (a TravelingTavern feature)
 
-- Two body classes, both only under `body.tt-clean`:
-    - `tt-style-text`: messages as bubbles, the user's on the right and the character's on the left, compact name and time, tighter spacing between messages
-    - `tt-style-story`: the current clean look from 1.5
-- CSS only: message content, swipes, edit and SillyTavern's message buttons keep working in both styles
-- Bridge: `setChatStyle(style)` swaps the `tt-style-*` class and rejects unknown names
-- **Per character**, stored in DataStore (`ChatStylePreferences`, keyed by the character's avatar ID). It is a display preference only: nothing about generation is stored in the app
-- **Default: texting** (user to confirm in spec review)
+SillyTavern has no texting or story mode. These styles exist only in the app (decision 2026-11-19, user, "option C"): SillyTavern on the desktop never changes how it works, and nothing is saved in SillyTavern for them. Managing them on the desktop would need a separate extension, which is not planned.
+
+Each style changes **both** the look and how the character writes, for chats in the app:
+
+| | Texting | Story |
+|---|---|---|
+| Look (`clean-theme.css`) | `tt-style-text`: bubbles, the user's on the right and the character's on the left, compact name and time, tighter spacing | `tt-style-story`: the current clean look from 1.5 |
+| Replies | The texting instruction is added to the prompt (below), so replies come as short text messages | No instruction: normal roleplay replies |
+
+- CSS only for the look, both only under `body.tt-clean`: message content, swipes, edit and SillyTavern's message buttons keep working in both styles
+- **Per chat** (character avatar file + chat file name), stored in the app's DataStore (`ChatStylePreferences`). This is the one deliberate exception to "settings that affect generation live in SillyTavern" (see `project-schema.md`)
+- **Default** for a chat with no saved choice: texting (user to confirm in spec review). Note that this also changes how existing roleplay chats reply in the app until they're switched to story
 - Top app bar: a ⋮ overflow menu with one item, **Story style** while texting and **Texting style** while story. Same chrome height as 1.6, so `ChatChromeHeight` doesn't change and the WebView is never resized
+
+#### The texting instruction
+
+- One app-wide template, stored in the app's DataStore with a default, for example: *"{{char}} and {{user}} are texting on their phones. Reply as {{char}}'s next text message: short and casual, no narration or actions, emoji are fine."* SillyTavern macros (`{{char}}`, `{{user}}`) are left for SillyTavern to fill
+- Editing the template comes with the Me tab (1.8, Me → Chat). Per-character templates are out of scope for 1.7
+- **How it reaches the prompt:** while a texting-style chat is open in the app's page, `bridge.js` sets it as an in-memory extension prompt through SillyTavern's own API (`setExtensionPrompt('tt_texting', text, IN_CHAT, depth 1, role system)` or equivalent) **(verify: name and arguments in `getContext()`, and that it is never written to the chat file or settings)**. It's part of every reply in that chat, including swipes and regenerations, and is never saved as a message
+- **Cleared** when the page switches to another chat, when the chat is switched to story, and when the app leaves Chat. A page reload clears it too, and the installer sets it again (After a page reload, below)
+- Fallback if `setExtensionPrompt` isn't usable: `/inject id=tt_texting … ephemeral=true` before each generation. It has a cost: it is written into the chat's metadata until the reply ends, so another page could briefly see it. Record which one was used in Notes
+- Bridge: `setChatStyle(style, instruction?)` swaps the `tt-style-*` class and sets or clears the extension prompt; rejects unknown style names
+- Phase 7 (later): the app reports each chat's style with its heartbeat, and the desktop's headless page sets the same extension prompt before generating, so a proactive message in a texting chat comes out as a text
 
 ### Foreground and background
 
@@ -57,7 +73,7 @@ When the app comes back to the foreground:
 
 ### After a page reload
 
-- `BridgeInstaller` already re-sends clean mode after every page load. It also re-sends the current app state and, while Chat is showing, the chat style
+- `BridgeInstaller` already re-sends clean mode after every page load. It also re-sends the current app state and, while Chat is showing, the chat style and (for texting) the instruction
 - Anything sent before the bridge exists (before the first load finishes) is lost, so state is pushed by the installer after each load instead of relying on earlier calls
 
 ### Opening a specific chat
@@ -82,8 +98,8 @@ When the app comes back to the foreground:
 
 - Takes `characterId` and optional `chatFile` from the nav arguments
 - `UiState.Ready` gains `chatStyle`
-- `toggleChatStyle()` → saves the preference, then `setChatStyle(...)`
-- Applies the saved style on enter, before the cover lifts
+- `toggleChatStyle()` → saves the preference for this chat, then `setChatStyle(...)` with the instruction when texting
+- Applies the saved style (and instruction) on enter, before the cover lifts; clears the instruction on leaving Chat
 
 ### Out of scope
 
@@ -95,8 +111,8 @@ When the app comes back to the foreground:
 
 - Unit tests:
     - `ChatViewModel`: saved style applied on enter, default when nothing saved, `toggleChatStyle`, `chatFile` passed to the open
-    - `ChatStylePreferences`: per-character read and write
-    - `BridgeScript`: `setChatStyle`, `setAppState`, `reloadChat`, `selectCharacter` with a chat file (argument encoding)
+    - `ChatStylePreferences`: per-chat read and write; the texting template's default and saved value
+    - `BridgeScript`: `setChatStyle` with and without an instruction (quotes, newlines, macros kept as written), `setAppState`, `reloadChat`, `selectCharacter` with a chat file (argument encoding)
     - `BridgeMessageParser`: `chatOpened` with and without `chatFile`; `micPressed` with `"text"` is an unknown target
     - `CharacterRepositoryImpl.openChat()`: matches on character and chat file; another chat of the same character doesn't count
     - Return handling: reload when Chat is showing, wait for a running generation, stale mark when it isn't, Chats list refreshed; no reload for a configuration change
@@ -107,7 +123,10 @@ When the app comes back to the foreground:
 ## Verify on Device
 
 - [ ] Texting and story styles both render, switch instantly with no reload, and keep the scroll position
-- [ ] Each character remembers its own style across app restarts, and after a page reload
+- [ ] Each chat remembers its own style across app restarts, and after a page reload (look and instruction)
+- [ ] In a texting chat, replies (including swipes and regenerations) come as short texts; in a story chat, normal roleplay replies
+- [ ] The instruction never appears in the chat file, the chat's metadata or SillyTavern's settings, and the desktop's replies in the same chat stay normal roleplay
+- [ ] Switching to story, to another chat, or leaving Chat removes the instruction (the next reply is normal)
 - [ ] Swipe, edit and the message buttons work in both styles; sending works with the keyboard pushing the input up
 - [ ] A message added from a desktop tab while the app is in the background shows after returning to the app, with the view at the newest message
 - [ ] Same, but leaving from the Chats tab and then opening that character: the new message is there, and the Chats list shows it too
@@ -122,6 +141,10 @@ When the app comes back to the foreground:
 ### Decision (2026-11-18, user): the main chat is the only conversation
 
 The previous 1.7 (EchoText thread as the chat, main chat as Story view) is dropped, together with 1.7c (Chats list previews from EchoText threads). Its EchoText findings and the thread storage investigation are in Git history: this file before this change (`dev` at `9fd0aa0`). Why it was dropped and what replaces it: `project-schema.md` → One Conversation and Phase 7.
+
+### Decision (2026-11-19, user): texting and story are app-only (option C)
+
+Texting changes how the character writes, not only the look. The instruction is added only by the app, in its own page, and never saved in SillyTavern, so SillyTavern on the desktop keeps working exactly as before. Considered and rejected: a saved `/inject` in the chat's metadata (option A), which would make desktop replies in that chat texting-style with nothing on the desktop showing why; and an `[OOC: …]` prefix on the user's message, which would be saved in the chat and summarized by Memory Books.
 
 ### Review of this spec against the code (2026-11-19)
 
