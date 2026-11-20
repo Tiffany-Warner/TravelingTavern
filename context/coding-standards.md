@@ -37,9 +37,9 @@
 - Never write SillyTavern chat or character files directly, and never re-implement prompt assembly
 - All reads from SillyTavern go through the JS bridge (or, later, TravelingTavern-Bridge endpoints)
 - All actions inside SillyTavern (select character, send message, generate) go through the JS bridge so SillyTavern's own code runs
-- `bridge.js` must run in any SillyTavern page, not only the app's WebView: with no `TravelingTavern` port it still works and `post()` does nothing. The final phase runs it in a headless page on the desktop (see `project-schema.md` → Built Toward the Final Phase)
+- `bridge.js` must run in any SillyTavern page, not only the app's WebView: with no `TravelingTavern` port it still hooks SillyTavern's events and runs its commands; only `post()` does nothing. The final phase runs it in a headless page on the desktop (see `project-schema.md` → Built Toward the Final Phase)
 - Chats are identified by SillyTavern's own keys (character avatar file + chat file name); message times come from SillyTavern's `send_date`. No app-side chat IDs or chat copies
-- Anything that affects generation is saved in SillyTavern, never applied only in the app's WebView session
+- Anything that affects generation is saved in SillyTavern, never applied only in the app's WebView session. Exception: the texting / story style (Phase 2), an app-only feature stored per chat in the app (see `project-schema.md`)
 
 ## WebView
 
@@ -120,7 +120,6 @@ app/src/main/java/com/tiffles/travelingtavern/
 │   ├── bridge/              # BridgeClient, BridgeMessage, listeners
 │   ├── webview/             # WebViewHolder, clients, file chooser, permissions
 │   ├── settings/            # DataStore + encrypted credentials
-│   ├── speech/              # on-device speech recognizer (1.7b)
 │   ├── remote/
 │   └── repository/
 ├── di/
@@ -140,7 +139,7 @@ app/src/main/assets/web/
 - Composables: `PascalCase` (they are functions but treated like components)
 - Resource IDs: `snake_case`
 - Files: match their primary class name
-- Injected CSS classes and DOM ids: prefixed `tt-` (e.g. `tt-clean`, `tt-mode-text`)
+- Injected CSS classes and DOM ids: prefixed `tt-` (e.g. `tt-clean`, `tt-style-text`)
 
 ## Theming
 
