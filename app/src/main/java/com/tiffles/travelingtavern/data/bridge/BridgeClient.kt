@@ -115,6 +115,31 @@ class BridgeClient @Inject constructor(
     suspend fun deleteLorebookEntry(requestId: String, name: String, uid: Int) =
         run(BridgeScript.call("deleteLorebookEntry", JsonPrimitive(requestId), JsonPrimitive(name), JsonPrimitive(uid)))
 
+    /** Asks for a fresh `personas` message; [refreshPictures] makes every picture load again. */
+    suspend fun requestPersonas(refreshPictures: Boolean) =
+        run(BridgeScript.call("requestPersonas", JsonPrimitive(refreshPictures)))
+
+    /** Switches to persona [avatarId]; [lockToChat] also locks it to the open chat. */
+    suspend fun selectPersona(requestId: String, avatarId: String, lockToChat: Boolean) =
+        run(BridgeScript.call("selectPersona", JsonPrimitive(requestId), JsonPrimitive(avatarId), JsonPrimitive(lockToChat)))
+
+    /** Asks for a `personaResult` carrying [avatarId]'s full fields. */
+    suspend fun requestPersona(requestId: String, avatarId: String) =
+        run(BridgeScript.call("requestPersona", JsonPrimitive(requestId), JsonPrimitive(avatarId)))
+
+    suspend fun createPersona(requestId: String, fields: PersonaInput) =
+        run(BridgeScript.call("createPersona", JsonPrimitive(requestId), fields.toJson()))
+
+    /** Saves only the non-null [fields] of [avatarId]. */
+    suspend fun savePersona(requestId: String, avatarId: String, fields: PersonaInput) =
+        run(BridgeScript.call("savePersona", JsonPrimitive(requestId), JsonPrimitive(avatarId), fields.toJson()))
+
+    suspend fun deletePersona(requestId: String, avatarId: String) =
+        run(BridgeScript.call("deletePersona", JsonPrimitive(requestId), JsonPrimitive(avatarId)))
+
+    suspend fun setDefaultPersona(requestId: String, avatarId: String, isDefault: Boolean) =
+        run(BridgeScript.call("setDefaultPersona", JsonPrimitive(requestId), JsonPrimitive(avatarId), JsonPrimitive(isDefault)))
+
     suspend fun countTokens(requestId: String, text: String) =
         run(BridgeScript.call("countTokens", JsonPrimitive(requestId), JsonPrimitive(text)))
 
@@ -146,5 +171,23 @@ data class LorebookEntryInput(
         put("keys", JsonArray(keys.map(::JsonPrimitive)))
         put("content", JsonPrimitive(content))
         put("enabled", JsonPrimitive(enabled))
+    }
+}
+
+/**
+ * Persona fields the app writes. Null fields are left out, so SillyTavern keeps them as they
+ * are. [picture] is an image as a `data:` URL.
+ */
+data class PersonaInput(
+    val name: String? = null,
+    val title: String? = null,
+    val description: String? = null,
+    val picture: String? = null
+) {
+    fun toJson(): JsonObject = buildJsonObject {
+        name?.let { put("name", JsonPrimitive(it)) }
+        title?.let { put("title", JsonPrimitive(it)) }
+        description?.let { put("description", JsonPrimitive(it)) }
+        picture?.let { put("picture", JsonPrimitive(it)) }
     }
 }

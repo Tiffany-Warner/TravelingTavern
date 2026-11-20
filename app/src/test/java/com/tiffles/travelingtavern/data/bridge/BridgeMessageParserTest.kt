@@ -205,6 +205,46 @@ class BridgeMessageParserTest {
     }
 
     @Test
+    fun `personas with badges, and defaults for missing fields`() {
+        val raw = """
+            {"v":1,"type":"personas","items":[
+              {"avatarId":"1-Mira.png","name":"Mira","title":"Bard","description":"Sings.","pictureUrl":"http://100.64.0.2:8000/thumbnail?type=persona&file=1-Mira.png","isActive":true,"isDefault":true},
+              {"avatarId":"user-default.png"}
+            ]}
+        """.trimIndent()
+
+        val items = (parse(raw) as BridgeMessage.Personas).items
+
+        assertEquals(
+            PersonaDto("1-Mira.png", "Mira", "Bard", "Sings.", "http://100.64.0.2:8000/thumbnail?type=persona&file=1-Mira.png", true, true),
+            items[0]
+        )
+        assertEquals(PersonaDto("user-default.png"), items[1])
+    }
+
+    @Test
+    fun `persona results`() {
+        assertEquals(
+            BridgeMessage.PersonaResult(requestId = "pe1", ok = true, avatarId = "123-Ash.png"),
+            parse("""{"v":1,"type":"personaResult","requestId":"pe1","ok":true,"avatarId":"123-Ash.png"}""")
+        )
+        assertEquals(
+            BridgeMessage.PersonaResult(requestId = "pe2", ok = false, error = "notFound"),
+            parse("""{"v":1,"type":"personaResult","requestId":"pe2","ok":false,"error":"notFound"}""")
+        )
+        val details = parse("""{"v":1,"type":"personaResult","requestId":"pe3","ok":true,"persona":{"avatarId":"a.png","name":"A","description":"Full text"}}""")
+        assertEquals("Full text", (details as BridgeMessage.PersonaResult).persona?.description)
+    }
+
+    @Test
+    fun `malformed persona messages are dropped`() {
+        assertNull(parse("""{"v":1,"type":"personas"}"""))
+        assertNull(parse("""{"v":1,"type":"personas","items":[{"name":"No id"}]}"""))
+        assertNull(parse("""{"v":1,"type":"personas","items":[{"avatarId":"a.png","isActive":"yes"}]}"""))
+        assertNull(parse("""{"v":1,"type":"personaResult","ok":true}"""))
+    }
+
+    @Test
     fun `malformed lorebook messages are dropped`() {
         assertNull(parse("""{"v":1,"type":"lorebooks","items":[{"entryCount":3}]}"""))
         assertNull(parse("""{"v":1,"type":"lorebookEntries","requestId":"lb1","name":"E","entries":[{"title":"no uid"}]}"""))

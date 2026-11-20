@@ -63,5 +63,22 @@ object Routes {
 
             fun create(name: String, uid: Int = NEW_ENTRY): String = "lorebook/${Uri.encode(name)}/entry/$uid"
         }
+
+        /** The Personas list. [ARG_IN_CHAT]: opened from a chat, so picking also locks it to that chat. */
+        object Personas {
+            const val ARG_IN_CHAT = "inChat"
+            const val ROUTE = "personas?$ARG_IN_CHAT={$ARG_IN_CHAT}"
+
+            fun create(inChat: Boolean): String = "personas?$ARG_IN_CHAT=$inChat"
+        }
+
+        /** The persona editor; without [ARG_AVATAR_ID] it creates a new persona. */
+        object PersonaEditor {
+            const val ARG_AVATAR_ID = "avatarId"
+            const val ROUTE = "persona?$ARG_AVATAR_ID={$ARG_AVATAR_ID}"
+
+            fun create(avatarId: String? = null): String =
+                if (avatarId == null) "persona" else "persona?$ARG_AVATAR_ID=${Uri.encode(avatarId)}"
+        }
     }
 }

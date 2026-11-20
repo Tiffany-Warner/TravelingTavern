@@ -11,9 +11,11 @@ import com.tiffles.travelingtavern.domain.model.ChatActionResult
 import com.tiffles.travelingtavern.domain.model.MessageAction
 import com.tiffles.travelingtavern.domain.model.PageError
 import com.tiffles.travelingtavern.domain.model.PageState
+import com.tiffles.travelingtavern.domain.model.Persona
 import com.tiffles.travelingtavern.domain.model.TappedMessage
 import com.tiffles.travelingtavern.domain.repository.CharacterRepository
 import com.tiffles.travelingtavern.domain.repository.ChatSessionRepository
+import com.tiffles.travelingtavern.domain.repository.PersonaRepository
 import com.tiffles.travelingtavern.domain.usecase.GetMessageActionsUseCase
 import com.tiffles.travelingtavern.ui.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,6 +26,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -37,7 +41,9 @@ sealed interface ChatUiState {
         val character: CharacterSummary,
         val generating: Boolean = false,
         val sheet: MessageSheet? = null,
-        val confirmation: ChatConfirmation? = null
+        val confirmation: ChatConfirmation? = null,
+        /** The persona the user is chatting as, for the input bar's chip; null until known. */
+        val persona: Persona? = null
     ) : ChatUiState {
         /** Send needs text in the message field and no reply generating. */
         fun canSend(input: String): Boolean = input.isNotBlank() && !generating
@@ -86,7 +92,8 @@ class ChatViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val characters: CharacterRepository,
     private val chat: ChatSessionRepository,
-    private val getMessageActions: GetMessageActionsUseCase
+    private val getMessageActions: GetMessageActionsUseCase,
+    personas: PersonaRepository
 ) : ViewModel() {
 
     val characterId: String = checkNotNull(savedStateHandle[Routes.FullScreen.Chat.ARG_CHARACTER_ID])
@@ -114,7 +121,11 @@ class ChatViewModel @Inject constructor(
 
     val events: SharedFlow<ChatEvent> = _events.asSharedFlow()
 
-    val uiState: StateFlow<ChatUiState> =
+    private val activePersona = personas.personas
+        .map { list -> list?.firstOrNull { it.isActive } }
+        .distinctUntilChanged()
+
+    private val chatState =
         combine(characters.pageState, characters.characters, chatOpen, generating, local) { page, all, open, busy, state ->
             val character = all?.firstOrNull { it.id == characterId }
             when {
@@ -127,6 +138,11 @@ class ChatViewModel @Inject constructor(
                     confirmation = state.confirmation
                 )
             }
+        }
+
+    val uiState: StateFlow<ChatUiState> =
+        combine(chatState, activePersona) { state, persona ->
+            if (state is ChatUiState.Ready) state.copy(persona = persona) else state
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), ChatUiState.Loading())
 
     init {

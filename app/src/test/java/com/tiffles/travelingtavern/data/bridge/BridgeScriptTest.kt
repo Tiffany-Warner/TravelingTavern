@@ -161,4 +161,24 @@ class BridgeScriptTest {
             BridgeScript.call("deleteChat", JsonPrimitive("d1"), JsonPrimitive("Bob.png"), JsonPrimitive("Bob - \"quoted\""))
         )
     }
+
+    @Test
+    fun `persona input leaves out fields it doesn't change`() {
+        val json = PersonaInput(description = "Says \"{{user}}\" | twice").toJson()
+
+        assertEquals(setOf("description"), json.keys)
+        assertEquals("Says \"{{user}}\" | twice", json.getValue("description").jsonPrimitive.content)
+        assertEquals(
+            setOf("name", "title", "description", "picture"),
+            PersonaInput("Ash", "", "", "data:image/jpeg;base64,AA==").toJson().keys
+        )
+    }
+
+    @Test
+    fun `select persona passes its id and the lock flag`() {
+        assertEquals(
+            "window.__ttBridge && window.__ttBridge.selectPersona(\"pe1\",\"1-Mira.png\",true);",
+            BridgeScript.call("selectPersona", JsonPrimitive("pe1"), JsonPrimitive("1-Mira.png"), JsonPrimitive(true))
+        )
+    }
 }

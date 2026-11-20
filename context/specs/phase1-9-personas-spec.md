@@ -28,7 +28,7 @@ What SillyTavern 1.19.0 has (read from `personas.js`, 2026-11-19), to confirm on
 
 ### Chip in the chat input bar
 
-- A **native Compose chip** in the 1.7 native input bar. **Open:** the bar no longer has a control row (field and buttons share one container since 2026-11-19); place the chip above the container or inside it at the bottom-left: the persona's small round picture, "Chatting as {name}" and a ▾. Long names are ellipsized. Nothing about it is in the page
+- A **native Compose chip** in the 1.7 native input bar, **below the message container** (user decision, 2026-11-19): the persona's small round picture, "Chatting as {name}" and a ▾. Long names are ellipsized. Nothing about it is in the page
 - Tapping it opens the Personas screen
 - It follows the active persona, including changes made on the desktop or by SillyTavern's own auto-selection (a locked persona is selected when its chat opens)
 
@@ -38,8 +38,8 @@ What SillyTavern 1.19.0 has (read from `personas.js`, 2026-11-19), to confirm on
 - One line of secondary text under the bar: "Who you are in your chats. Characters see your persona's description."
 - **List of persona cards** (surface cards, 16dp corners, no borders; per `ui-guidelines.md`):
     - Left: the persona's picture, 3:4, rounded
-    - Right: the name (`titleMedium`); the description, two lines, ellipsized (`bodyMedium`, secondary); then small badges from SillyTavern's data, only those that apply: **Active** (the one in use), **Default**, **Locked to this chat** (user decision, 2026-11-19: only these three)
-    - A ⋯ button at the top right of each card (48dp target) for its actions
+    - Right: the name (`titleMedium`); the description, two lines, ellipsized (`bodyMedium`, secondary); then small badges from SillyTavern's data, only those that apply: **Active** (the one in use) and **Default** (user decision, 2026-11-19; **Locked to this chat** dropped 2026-11-20, user decision: picking in a chat always locks, so it only repeated Active, and chats without a lock use the Default)
+    - A horizontal ⋯ button at the top right of each card (48dp target) for its actions (user decision 2026-11-20)
     - The active persona's card is marked with the accent (a thin amber outline or the selected container); one marked card only
 - Sorted as SillyTavern sorts its own list (by name), the active persona first
 - **Create** at the bottom: the screen's one filled button (per `ui-guidelines.md`)
@@ -53,7 +53,9 @@ What SillyTavern 1.19.0 has (read from `personas.js`, 2026-11-19), to confirm on
 - Chats that were never locked (for example old ones) show whatever SillyTavern selects for them (the current or default persona), until you pick one
 - Prefer SillyTavern's own path if it has one (for example an auto-lock setting when choosing a persona); otherwise switch, then lock with `setPersonaLockState(true, 'chat')` **(verify)**
 
-### Card actions (⋯ → bottom sheet)
+### Card actions (⋯ → dropdown menu)
+
+A dropdown anchored under the card's ⋯, like the chat's ⋮ menu (changed from a bottom sheet, user decision 2026-11-20).
 
 Only SillyTavern's own options, kept short:
 
@@ -61,7 +63,7 @@ Only SillyTavern's own options, kept short:
 |---|---|
 | Edit | Opens the persona editor |
 | Set as default / Remove default | SillyTavern's default persona |
-| Delete | Destructive confirmation sheet ("Delete {name}? Chats keep their messages, but this persona is gone."), then SillyTavern deletes it. Not offered for the active persona while it's in use, if SillyTavern doesn't allow that **(verify)** |
+| Delete | The same alert dialog as deleting a chat (`ConfirmDeleteDialog`: red delete icon, "Delete {name}?", bold red "This also deletes the persona on your SillyTavern.", then "Chats keep their messages, but this persona is gone.", red Delete button; user decision 2026-11-20), then SillyTavern deletes it. Not offered for the active persona while it's in use, if SillyTavern doesn't allow that **(verify)** |
 
 - Not offered (user decision, 2026-11-19): connecting a persona to a character, and a separate lock / unlock action (picking already locks). Both stay available in Advanced
 
@@ -78,7 +80,7 @@ Only SillyTavern's own options, kept short:
 
 ### Bridge
 
-- `personas` message: list of `{ avatarId, name, title, description (≤ 300 chars for previews), pictureUrl, isActive, isDefault, isLockedToChat }`, sent after `ready`, on persona changes and on request (`requestPersonas`)
+- `personas` message: list of `{ avatarId, name, title, description (≤ 300 chars for previews), pictureUrl, isActive, isDefault }`, sent after `ready`, on persona changes and on request (`requestPersonas`)
 - Commands, each answering with a request ID and success or error, like the lorebook commands: `selectPersona(avatarId, lockToChat)`, `requestPersona(avatarId)` (full description and fields), `savePersona(…)`, `createPersona(…)`, `deletePersona(avatarId)`, `countTokens` (already exists)
 - Picture upload: the app picks the image; how it reaches SillyTavern's upload (through the page or the shared `OkHttpClient` with SillyTavern's request headers) is decided by the investigation; prefer SillyTavern's own upload path **(verify)**
 
@@ -100,17 +102,18 @@ Only SillyTavern's own options, kept short:
     - `PersonasViewModel`: tap in a chat selects and locks, tap without a chat selects only; badges; active first; delete confirmation; errors
     - `PersonaEditorViewModel`: Save enabled rules; unchanged fields kept; create vs edit
     - `BridgeScript`: the new commands (argument encoding)
-- Compose UI tests: `PersonasContent` (cards, the three badges, active marking, ⋯ sheet with Edit / default / Delete, Create, empty and error states); `PersonaEditorContent` (Save enabled / disabled, token count shown); the chat's persona chip shows the name and calls back
+- Compose UI tests: `PersonasContent` (cards, the two badges, active marking, ⋯ menu with Edit / default / Delete, delete dialog, Create, empty and error states); `PersonaEditorContent` (Save enabled / disabled, token count shown); the chat's persona chip shows the name and calls back
 - Version bump per `CLAUDE.md`
 
 ## Verify on Device
 
 - [ ] The chip shows the active persona; tapping it opens the list; picking switches, returns to the chat, and the next reply addresses the new persona
-- [ ] After picking, the chat shows "Locked to this chat" for that persona; closing and reopening the chat (in the app and on the desktop) keeps it; picking another moves the lock
-- [ ] Badges match SillyTavern's own persona panel on the desktop (active, default, locked to this chat)
+- [ ] After picking, the persona is locked to the chat; closing and reopening the chat (in the app and on the desktop) keeps it; picking another moves the lock
+- [ ] Badges match SillyTavern's own persona panel on the desktop (active, default)
 - [ ] Create with a picture, edit name / title / description, delete: each shows the same on the desktop after a reload, and fields the app doesn't edit are unchanged
 - [ ] From the Me tab, tapping a card makes it the active persona without locking any chat; ⋯ → Edit opens the editor
 - [ ] A persona picture changed on the desktop shows in the app after a refresh
+- [ ] A persona created on the desktop shows when Personas opens, and survives the app saving settings afterwards
 
 ## Notes
 
@@ -118,9 +121,24 @@ Only SillyTavern's own options, kept short:
 
 Personas get their own sub-feature instead of being part of 1.7: a chip in the chat's input bar shows the active persona, and tapping it opens a full-screen list. The layout follows a screenshot the user shared; the fields and actions are SillyTavern's own.
 
-Kept simple on purpose: one behavior everywhere (tap to use, ⋯ for Edit / default / Delete); picking in a chat locks the persona to that chat automatically; three badges only (Active, Default, Locked to this chat); no character connections.
+Kept simple on purpose: one behavior everywhere (tap to use, ⋯ for Edit / default / Delete); picking in a chat locks the persona to that chat automatically; two badges only (Active, Default); no character connections.
 
 A persona connected to a character on the desktop (in SillyTavern's own persona panel) still auto-selects when that character's chat opens. The chip follows it like any other change; the app shows no badge for connections.
+
+### Investigation (2026-11-19, SillyTavern 1.19.0 source, `public/scripts/personas.js`)
+
+Names are in `st-selectors.js` → `personas`. Still to confirm on the live page: marked **(verify)**.
+
+- **Data:** `getContext().powerUserSettings` has `personas` (avatar id → name), `persona_descriptions[id]` (`description`, `title`, `position`, `depth`, `role`, `lorebook`, `connections`) and `default_persona`. The chat lock is `chatMetadata.persona` (avatar id). The active persona `user_avatar` is **not** on `getContext()`: the bridge imports `/scripts/personas.js` (same instance as SillyTavern's UI, like `world-info.js` in 1.6b) and reads the live binding
+- **Sorting:** SillyTavern sorts by name (`localeCompare`, asc/desc setting); the app sorts by name ascending, active first
+- **Switch:** `setUserAvatar(id)` (exported), the same as a click in SillyTavern's list; emits `PERSONA_CHANGED`
+- **Auto-lock:** `power_user.persona_auto_lock`, when on, makes `setUserAvatar` lock the picked persona to the open chat (in `selectCurrentPersona`, which checks the setting synchronously before its first `await`). **In a chat:** `setUserAvatar(id)`, then `setPersonaLockState(true, 'chat')` (harmless if auto-lock already did it). **Without a chat:** the bridge sets `persona_auto_lock = false` around `setUserAvatar` and restores it in `finally`, so the open chat's lock never changes
+- **Create / edit / delete:** the helpers (`renamePersona`, `deletePersona`, `uploadPersonaAvatar`) aren't exported and open popups. SillyTavern's own slash commands `/persona-create`, `/persona-update`, `/persona-delete` do the same without popups. The bridge calls their callbacks directly (`SlashCommandParser.commands[name].callback(args, '')`), not through the parser, so `{{user}}`, quotes and pipes in a description aren't evaluated. They take `persona=<avatar id>` (`findPersona` matches avatar ids); create returns the new avatar id; update only touches fields it's given (position, depth, role, lorebook, connections stay as they are); `avatarPromptResize=false` skips the crop popup; `select=false` on create; delete with `silent=true` does SillyTavern's own cleanup (clears default and the chat lock if they pointed at it, then picks a persona for the open chat). Deleting the active persona is allowed in SillyTavern, so Delete is offered for every persona. Verified: called this way, create, update and delete show no toast in the page. Locking to a chat (`setPersonaLockState`) does show SillyTavern's green "Persona Locked" toast over the chat
+- **Default:** no exported function and no slash command sets a non-active persona as default (`/persona-lock type=default` only works for the active one; `toggleDefaultPersona` isn't exported). The bridge sets `powerUserSettings.default_persona` (or deletes it to remove it) and calls `saveSettingsDebounced()`, which is what `toggleDefaultPersona` does after its popup
+- **Pictures:** thumbnail `getThumbnailUrl('persona', id)` = `/thumbnail?type=persona&file=…`; full size `/User Avatars/{id}`. The upload replaces the file under the same name, and SillyTavern stores no change time for personas (unlike `date_added` on cards), so `tt_v` can't come from SillyTavern: the bridge keeps a picture version that changes on every `requestPersonas(fromServer)` (opening the Personas screen, pull to refresh) and after a picture upload
+- **Upload:** create / update take `avatar=<data URL>`; SillyTavern uploads it through `/api/avatars/upload`, which crops/resizes to its avatar size on the server. The app downscales the picked photo (≤ 1024 px long edge, JPEG) before passing it to the page, to keep the `evaluateJavascript` string small
+- **Events:** `PERSONA_CHANGED`, `PERSONA_CREATED`, `PERSONA_UPDATED`, `PERSONA_RENAMED`, `PERSONA_DELETED`; plus `CHAT_CHANGED` (the chat lock and SillyTavern's auto-selection change with the chat)
+- **Gotcha to watch (verify):** `loadPersonaForCurrentChat` returns early if the chat id hasn't changed since the last load. If a persona is picked from the Me tab and the same chat is then reopened, SillyTavern may keep the picked persona instead of the chat's locked one
 
 ## References
 
@@ -130,3 +148,10 @@ A persona connected to a character on the desktop (in SillyTavern's own persona 
 - @context/specs/phase1-7-chat-screen-spec.md (input bar)
 - @context/specs/phase1-8-settings-advanced-spec.md (Me tab)
 - SillyTavern `public/scripts/personas.js`
+
+### Stale page (added 2026-11-20, user decision)
+
+- The app's page reads settings.json once, at load, and SillyTavern's `saveSettings` writes the whole file from the page's copy. A persona created or edited on the desktop after the page loaded is unknown to the page, and the page's next settings save erases it (name and description; its picture file stays). Found in testing: a persona made on the desktop was missing in the app, and was later erased from the server when the app's page saved settings
+- The page saves settings often, not only on persona changes: opening a chat saves, and returning to the app saves about a second later (seen on the emulator)
+- Fix (personas only): `syncPersonaSettings` copies `personas`, `persona_descriptions` and `default_persona` from `POST /api/settings/get` (`settings` is settings.json as a string, `power_user` inside it) into the page's `power_user`, in place. It runs when Personas opens (`requestPersonas(true)`), when the app returns to the foreground (`setAppState(true)` from background) and before every persona action. It is skipped for 5 s after the page's own persona change, so it can't undo a change whose debounced save (1 s, `debounce_timeout.relaxed`) hasn't reached the server yet
+- Not covered: other settings changed on the desktop are still overwritten the same way, and a persona made on the desktop while the app is in the foreground is erased if a chat is opened before Personas is. A general fix (reload the page when the app returns) is a separate fix

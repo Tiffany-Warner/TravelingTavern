@@ -3,11 +3,14 @@ package com.tiffles.travelingtavern.di
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import com.tiffles.travelingtavern.data.media.ContentPictureEncoder
+import com.tiffles.travelingtavern.data.media.PictureEncoder
 import com.tiffles.travelingtavern.data.remote.BasicAuthInterceptor
 import com.tiffles.travelingtavern.data.remote.OkHttpConnectionTester
 import com.tiffles.travelingtavern.data.repository.CharacterRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.ChatSessionRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.LorebookRepositoryImpl
+import com.tiffles.travelingtavern.data.repository.PersonaRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.ServerConfigRepositoryImpl
 import com.tiffles.travelingtavern.data.settings.HiddenChatsStore
 import com.tiffles.travelingtavern.data.settings.settingsDataStore
@@ -16,6 +19,7 @@ import com.tiffles.travelingtavern.domain.repository.ChatSessionRepository
 import com.tiffles.travelingtavern.domain.repository.ConnectionTester
 import com.tiffles.travelingtavern.domain.repository.HiddenChatsRepository
 import com.tiffles.travelingtavern.domain.repository.LorebookRepository
+import com.tiffles.travelingtavern.domain.repository.PersonaRepository
 import com.tiffles.travelingtavern.domain.repository.ServerConfigRepository
 import dagger.Binds
 import dagger.Module
@@ -41,6 +45,12 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindLorebookRepository(impl: LorebookRepositoryImpl): LorebookRepository
+
+    @Binds
+    abstract fun bindPersonaRepository(impl: PersonaRepositoryImpl): PersonaRepository
+
+    @Binds
+    abstract fun bindPictureEncoder(impl: ContentPictureEncoder): PictureEncoder
 
     @Binds
     abstract fun bindChatSessionRepository(impl: ChatSessionRepositoryImpl): ChatSessionRepository

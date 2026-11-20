@@ -152,4 +152,36 @@
     <string name="entry_delete_title">Delete this entry?</string>
     <string name="entry_not_found">This entry no longer exists.</string>
     <string name="entry_more_settings">Position, order, depth and other settings stay as they are. Change them in Advanced.</string>
+
+    <string name="personas_title">Personas</string>
+    <string name="personas_close">Close</string>
+    <string name="personas_subtitle">Who you are in your chats. Characters see your persona\'s description.</string>
+    <string name="personas_create">Create</string>
+    <string name="personas_empty">You don\'t have any personas yet.</string>
+    <string name="personas_badge_active">Active</string>
+    <string name="personas_badge_default">Default</string>
+    <string name="personas_more_options">More options for %1$s</string>
+    <string name="personas_action_edit">Edit</string>
+    <string name="personas_action_set_default">Set as default</string>
+    <string name="personas_action_remove_default">Remove default</string>
+    <string name="personas_action_delete">Delete</string>
+    <string name="personas_delete_title">Delete %1$s?</string>
+    <string name="personas_delete_warning">This also deletes the persona on your SillyTavern.</string>
+    <string name="personas_delete_message">Chats keep their messages, but this persona is gone.</string>
+    <string name="personas_action_failed">That didn\'t work. Try again.</string>
+    <string name="personas_chip">Chatting as %1$s</string>
+
+    <string name="persona_new_title">New persona</string>
+    <string name="persona_edit_title">Edit persona</string>
+    <string name="persona_picture">Change picture</string>
+    <string name="persona_name">Name</string>
+    <string name="persona_title_field">Title</string>
+    <string name="persona_title_hint">Optional short tagline</string>
+    <string name="persona_description">Description</string>
+    <string name="persona_save">Save</string>
+    <string name="persona_not_found">This persona no longer exists.</string>
+    <string name="persona_load_failed">Couldn\'t load this persona.</string>
+    <string name="persona_retry">Retry</string>
+    <string name="persona_picture_unreadable">Couldn\'t read that picture. Try another one.</string>
+    <string name="persona_more_settings">Description position, depth, persona lorebook and connections stay as they are. Change them in Advanced.</string>
 </resources>

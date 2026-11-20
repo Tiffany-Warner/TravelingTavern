@@ -94,6 +94,23 @@ sealed interface BridgeMessage {
         val uid: Int? = null
     ) : BridgeMessage
 
+    /** Every persona, with its badges. Descriptions are cut to 300 characters for previews. */
+    @Serializable
+    data class Personas(val items: List<PersonaDto>) : BridgeMessage
+
+    /**
+     * The answer to a persona action. [error] is `notFound` or `failed`; [avatarId] is set by
+     * `createPersona`, [persona] (with the full description) by `requestPersona`.
+     */
+    @Serializable
+    data class PersonaResult(
+        val requestId: String,
+        val ok: Boolean,
+        val error: String? = null,
+        val avatarId: String? = null,
+        val persona: PersonaDto? = null
+    ) : BridgeMessage
+
     @Serializable
     data class TokenCount(val requestId: String, val count: Int) : BridgeMessage
 
@@ -152,4 +169,18 @@ data class LorebookEntryDto(
     val keys: List<String> = emptyList(),
     val content: String = "",
     val enabled: Boolean = true
+)
+
+/**
+ * A persona as `bridge.js` reports it. [avatarId] is its ID (the picture's file name).
+ */
+@Serializable
+data class PersonaDto(
+    val avatarId: String,
+    val name: String = "",
+    val title: String = "",
+    val description: String = "",
+    val pictureUrl: String? = null,
+    val isActive: Boolean = false,
+    val isDefault: Boolean = false
 )
