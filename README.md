@@ -8,13 +8,13 @@ Take your SillyTavern companions with you. TravelingTavern is a native Android a
 
 ## What It Does Today
 
-- **Chats tab** — your recent conversations, newest first, with avatars and message previews
+- **Chats tab** — your recent conversations, one row per chat, newest first, with avatars and message previews. Long press a chat to hide it from the list (app only) or delete it in SillyTavern
 - **Characters tab** — your character library as a portrait grid, with search
 - **Lorebooks tab** — browse, create and delete lorebooks, and edit their entries
-- **Clean chat view** — SillyTavern's chat without the desktop menus, sized for a phone
-- **Connect screen** — enter your server address and test it before saving
+- **Story chat** — SillyTavern's chat as message cards over its background, without the desktop menus. Tap a message for SillyTavern's own actions (regenerate, continue, copy, edit, branch, hide, delete); a native input bar with Write for me; start a new chat or delete and restart from the ⋮ menu
+- **Connect screen** — enter your server address and tap Connect
 
-Coming next: the story chat, the Me tab and personas. After that, a texting style for the chat, the character creator, voice notes and selfies, and the rest of the roadmap, with proactive messages and reminders as the final phase.
+Coming next: the Me tab and personas. After that, a texting style for the chat, the character creator, voice notes and selfies, and the rest of the roadmap, with proactive messages and reminders as the final phase.
 
 ## How It Works
 
@@ -52,8 +52,8 @@ There are no prebuilt releases yet, so build it yourself:
 
 1. Open TravelingTavern. The **Connect** screen appears
 2. Enter your SillyTavern address, e.g. `http://100.64.0.2:8000` (Tailscale) or `http://192.168.1.50:8000` (home Wi-Fi). A bare `host:port` works too
-3. Tap **Test**. If it says "Connected to SillyTavern", tap **Save**
-4. Your chats appear. Tap one to keep chatting
+3. Tap **Connect**. If the server answers, the app saves it and opens your chats; if not, it tells you what went wrong and keeps what you typed
+4. Tap a chat to keep chatting
 
 **Can't connect?** Check that SillyTavern is running, the computer is awake, and (if you use Tailscale) Tailscale is connected on the phone. More in the [setup guide's troubleshooting](docs/tailscale-setup.md#troubleshooting).
 
