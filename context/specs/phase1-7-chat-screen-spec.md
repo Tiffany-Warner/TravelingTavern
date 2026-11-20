@@ -72,7 +72,7 @@ This is the **story** style. A second, texting style comes in Phase 2 (`phase2-t
 - Back, character avatar and name, as now
 - ⋮ overflow menu with only two items (Phase 2 adds the style switch):
     - **Start new chat:** SillyTavern's own new chat for this character (its greeting starts it). The current chat is kept and stays in SillyTavern's chat list. A confirmation sheet first; then the new chat opens
-    - **Restart chat:** the same, but SillyTavern also deletes the current chat, exactly like ticking "Delete the current chat" in SillyTavern's own "Start new chat" popup. A destructive confirmation sheet first ("Restart this chat? This deletes every message in it and can't be undone.", red Restart button). Memories already saved to lorebooks (for example by Memory Books) are not removed
+    - **Restart chat:** the same, but SillyTavern also deletes the current chat, exactly like ticking "Delete the current chat" in SillyTavern's own "Start new chat" popup. A delete-chat alert dialog first (`ConfirmDeleteChatDialog`, changed from a sheet in 1.6c so it can't be mistaken for Start new chat; "Delete and restart?", bold red "This also deletes the chat on your SillyTavern.", then "Every message in it is gone for good, and a fresh chat starts with the greeting. This can't be undone.", red Delete and restart button). The ⋮ item is labelled **Delete and restart** (renamed from Restart chat in 1.6c, user decision 2026-11-19, so the menu says it deletes). No line about memories (user decision 2026-11-19): Memory Books' lorebook file stays, but in its default Automatic mode the lorebook is bound in the chat file's metadata, so after the delete no chat uses it; "memories stay" would mislead
     - Both run SillyTavern's `doNewChat({ deleteCurrentChat })` (`public/script.js`, found 2026-11-19), reached the way its own menu reaches it **(verify how to call it from the bridge)**
     - Both are **disabled while a reply is generating**
 
@@ -198,7 +198,7 @@ Branch, Start new chat and Restart chat change the open chat while the Chat scre
 - Compose UI tests:
     - `ChatInputBar`: Send disabled when empty and enabled with text; Stop replaces Send and Write for me is disabled while generating; Write for me has its content description; no mic button
     - Actions sheet: the right actions for the latest character message, the latest user message (Regenerate, no Continue) and other messages; all but Copy disabled while generating; Delete asks for confirmation before calling back
-    - ⋮ menu: Start new chat and Restart chat each ask first, Restart's sheet uses the destructive style, both disabled while generating
+    - ⋮ menu: Start new chat and Restart chat each ask first, Restart asks in the delete-chat dialog, both disabled while generating
 - Version bump per `CLAUDE.md`
 
 ## Verify on Device

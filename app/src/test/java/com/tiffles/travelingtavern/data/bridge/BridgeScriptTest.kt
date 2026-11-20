@@ -156,5 +156,9 @@ class BridgeScriptTest {
             """window.__ttBridge && window.__ttBridge.newChat("n1",true);""",
             BridgeScript.call("newChat", JsonPrimitive("n1"), JsonPrimitive(true))
         )
+        assertEquals(
+            """window.__ttBridge && window.__ttBridge.deleteChat("d1","Bob.png","Bob - \"quoted\"");""",
+            BridgeScript.call("deleteChat", JsonPrimitive("d1"), JsonPrimitive("Bob.png"), JsonPrimitive("Bob - \"quoted\""))
+        )
     }
 }

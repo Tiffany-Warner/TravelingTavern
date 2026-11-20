@@ -9,10 +9,13 @@ import com.tiffles.travelingtavern.data.webview.WebViewHolder
 import com.tiffles.travelingtavern.di.ApplicationScope
 import com.tiffles.travelingtavern.domain.model.CharacterSummary
 import com.tiffles.travelingtavern.domain.model.ChatActivity
+import com.tiffles.travelingtavern.domain.model.ChatRef
 import com.tiffles.travelingtavern.domain.model.PageState
 import com.tiffles.travelingtavern.domain.repository.CharacterRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
@@ -47,6 +50,9 @@ class CharacterRepositoryImpl @Inject constructor(
 
     override val pageState: Flow<PageState> = holder.pageState
 
+    override val generatingChat: Flow<ChatRef?> =
+        combine(bridge.generating, bridge.openChat) { generating, open -> if (generating) open else null }
+
     override suspend fun refresh() {
         withTimeoutOrNull(REFRESH_TIMEOUT_MS) {
             // Subscribe before asking, so a fast answer can't slip past.
@@ -60,6 +66,24 @@ class CharacterRepositoryImpl @Inject constructor(
     }
 
     override fun retry() = holder.retry()
+
+    /** Capped at [DELETE_CHAT_TIMEOUT_MS] including the wait for the page, so Tailscale off fails instead of hanging. */
+    override suspend fun deleteChat(chat: ChatRef): Boolean {
+        val requestId = UUID.randomUUID().toString()
+        val answer = withTimeoutOrNull(DELETE_CHAT_TIMEOUT_MS) {
+            bridge.isReady.first { it }
+            bridge.messages
+                .onSubscription { client.deleteChat(requestId, chat.characterId, chat.chatFile) }
+                .filterIsInstance<BridgeMessage.ChatResult>()
+                .first { it.requestId == requestId }
+        }
+        if (answer?.ok != true) {
+            Log.w(TAG, "Delete chat failed: ${answer?.error ?: "timed out"}")
+            return false
+        }
+        refresh()
+        return true
+    }
 
     /**
      * The wait for `chatOpened` is capped at [OPEN_CHAT_TIMEOUT_MS] from the moment the chat
@@ -105,5 +129,6 @@ class CharacterRepositoryImpl @Inject constructor(
         private const val TAG = "CharacterRepository"
         private const val REFRESH_TIMEOUT_MS = 5_000L
         const val OPEN_CHAT_TIMEOUT_MS = 3_000L
+        const val DELETE_CHAT_TIMEOUT_MS = 10_000L
     }
 }

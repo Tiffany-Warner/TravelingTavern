@@ -60,7 +60,7 @@ Proactive messages and reminders come last, but every phase before them keeps to
 - [x] 1.5 Clean theme — injected CSS that hides SillyTavern clutter inside the app only
 - [x] 1.6 Chats & Characters tabs — recent-chats list and portrait grid
 - [x] 1.6b Lorebooks tab — browse, create and delete lorebooks; view, add, edit and delete entries
-- [ ] 1.6c Chats tab hide and delete — long press a chat to hide it (app only) or delete it in SillyTavern; ⋮ → Show hidden chats
+- [x] 1.6c Chats tab hide and delete — long press a chat to hide it (app only) or delete it in SillyTavern; ⋮ → Show hidden chats
 - [x] 1.7b Voice input — on-device speech-to-text mic in the main chat. **Replaced (2026-11-19):** voice typing comes from the keyboard's own mic; 1.7 removes the in-app mic
 - [x] 1.7 Chat screen — story chat: message cards, tap for SillyTavern's message actions, native input bar; reload on resume, lifecycle events, deep link to a chat
 - [ ] 1.8 Me tab & Advanced — personas row (with 1.9), appearance, server, full SillyTavern UI behind Advanced, open-source licenses

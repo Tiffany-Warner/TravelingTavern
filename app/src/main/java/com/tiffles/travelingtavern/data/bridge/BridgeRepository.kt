@@ -3,6 +3,7 @@ package com.tiffles.travelingtavern.data.bridge
 import android.util.Log
 import com.tiffles.travelingtavern.domain.model.CharacterSummary
 import com.tiffles.travelingtavern.domain.model.ChatActivity
+import com.tiffles.travelingtavern.domain.model.ChatRef
 import com.tiffles.travelingtavern.domain.model.Lorebook
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,7 @@ class BridgeRepository @Inject constructor() {
     private val _lorebooks = MutableStateFlow<List<Lorebook>?>(null)
     private val _isReady = MutableStateFlow(false)
     private val _generating = MutableStateFlow(false)
+    private val _openChat = MutableStateFlow<ChatRef?>(null)
 
     /** Every valid message, including ones handled here. One-shot events (chat changed, new message). */
     val messages: SharedFlow<BridgeMessage> = _messages.asSharedFlow()
@@ -43,6 +45,9 @@ class BridgeRepository @Inject constructor() {
     /** True while SillyTavern is generating (Stop is shown); false again on every reload. */
     val generating: StateFlow<Boolean> = _generating.asStateFlow()
 
+    /** The chat open in the page (null for none, a group chat, or not known yet); null again on every reload. */
+    val openChat: StateFlow<ChatRef?> = _openChat.asStateFlow()
+
     /** Raw JSON from the page. Invalid input is logged and dropped. */
     fun onRawMessage(raw: String) {
         val message = BridgeMessageParser.parse(raw)
@@ -57,6 +62,7 @@ class BridgeRepository @Inject constructor() {
     fun onPageStarted() {
         _isReady.value = false
         _generating.value = false
+        _openChat.value = null
     }
 
     private fun onMessage(message: BridgeMessage) {
@@ -67,9 +73,11 @@ class BridgeRepository @Inject constructor() {
             is BridgeMessage.RecentChats -> _chatActivity.value = message.items.map { it.toDomain() }
             is BridgeMessage.Lorebooks -> _lorebooks.value = message.items.map { it.toDomain() }
             is BridgeMessage.GenerationState -> _generating.value = message.running
+            is BridgeMessage.ChatChanged -> _openChat.value = chatRef(message.characterId, message.chatFile)
+            is BridgeMessage.ChatOpened -> _openChat.value = chatRef(message.characterId, message.chatFile)
             is BridgeMessage.Error -> Log.w(TAG, "Bridge reported an error")
             is BridgeMessage.Unknown -> Log.d(TAG, "Ignored unknown bridge message type: ${message.type}")
-            is BridgeMessage.ChatChanged, is BridgeMessage.ChatOpened, is BridgeMessage.MessageReceived,
+            is BridgeMessage.MessageReceived,
             is BridgeMessage.LorebookEntries, is BridgeMessage.LorebookResult, is BridgeMessage.TokenCount,
             is BridgeMessage.MessageTapped, is BridgeMessage.ChatResult, is BridgeMessage.ImpersonateReady -> Unit
         }
@@ -87,6 +95,9 @@ class BridgeRepository @Inject constructor() {
         is BridgeMessage.GenerationState -> "generationState $running"
         else -> this::class.simpleName.orEmpty()
     }
+
+    private fun chatRef(characterId: String?, chatFile: String?): ChatRef? =
+        if (characterId != null && chatFile != null) ChatRef(characterId, chatFile) else null
 
     private fun LorebookDto.toDomain() = Lorebook(
         name = name,

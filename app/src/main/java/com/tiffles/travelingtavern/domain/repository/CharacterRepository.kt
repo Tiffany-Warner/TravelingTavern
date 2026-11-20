@@ -2,6 +2,7 @@ package com.tiffles.travelingtavern.domain.repository
 
 import com.tiffles.travelingtavern.domain.model.CharacterSummary
 import com.tiffles.travelingtavern.domain.model.ChatActivity
+import com.tiffles.travelingtavern.domain.model.ChatRef
 import com.tiffles.travelingtavern.domain.model.PageState
 import kotlinx.coroutines.flow.Flow
 
@@ -17,11 +18,20 @@ interface CharacterRepository {
     /** Latest activity per chat file, or null until SillyTavern has reported it. */
     val chatActivity: Flow<List<ChatActivity>?>
 
+    /** The chat SillyTavern is generating a reply in right now, or null when it isn't generating. */
+    val generatingChat: Flow<ChatRef?>
+
     /** Whether the SillyTavern page is loading, ready or failed (server unreachable, login, …). */
     val pageState: Flow<PageState>
 
     /** Asks SillyTavern for fresh lists. Returns once they arrived, or after a timeout. */
     suspend fun refresh()
+
+    /**
+     * Deletes [chat] in SillyTavern (its own delete; the app never touches chat files) and
+     * re-reads the lists. False if it failed (server unreachable, already gone, generating).
+     */
+    suspend fun deleteChat(chat: ChatRef): Boolean
 
     /** Reloads the SillyTavern page after an error. */
     fun retry()

@@ -81,6 +81,10 @@ class BridgeClient @Inject constructor(
     suspend fun newChat(requestId: String, deleteCurrent: Boolean) =
         run(BridgeScript.call("newChat", JsonPrimitive(requestId), JsonPrimitive(deleteCurrent)))
 
+    /** Deletes character [id]'s chat [chatFile] (without `.jsonl`); answered by `chatResult`. */
+    suspend fun deleteChat(requestId: String, id: String, chatFile: String) =
+        run(BridgeScript.call("deleteChat", JsonPrimitive(requestId), JsonPrimitive(id), JsonPrimitive(chatFile)))
+
     /** The app's colors for the clean layout. Remembered, so it is re-applied after every reload. */
     suspend fun setPageTheme(theme: PageTheme) = withContext(Dispatchers.Main) {
         pageTheme.theme = theme

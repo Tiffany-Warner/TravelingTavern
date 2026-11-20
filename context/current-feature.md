@@ -1,43 +1,50 @@
 # Current Feature
 
-Phase 1.7 — Chat Screen (Story Chat)
+Phase 1.6c — Chats Tab: Hide and Delete
 
 ## Status
 
-Complete (`feature/story-chat`, awaiting commit). `./gradlew build` green. `0.1.16`.
+Complete (`feature/chats-hide-delete`). `./gradlew build` green. `0.1.17`.
 
-- Done: investigation (spec Notes); mic removed (files deleted with approval, all refs gone); `bridge.js` / `st-selectors.js` / `clean-theme.css`; bridge messages, `ChatSessionRepository`, `CharacterRepository` chat file + stale/return handling, `AppForegroundTracker` (`lifecycle-process`), `PageThemeStore`; `ChatViewModel`, `ChatScreen`, `ChatInputBar`, `MessageActionsSheet`; `chatFile` route + deep link + `singleTop`; unit tests pass, Compose UI tests compile
-- Verified on Medium_Phone_API_35 (now 4 GB RAM; at 2 GB the whole emulator stalled) against SillyTavern 1.19.0 over Tailscale, Bob's chat: cards, background, names, sheet, Regenerate (new swipe), swipes never generate, Send, "…" card, Stop shown, Write for me, Copy, Edit, Hide / Show, Delete + confirmation, ⋮ menu + Restart confirmation (cancelled), return from background (chat re-read, no page reload). Test messages deleted afterwards; one extra swipe left on Bob's last reply
-- Fixed during verification: names / swipe counter unreadable on the scrim (light theme); input field dropping letters (text now Compose state in `ChatViewModel`); Chats preview one message behind after a reply (re-asked when Chat closes); inline editor dark on light cards; tapped message scrolled above the sheet (`revealMessage` / `endReveal`). Composer redesigned (user): field and buttons in one container, icons bottom-right
-- Also verified (user OK'd the server writes): Continue (on the extra swipe; original reply untouched), Branch (app follows the branch file), Restart in the branch (branch deleted, fresh chat), Start new chat, Stop while thinking (empty reply kept, SillyTavern's own behavior), untouched greeting's arrow generates nothing, deep link while running and from a cold start, Back to Chats, scroll-to-newest. Two throwaway Bob chats left for the user to delete (`…19h40m37s779ms`, `…19h41m54s935ms`)
-- Fixed in this round: a running-app deep link recreated the Activity (`FLAG_ACTIVITY_NEW_TASK` → `handleDeepLink` restarts the task) and the old Activity's `onRelease` then pulled the WebView out of the new one (blank page) — link now handled without task flags, `onRelease` only removes the WebView from its own Activity; system Back from a linked chat closed the app — Chat's `BackHandler` now uses `leaveChat`; scroll-to-newest sat under the messages (z-index 10 < chat's 30), so a tap opened a message's sheet — z-index 1000
-- User requests (2026-11-19): Chats list shows one row per chat instead of per character (1.6 spec updated; rows keyed by character + chat file; verified: two Oliver rows, three Bob rows, each opens its own chat); hidden-from-AI messages keep a solid card (was 60% opacity, which made Seraphina's image messages see-through) — text in the secondary color, label unchanged
-- Reasoning bar ("Thought for …", user requests): message-field colors (`--tt-surface-container-highest` added to the page theme, secondary text, 12dp); arrow, actions and reasoning text hidden, CSS only, and the block ignores taps so a tap on the bar opens the message's sheet (the tap handler skips `details`). Verified in light and dark; reasoning stays in ST (Advanced). Dark theme verified on the emulator (switched live, no page reload)
-- Background picture stays still while the page height changes (user request): bridge computes `cover` at the tallest page height per width from the image's natural size and passes `--tt-bg-size` / `--tt-bg-y`; #bg1 keeps the page's size (a taller #bg1 made the document scrollable by code). Verified: page 730 → 658 px, picture unchanged, no document scroll
-- Not yet verified: on-screen keyboard (the emulator types with the PC keyboard) — best on the Pixel 8
+- Done: source investigation (spec Notes): `deleteCharacterChatByName` imported from `/script.js`, success = `CHAT_DELETED`; open chat deleted → `replaceCurrentChat()` (as ST's Manage chats); only-chat delete needs nothing extra
+- Done: implementation — `bridge.js` `deleteChat` (+ `scriptModule()` helper), `HiddenChatsStore` (settings DataStore), `GetRecentChatsUseCase` → `ChatList` (visible + hidden count), `CharacterRepository.deleteChat` / `generatingChat`, `ChatsViewModel` options state + snackbar events, `ChatOptionsSheet`, ⋮ menu; unit tests pass, Compose UI tests compile; `./gradlew build` green; `0.1.17`
+- User decision: deleting a character's only chat → SillyTavern's fresh greeting chat stays (hide it if unwanted)
+- User request (2026-11-19): deleting a whole chat (Delete here, Restart chat in 1.7) confirms in an alert dialog (`ConfirmDeleteChatDialog`, red icon + button) instead of a sheet, so it can't be mixed up with the Start new chat sheet; ui-guidelines exception added
+- User request: ⋮ Restart chat renamed **Delete and restart** (title and button too); both delete-chat dialogs open with a bold red "This also deletes the chat on your SillyTavern."
+- Verified on the emulator (API 35) vs SillyTavern 1.19.0 over Tailscale, throwaway Bob chats: long press sheet; Hide → row gone + snackbar + ⋮; Undo; hidden survives app restart; ⋮ Show hidden chats (⋮ disappears); Delete dialog, Cancel keeps; Delete removes the row and the file on the desktop; deleting the chat open in the page (page moved to the next chat, `chatChanged` + `chatResult ok`, Bob then opened fine); Delete and restart dialog (cancelled). Two throwaways deleted; one left (`…21h29m28s056ms`)
+- Not verified: Tailscale off → "Couldn't delete" snackbar; Delete disabled while generating (unit + UI tests only); deleting a character's only chat through the app (user confirmed SillyTavern's behavior); haptic
+- App icon committed separately (`feat: app icon`)
 - Next: commit (ask) → merge into `dev` → push
 
 ## Goals
 
-Per `context/specs/phase1-7-chat-screen-spec.md`:
+Per `context/specs/phase1-6c-chats-actions-spec.md`:
 
-- **Investigate:** confirm every **(verify)** vs SillyTavern 1.19.0 (source + live page), record in spec Notes
-- **Cleanup:** drop `bridge.js` early return, `setMode` / `tt-mode-*`, all 1.7b mic files/bindings/tests (delete only after user confirms)
-- **Look:** message cards, ST background under scrim, theme colors via `PageThemeStore`, ST input area hidden, "…" card, scroll to newest
-- **Swipes** never generate in clean mode; **actions sheet** (Regenerate, Continue, Copy, Edit, Branch, Hide/Show, Delete) with `send_date` stale check and `generationState`
-- **⋮ menu:** Start new chat, Restart chat
-- **Native input bar:** field, persona chip slot, Write for me, Send/Stop; WebView above it
-- **Groundwork:** `ProcessLifecycleOwner` + `setAppState`, fresh chats on return, state re-sent after reload, `chatFile` route + chat following (`SavedStateHandle`), `singleTop` deep link
+- **Investigate:** how ST deletes a chat that isn't open (page function, server call), what happens when the open chat or a character's only chat is deleted, whether an event fires
+- **Long press** a Chats row → sheet (avatar, name, time; Hide, Delete); tap still opens the chat; Delete disabled while that chat generates
+- **Delete:** `ConfirmDeleteSheet` → new `__ttBridge` command (avatar + chat file), selectors in `st-selectors.js`; re-read `recentChats`; failure snackbar; drop from hidden list
+- **Hide:** app-only (DataStore string set of `avatar/chatFile`), snackbar with Undo; stale entries dropped on read
+- **⋮ menu:** Show hidden chats, only while something is hidden
 - Tests per spec; version bump
 
 ## References
 
-- @context/specs/phase1-7-chat-screen-spec.md
-- @context/specs/phase1-7b-voice-input-spec.md (what cleanup removes)
-- @context/specs/phase1-9-personas-spec.md (chip slot)
+- @context/specs/phase1-6c-chats-actions-spec.md
+- @context/specs/phase1-6-home-character-list-spec.md
+- @context/specs/phase1-7-chat-screen-spec.md (Restart confirmation, `doNewChat` import pattern)
 - @context/project-schema.md (Built Toward the Final Phase)
 
 ## History
+
+### 2026-11-19 — Phase 1.6c Chats Hide and Delete — `0.1.17`
+- Long press a chat → sheet: Hide (app only, DataStore `avatar/chatFile` keys, snackbar Undo; ⋮ Show hidden chats while any is hidden) and Delete (SillyTavern's `deleteCharacterChatByName`, imported from `/script.js`; success = `CHAT_DELETED`, answered with `chatResult`)
+- Deleting the chat open in the page calls `replaceCurrentChat()`, as SillyTavern's Manage chats does (otherwise the page keeps the deleted messages and a later save writes them into the next chat)
+- User changes: deleting a whole chat confirms in an alert dialog with a bold red "This also deletes the chat on your SillyTavern." (Delete here, and 1.7's Restart, renamed **Delete and restart**); no "memories stay" line (Memory Books' lorebook is bound in the chat file)
+- Hidden entries for missing chats are ignored, not pruned (the app only sees the 100 most recent chats). Gotcha: file-backed DataStore can't overwrite its file on a Windows JVM, so the store test uses an in-memory DataStore
+- Verified on an emulator (API 35); not verified: Tailscale off, Delete disabled while generating, deleting a character's only chat
+
+### 2026-11-19 — App icon
+- Logo (`docs/brand/travelingtavern_logo.svg`) as the adaptive launcher icon: purple background, TT + door foreground inside the safe zone, monochrome layer for themed icons; legacy webp mipmaps removed (min SDK 31)
 
 <!-- Newest first. Verified against SillyTavern 1.19.0 over Tailscale on the emulator and Pixel 8 unless noted. -->
 
