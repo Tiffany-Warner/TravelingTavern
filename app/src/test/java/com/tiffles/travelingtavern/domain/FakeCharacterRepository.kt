@@ -17,6 +17,11 @@ class FakeCharacterRepository : CharacterRepository {
     var refreshCalls = 0
     var retryCalls = 0
     val openedChats = mutableListOf<String>()
+    val requestedChatFiles = mutableListOf<String?>()
+    var visibleNow = false
+
+    /** What [openChat] reports as opened; by default the requested file, or this when none was requested. */
+    var currentChatFile: String? = "current"
 
     /** When set, [refresh] suspends until it completes. */
     var refreshGate: CompletableDeferred<Unit>? = null
@@ -33,9 +38,15 @@ class FakeCharacterRepository : CharacterRepository {
         retryCalls++
     }
 
-    override suspend fun openChat(characterId: String) {
+    override suspend fun openChat(characterId: String, chatFile: String?): String? {
         openedChats += characterId
+        requestedChatFiles += chatFile
         openGate?.await()
+        return chatFile ?: currentChatFile
+    }
+
+    override fun setChatVisible(visible: Boolean) {
+        visibleNow = visible
     }
 }
 

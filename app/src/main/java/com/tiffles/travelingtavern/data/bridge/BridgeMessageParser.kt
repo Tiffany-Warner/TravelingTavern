@@ -38,7 +38,10 @@ object BridgeMessageParser {
             "lorebookEntries" -> decode(obj, BridgeMessage.LorebookEntries.serializer())
             "lorebookResult" -> decode(obj, BridgeMessage.LorebookResult.serializer())
             "tokenCount" -> decode(obj, BridgeMessage.TokenCount.serializer())
-            "micPressed" -> decode(obj, BridgeMessage.MicPressed.serializer())
+            "generationState" -> decode(obj, BridgeMessage.GenerationState.serializer())
+            "messageTapped" -> decode(obj, BridgeMessage.MessageTapped.serializer())
+            "chatResult" -> decode(obj, BridgeMessage.ChatResult.serializer())
+            "impersonateReady" -> decode(obj, BridgeMessage.ImpersonateReady.serializer())
             "error" -> decode(obj, BridgeMessage.Error.serializer())
             else -> BridgeMessage.Unknown(type)
         }

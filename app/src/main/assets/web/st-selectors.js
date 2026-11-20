@@ -17,6 +17,18 @@
             ready: 'APP_READY',
             chatChanged: 'CHAT_CHANGED',
             messageReceived: 'MESSAGE_RECEIVED',
+            /** (type, options, dryRun); also fires for quiet generations and dry runs. */
+            generationStarted: 'GENERATION_STARTED',
+            /** (text) once impersonate has written its result into #send_textarea. */
+            impersonateReady: 'IMPERSONATE_READY',
+            /** Events after which the latest message or its swipes may have changed. */
+            messagesChanged: Object.freeze([
+                'MESSAGE_SWIPED',
+                'MESSAGE_DELETED',
+                'MESSAGE_RECEIVED',
+                'CHARACTER_MESSAGE_RENDERED',
+                'USER_MESSAGE_RENDERED',
+            ]),
             /** Events after which the character list (or a last-chat time) may have changed. */
             charactersChanged: Object.freeze([
                 'CHARACTER_EDITED',
@@ -44,6 +56,18 @@
             getRequestHeaders: 'getRequestHeaders',
             getTokenCountAsync: 'getTokenCountAsync',
             saveSettingsDebounced: 'saveSettingsDebounced',
+            /** The open chat's file name, without `.jsonl` (`characters[this_chid].chat`). */
+            getCurrentChatId: 'getCurrentChatId',
+            /** Opens a chat file (name without `.jsonl`) of the selected character. */
+            openCharacterChat: 'openCharacterChat',
+            /** Clears and re-reads the open chat from the server; emits CHAT_CHANGED. */
+            reloadCurrentChat: 'reloadCurrentChat',
+            /** (id) deletes the whole message, swipes included; no popup without askConfirmation. */
+            deleteMessage: 'deleteMessage',
+            stopGeneration: 'stopGeneration',
+            /** { to(event, direction, { forceMesId, forceSwipeId }) }: past the last swipe it generates. */
+            swipe: 'swipe',
+            chatMetadata: 'chatMetadata',
         }),
         character: Object.freeze({
             id: 'avatar',
@@ -57,6 +81,54 @@
             isSystem: 'is_system',
             /** Set on group chat messages: the avatar of the character who spoke. */
             originalAvatar: 'original_avatar',
+            name: 'name',
+            text: 'mes',
+            /** The shown swipe's date; the bridge's stale check compares it. */
+            sendDate: 'send_date',
+            swipes: 'swipes',
+            swipeId: 'swipe_id',
+        }),
+        /** chat_metadata.tainted: false until the chat gets past its greeting. */
+        chatMetadataTainted: 'tainted',
+        /** Swipe direction value for context.swipe.to. */
+        swipeRight: 'right',
+
+        /** script.js export for Start new chat / Restart chat (not on getContext()). */
+        scriptModulePath: '/script.js',
+        doNewChat: 'doNewChat',
+
+        /** POST { avatar_url, simple: true } → [{ file_name, file_id }] for one character. */
+        characterChatsApi: '/api/characters/chats',
+
+        /** jQuery global: SillyTavern's handlers are jQuery ones, reached with trigger('click'). */
+        jQuery: 'jQuery',
+
+        /** The story chat (1.7). Verified against 1.19.0 (see the 1.7 spec's Notes). */
+        chatScreen: Object.freeze({
+            message: '.mes',
+            messageIdAttr: 'mesid',
+            isUserAttr: 'is_user',
+            /** Present on a message while SillyTavern's inline editor is open in it. */
+            editTextarea: '#curEditTextarea',
+            /** Shown (inline display: flex) exactly while SillyTavern is generating. */
+            stopButton: '#mes_stop',
+            /** Buttons inside a message, clicked to run SillyTavern's own handlers. */
+            buttons: Object.freeze({
+                edit: '.mes_edit',
+                branch: '.mes_create_branch',
+                hide: '.mes_hide',
+                unhide: '.mes_unhide',
+            }),
+            /** Options-menu items, clicked to run SillyTavern's own handlers. */
+            options: Object.freeze({
+                regenerate: '#option_regenerate',
+                continue: '#option_continue',
+                impersonate: '#option_impersonate',
+            }),
+            /** Taps on these keep their own behavior and don't open the message actions. */
+            tapIgnore: 'a, img, video, audio, button, input, textarea, select, summary, details, ' +
+                '.swipe_left, .swipe_right, .swipes-counter, .mes_buttons, .mes_edit_buttons, ' +
+                '.mes_reasoning_header, .mes_img_controls',
         }),
         thumbnailType: 'avatar',
 
@@ -74,6 +146,8 @@
         /** Fields of one /api/chats/recent row. */
         recentChat: Object.freeze({
             characterId: 'avatar',
+            /** The chat file name without `.jsonl` (`file_name` has it). */
+            chatFile: 'file_id',
             lastMessage: 'mes',
             lastMessageAt: 'last_mes',
             messageCount: 'chat_items',
@@ -142,10 +216,12 @@
             chat: '#chat',
             /** Main chat input; send reads its value directly (`sendTextareaMessage`). */
             sendTextarea: '#send_textarea',
-            /** Right-hand buttons of the input row; the in-app mic goes in here. */
-            rightSendForm: '#rightSendForm',
-            /** Send button; the in-app mic sits right before it. */
+            /** Send button; its click handler runs SillyTavern's sendTextareaMessage(). */
             sendButton: '#send_but',
+            /** Main column; the app's scroll-to-newest button is added in here. */
+            sheld: '#sheld',
+            /** SillyTavern's chat background; it sets an inline background-image when one is chosen. */
+            background: '#bg1',
         }),
 
         /**
@@ -154,9 +230,6 @@
          * way itself (impersonate, restoring a draft). Verified against 1.19.0.
          */
         inputEvent: 'input',
-
-        /** Classes the in-app mic button borrows so it looks like the row's other buttons. */
-        micButtonClasses: 'fa-solid fa-microphone interactable',
 
         /** Body class that turns on clean-theme.css. */
         cleanClass: 'tt-clean',
@@ -176,9 +249,16 @@
         //   #extensionTopBar                      TopInfoBar extension's chat bar
         //   #chat .drawer-opener                  in-chat shortcut buttons that open a drawer
         //   #sheld, #chat, .mes_text              chat column, message list, message text
-        //   #send_textarea, #leftSendForm, #rightSendForm   message input row
+        //   #form_sheld                           SillyTavern's input area (hidden: the app's bar replaces it)
         //   #et-portal (sibling of <body>)        EchoText's window, floating button and pop-ups
-        //   #microphone_button                    Speech Recognition extension's mic (hidden in the app)
-        //   #tt-mic, .tt-mic-listening            the app's own mic button (added by bridge.js)
+        //   .mes, .last_mes, .mes_block, .ch_name, .name_text, .timestamp, .mesIDDisplay,
+        //   .mes_timer, .tokenCounterDisplay, .mes_buttons, .mesAvatarWrapper, .mes_text
+        //                                         message markup restyled as cards
+        //   .mes_reasoning_summary, .mes_reasoning_header, .mes_reasoning_arrow, .mes_reasoning_actions,
+        //   .mes_reasoning                        reasoning bar (kept, can't open), its arrow, actions, text
+        //   .swipe_right, .swipe_left, .swipes-counter   swipe arrows and counter
+        //   .mes_edit_buttons, .mes_edit_done, .mes_edit_cancel   inline editor buttons
+        //   .mes[is_user="true"], .mes[is_system="true"]   user / hidden messages
+        //   #bg1                                  SillyTavern's chat background (inline background-image)
     });
 })();

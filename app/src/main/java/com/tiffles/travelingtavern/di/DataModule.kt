@@ -6,19 +6,15 @@ import androidx.datastore.preferences.core.Preferences
 import com.tiffles.travelingtavern.data.remote.BasicAuthInterceptor
 import com.tiffles.travelingtavern.data.remote.OkHttpConnectionTester
 import com.tiffles.travelingtavern.data.repository.CharacterRepositoryImpl
-import com.tiffles.travelingtavern.data.repository.ChatInputRepositoryImpl
+import com.tiffles.travelingtavern.data.repository.ChatSessionRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.LorebookRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.ServerConfigRepositoryImpl
 import com.tiffles.travelingtavern.data.settings.settingsDataStore
-import com.tiffles.travelingtavern.data.speech.AndroidMicrophonePermission
-import com.tiffles.travelingtavern.data.speech.OnDeviceSpeechInput
 import com.tiffles.travelingtavern.domain.repository.CharacterRepository
-import com.tiffles.travelingtavern.domain.repository.ChatInputRepository
+import com.tiffles.travelingtavern.domain.repository.ChatSessionRepository
 import com.tiffles.travelingtavern.domain.repository.ConnectionTester
 import com.tiffles.travelingtavern.domain.repository.LorebookRepository
-import com.tiffles.travelingtavern.domain.repository.MicrophonePermission
 import com.tiffles.travelingtavern.domain.repository.ServerConfigRepository
-import com.tiffles.travelingtavern.domain.repository.SpeechInputRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -45,13 +41,7 @@ abstract class DataModule {
     abstract fun bindLorebookRepository(impl: LorebookRepositoryImpl): LorebookRepository
 
     @Binds
-    abstract fun bindSpeechInputRepository(impl: OnDeviceSpeechInput): SpeechInputRepository
-
-    @Binds
-    abstract fun bindMicrophonePermission(impl: AndroidMicrophonePermission): MicrophonePermission
-
-    @Binds
-    abstract fun bindChatInputRepository(impl: ChatInputRepositoryImpl): ChatInputRepository
+    abstract fun bindChatSessionRepository(impl: ChatSessionRepositoryImpl): ChatSessionRepository
 
     companion object {
         @Provides

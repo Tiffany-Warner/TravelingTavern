@@ -21,7 +21,11 @@ import androidx.compose.ui.unit.dp
 import com.tiffles.travelingtavern.R
 import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
 
-/** A bottom sheet asking to confirm a deletion. [details] are extra lines under [message]. */
+/**
+ * A bottom sheet asking to confirm a deletion. [details] are extra lines under [message].
+ * [confirmLabel] replaces "Delete"; [destructive] false uses the accent instead of the error
+ * color, for a confirmation that deletes nothing (e.g. Start new chat).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfirmDeleteSheet(
@@ -30,7 +34,9 @@ fun ConfirmDeleteSheet(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     details: List<String> = emptyList(),
-    isWorking: Boolean = false
+    isWorking: Boolean = false,
+    confirmLabel: String? = null,
+    destructive: Boolean = true
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         ConfirmDeleteContent(
@@ -38,6 +44,8 @@ fun ConfirmDeleteSheet(
             message = message,
             details = details,
             isWorking = isWorking,
+            confirmLabel = confirmLabel ?: stringResource(R.string.lorebook_delete_action),
+            destructive = destructive,
             onConfirm = onConfirm,
             onDismiss = onDismiss
         )
@@ -50,6 +58,8 @@ private fun ConfirmDeleteContent(
     message: String,
     details: List<String>,
     isWorking: Boolean,
+    confirmLabel: String,
+    destructive: Boolean,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -70,12 +80,16 @@ private fun ConfirmDeleteContent(
             Button(
                 onClick = onConfirm,
                 enabled = !isWorking,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError
-                )
+                colors = if (destructive) {
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                } else {
+                    ButtonDefaults.buttonColors()
+                }
             ) {
-                Text(stringResource(R.string.lorebook_delete_action))
+                Text(confirmLabel)
             }
         }
     }
@@ -90,6 +104,8 @@ private fun ConfirmDeleteContentPreview() {
             message = "This can't be undone.",
             details = listOf("Seraphina will keep a link to this name. Clear it in Advanced if you plan to reuse the name."),
             isWorking = false,
+            confirmLabel = "Delete",
+            destructive = true,
             onConfirm = {},
             onDismiss = {}
         )

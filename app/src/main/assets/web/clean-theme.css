@@ -1,6 +1,7 @@
-/* TravelingTavern clean theme — hides SillyTavern's settings clutter inside the app only.
-   Every rule is scoped under body.tt-clean, so this stylesheet does nothing until the app
-   sets that class (window.__ttBridge.setClean). The desktop browser never loads it.
+/* TravelingTavern clean theme — hides SillyTavern's settings clutter inside the app only and
+   lays the chat out for a phone (1.7 story chat). Every rule is scoped under body.tt-clean, so
+   this stylesheet does nothing until the app sets that class (window.__ttBridge.setClean).
+   The desktop browser never loads it, and Advanced (clean mode off) shows SillyTavern as is.
 
    Selectors used (verified on SillyTavern 1.19.0; mirrored in st-selectors.js):
      #top-bar                 fixed bar behind the top toolbar
@@ -18,19 +19,27 @@
      #chat .drawer-opener     shortcut buttons inside the chat (welcome screen) that open a hidden drawer
      #sheld                   main column: chat + input; offset by the toolbar's height
      #chat                    message list
-     .mes_text                one message's text
-     #send_textarea           message input
-     #leftSendForm            input row, left buttons (options menu, extensions menu)
-     #rightSendForm           input row, right buttons (microphone, send)
+     #form_sheld              SillyTavern's input area (input row, Quick Replies, delete-mode bar)
+     #bg1                     SillyTavern's chat background
+     .mes[mesid][is_user][is_system][ch_name]   one message; .mesAvatarWrapper, .swipe_left,
+                              .mes_block (.ch_name, .mes_text, …), .swipeRightBlock
+                              (.swipe_right, .swipes-counter)
+     .ch_name .mes_buttons, .mes_edit_buttons (.mes_edit_done, .mes_edit_cancel, …)
+     #curEditTextarea         SillyTavern's inline editor
+     .mes_reasoning_summary   the reasoning bar ("Thought for …"): .mes_reasoning_header, .mes_reasoning_arrow,
+                              .mes_reasoning_actions; .mes_reasoning is the reasoning text
      #et-portal               EchoText extension's container (window, floating button, pop-ups);
                               a sibling of <body>, not inside it (verified on EchoText 1.2.6)
-     #microphone_button       Speech Recognition extension's mic
-     #tt-mic                  the app's own mic button (added by bridge.js); `.tt-mic-listening`
-                              while recording. The one rule outside body.tt-clean hides it when
-                              clean mode is off (Advanced)
-   Colors are never set here: everything keeps SillyTavern's theme variables. */
+   Added by bridge.js:
+     --tt-*                   the app's theme colors (setTheme); body.tt-dark in dark theme
+     body.tt-has-bg           SillyTavern has a chat background image
+     --tt-bg-size, --tt-bg-y  #bg1's picture size and offset at the tallest page height (on <html>)
+     .tt-swipe-end            on the latest message while it shows its last reply
+     #tt-typing               the "…" card while a reply hasn't appeared yet
+     #tt-scroll-newest        scroll-to-newest button; .tt-visible when scrolled up
+     body.tt-revealing        the app's actions sheet is open; --tt-reveal-room on #chat */
 
-/* Toolbar, its drawers, and the TopInfoBar chat bar: the app provides these natively. */
+/* Toolbar, its drawers, the TopInfoBar chat bar and the input area: the app provides these natively. */
 body.tt-clean #top-bar,
 body.tt-clean #top-settings-holder,
 body.tt-clean #left-nav-panel,
@@ -43,68 +52,304 @@ body.tt-clean #rm_extensions_block,
 body.tt-clean #PersonaManagement,
 body.tt-clean #right-nav-panel,
 body.tt-clean #extensionTopBar,
-body.tt-clean #chat .drawer-opener {
+body.tt-clean #chat .drawer-opener,
+body.tt-clean #form_sheld {
     display: none !important;
 }
 
-/* EchoText: no EchoText UI in the app until the Chat screen shows its thread (1.7). On a phone
-   its window is full screen at the top z-index and reopens itself after each page load, so it
-   would cover the main chat and take its taps; its floating button would cover the send button.
-   EchoText mounts #et-portal on <html> after <body>, hence `~`. The portal itself has an inline
-   `display: block !important`, which a stylesheet can't override, so its children are hidden. */
+/* EchoText (no longer used; hidden in case it's still installed). On a phone its window is full
+   screen at the top z-index and reopens itself after each page load. EchoText mounts #et-portal
+   on <html> after <body>, hence `~`. The portal itself has an inline `display: block !important`,
+   which a stylesheet can't override, so its children are hidden. */
 body.tt-clean ~ #et-portal > * {
     display: none !important;
 }
 
-/* Voice input: the app's mic replaces the Speech Recognition extension's (which sends audio
-   to Google and stops at short pauses). In Advanced the extension's mic is back and the app's
-   is hidden. */
-body.tt-clean #microphone_button,
-body:not(.tt-clean) #tt-mic {
-    display: none !important;
-}
-
-/* While recording, the mic takes the theme's accent (the quote color) instead of the icon color. */
-body.tt-clean #tt-mic.tt-mic-listening {
-    color: var(--SmartThemeQuoteColor);
-    opacity: 1;
-}
-
-/* With the toolbar gone, the chat column takes the whole viewport. */
+/* With the toolbar and input area gone, the chat column takes the whole viewport (the app's
+   own bars sit outside the WebView). */
 body.tt-clean #sheld {
     top: 0 !important;
     height: 100dvh !important;
     max-height: 100dvh !important;
 }
 
-body.tt-clean #chat {
-    max-height: none;
+/* Background: SillyTavern's own picture under a scrim, or the app's background color. */
+body.tt-clean {
+    background-color: var(--tt-background);
 }
 
-/* Readable without zooming: at least 16px, or larger if the user chose a bigger font. */
-body.tt-clean .mes_text,
-body.tt-clean #send_textarea {
+/* The picture keeps one size and position while the page gets shorter (input bar growing, keyboard):
+   bridge.js sets what `cover` gives at the tallest page height, so only its bottom gets hidden.
+   !important: SillyTavern's mobile styles set background-position on #bg1. */
+body.tt-clean.tt-has-bg #bg1 {
+    background-size: var(--tt-bg-size, cover) !important;
+    background-position: center var(--tt-bg-y, center) !important;
+}
+
+body.tt-clean:not(.tt-has-bg) #bg1 {
+    background-color: var(--tt-background);
+}
+
+body.tt-clean #chat {
+    max-height: none;
+    background: transparent;
+    padding: 8px 16px 72px;
+    box-sizing: border-box;
+}
+
+body.tt-clean.tt-has-bg #chat {
+    background-color: rgba(0, 0, 0, 0.45);
+}
+
+/* While the app's actions sheet covers the bottom of the chat, extra room below the messages lets
+   even the latest one scroll up above the sheet (bridge.js revealMessage sets the amount). */
+body.tt-clean.tt-revealing #chat {
+    padding-bottom: calc(72px + var(--tt-reveal-room, 0px));
+}
+
+/* ---- Messages as cards: the character's on the left, yours on the right, name underneath. */
+
+body.tt-clean #chat .mes {
+    display: grid;
+    grid-template-columns: max-content max-content max-content 1fr;
+    align-items: center;
+    column-gap: 4px;
+    padding: 0;
+    margin: 0 0 12px;
+    background: none;
+    border: none;
+    box-shadow: none;
+}
+
+body.tt-clean #chat .mesAvatarWrapper,
+body.tt-clean #chat .mes .ch_name {
+    display: none !important;
+}
+
+body.tt-clean #chat .mes_block {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    justify-self: start;
+    max-width: 85%;
+    min-width: 0;
+    width: auto;
+    padding: 16px;
+    border-radius: 20px;
+    background: var(--tt-surface);
+    color: var(--tt-on-surface);
+    box-sizing: border-box;
+}
+
+body.tt-clean #chat .mes[is_user="true"] .mes_block {
+    justify-self: end;
+    background: var(--tt-primary-container);
+    color: var(--tt-on-primary-container);
+}
+
+/* The sender's name, small and secondary, under the card. */
+body.tt-clean #chat .mes::after {
+    content: attr(ch_name);
+    grid-row: 2;
+    grid-column: 1;
+    padding: 4px 4px 0;
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--tt-on-surface-variant);
+}
+
+body.tt-clean #chat .mes[is_user="true"]::after {
+    grid-column: 1 / -1;
+    justify-self: end;
+}
+
+/* Hidden from the AI: text in the secondary color, and said so next to the name. The card stays
+   solid: fading it made pictures (image messages are often hidden) see-through over the background. */
+body.tt-clean #chat .mes[is_system="true"] .mes_text {
+    color: var(--tt-on-surface-variant);
+}
+
+body.tt-clean #chat .mes[is_system="true"]::after {
+    content: attr(ch_name) " · hidden from AI";
+}
+
+/* Text: narration (*asterisks*) in italic secondary color, everything else in the card's color. */
+body.tt-clean .mes_text {
+    padding: 0;
+    color: inherit;
     font-size: max(16px, var(--mainFontSize));
 }
 
-/* Input row: every button gets a 48dp touch target (1 CSS px = 1 dp in the WebView).
-   Only sizes are set — `display` stays SillyTavern's, which hides buttons like #mes_stop
-   until they apply. */
-body.tt-clean #leftSendForm,
-body.tt-clean #rightSendForm {
-    width: auto;
-    flex-wrap: nowrap;
+body.tt-clean .mes_text q,
+body.tt-clean .mes_text p,
+body.tt-clean .mes_text span {
+    color: inherit;
+}
+
+body.tt-clean .mes_text em,
+body.tt-clean .mes_text i {
+    font-style: italic;
+    color: var(--tt-on-surface-variant);
+}
+
+body.tt-clean #chat .mes[is_user="true"] .mes_text em,
+body.tt-clean #chat .mes[is_user="true"] .mes_text i {
+    color: inherit;
+    opacity: 0.75;
+}
+
+/* Reasoning: only the "Thought for …" bar shows, in the app's message-field colors (SillyTavern's
+   theme gray was unreadable under dark text in the light theme). Its arrow, actions and the reasoning
+   text are hidden and the bar can't be opened (user decision, 2026-11-19): a tap on it goes to the
+   card. The reasoning stays in SillyTavern; Advanced shows it. */
+body.tt-clean #chat .mes_reasoning_header {
+    background: var(--tt-surface-container-highest);
+    color: var(--tt-on-surface-variant);
+    border: none;
+    border-radius: 12px;
+}
+
+body.tt-clean #chat .mes_reasoning_header * {
+    color: var(--tt-on-surface-variant);
+}
+
+body.tt-clean #chat .mes_reasoning_details {
+    pointer-events: none;
+}
+
+body.tt-clean #chat .mes_reasoning_arrow,
+body.tt-clean #chat .mes_reasoning_actions,
+body.tt-clean #chat .mes_reasoning {
+    display: none !important;
+}
+
+/* ---- Inline editor: only SillyTavern's confirm and cancel stay. */
+
+body.tt-clean #chat .mes:has(#curEditTextarea) .ch_name {
+    display: flex !important;
+    justify-content: flex-end;
+}
+
+body.tt-clean #chat .mes:has(#curEditTextarea) .ch_name > :not(.mes_edit_buttons),
+body.tt-clean #chat .mes_edit_buttons > :not(.mes_edit_done):not(.mes_edit_cancel) {
+    display: none !important;
+}
+
+body.tt-clean #chat .mes_edit_done,
+body.tt-clean #chat .mes_edit_cancel {
+    min-width: 48px;
+    min-height: 48px;
+    line-height: 48px;
+}
+
+/* SillyTavern's theme gives the editor a dark fill; inside a light card that hides the card's own
+   text color, so the editor takes a faint tint of that color instead. */
+body.tt-clean #curEditTextarea {
+    font-size: max(16px, var(--mainFontSize));
+    color: inherit;
+    background: color-mix(in srgb, currentColor 8%, transparent);
+    border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+    border-radius: 12px;
+}
+
+/* ---- Swipes: arrows and counter under the latest reply, 48dp targets. On its last reply the
+   right arrow is hidden (`!important` beats SillyTavern's inline display), so neither the arrow
+   nor the swipe gesture (which clicks the arrow only if visible) can start a generation. */
+
+body.tt-clean #chat .swipe_left {
+    grid-row: 2;
+    grid-column: 2;
+    position: static;
+}
+
+body.tt-clean #chat .swipeRightBlock {
+    grid-row: 2;
+    grid-column: 3;
+    position: static;
+    flex-direction: row-reverse !important;
     align-items: center;
 }
 
-body.tt-clean #leftSendForm > div,
-body.tt-clean #rightSendForm > div {
+body.tt-clean #chat .swipe_left,
+body.tt-clean #chat .swipe_right {
     min-width: 48px;
     min-height: 48px;
     line-height: 48px;
     text-align: center;
+    color: var(--tt-on-surface-variant);
 }
 
-body.tt-clean #send_textarea {
-    min-height: 48px;
+body.tt-clean #chat .swipes-counter {
+    position: static;
+    font-size: 12px;
+    color: var(--tt-on-surface-variant);
+}
+
+body.tt-clean #chat .tt-swipe-end .swipe_right {
+    display: none !important;
+}
+
+/* Over SillyTavern's background the scrim is dark in both app themes, so the text that sits on it
+   (names, swipe arrows and counter) is light; the light theme's secondary gray is unreadable there. */
+body.tt-clean.tt-has-bg #chat .mes::after,
+body.tt-clean.tt-has-bg #chat .swipe_left,
+body.tt-clean.tt-has-bg #chat .swipe_right,
+body.tt-clean.tt-has-bg #chat .swipes-counter {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* ---- "…" while a reply hasn't appeared yet. */
+
+body.tt-clean #tt-typing {
+    display: inline-flex;
+    gap: 6px;
+    padding: 18px 16px;
+    margin: 0 0 12px;
+    border-radius: 20px;
+    background: var(--tt-surface);
+}
+
+body.tt-clean #tt-typing span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--tt-on-surface-variant);
+    opacity: 0.4;
+    animation: tt-typing 1.2s infinite ease-in-out;
+}
+
+body.tt-clean #tt-typing span:nth-child(2) { animation-delay: 0.2s; }
+body.tt-clean #tt-typing span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes tt-typing {
+    0%, 60%, 100% { opacity: 0.4; }
+    30% { opacity: 1; }
+}
+
+/* ---- Scroll to the newest message: bottom right, only when scrolled up. */
+
+#tt-scroll-newest {
+    display: none;
+}
+
+body.tt-clean #tt-scroll-newest.tt-visible {
+    display: flex;
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    background: var(--tt-surface);
+    color: var(--tt-on-surface);
+    /* Above the chat's messages (SillyTavern stacks #chat at 30), or a tap lands on the message under it. */
+    z-index: 1000;
+    cursor: pointer;
+}
+
+body.tt-clean #tt-scroll-newest svg {
+    width: 24px;
+    height: 24px;
+    fill: currentColor;
 }

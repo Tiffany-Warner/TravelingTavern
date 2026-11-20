@@ -2,7 +2,9 @@ package com.tiffles.travelingtavern.data.bridge
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import java.util.Base64
 
 /**
@@ -24,6 +26,16 @@ object BridgeScript {
      */
     fun installStyle(id: String, css: String): String =
         call("installStyle", JsonPrimitive(id), JsonPrimitive(encodeBase64(css)))
+
+    /** `setTheme({ dark, colors: { name: "#rrggbb" } })` for the clean layout's `--tt-*` variables. */
+    fun setTheme(theme: PageTheme): String =
+        call(
+            "setTheme",
+            buildJsonObject {
+                put("dark", JsonPrimitive(theme.dark))
+                put("colors", JsonObject(theme.colors.mapValues { JsonPrimitive(it.value) }))
+            }
+        )
 
     fun encodeBase64(text: String): String =
         Base64.getEncoder().encodeToString(text.toByteArray(Charsets.UTF_8))

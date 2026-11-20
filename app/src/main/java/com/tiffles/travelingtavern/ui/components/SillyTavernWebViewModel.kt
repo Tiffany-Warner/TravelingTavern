@@ -5,6 +5,8 @@ import android.content.Intent
 import android.webkit.WebView
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tiffles.travelingtavern.data.bridge.BridgeClient
+import com.tiffles.travelingtavern.data.bridge.PageTheme
 import com.tiffles.travelingtavern.data.webview.WebViewHolder
 import com.tiffles.travelingtavern.data.webview.WebViewHost
 import com.tiffles.travelingtavern.domain.model.PageState
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class SillyTavernWebUiState(
@@ -26,7 +29,8 @@ data class SillyTavernWebUiState(
  */
 @HiltViewModel
 class SillyTavernWebViewModel @Inject constructor(
-    private val holder: WebViewHolder
+    private val holder: WebViewHolder,
+    private val client: BridgeClient
 ) : ViewModel() {
 
     val uiState: StateFlow<SillyTavernWebUiState> =
@@ -44,6 +48,11 @@ class SillyTavernWebViewModel @Inject constructor(
     fun detach(activity: Activity, host: WebViewHost) = holder.detach(activity, host)
 
     fun retry() = holder.retry()
+
+    /** The app's colors for the page's clean layout; re-sent by the installer after reloads. */
+    fun setPageTheme(theme: PageTheme) {
+        viewModelScope.launch { client.setPageTheme(theme) }
+    }
 
     fun goBack() = holder.goBack()
 

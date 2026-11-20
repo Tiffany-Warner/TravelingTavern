@@ -11,17 +11,60 @@ sealed interface BridgeMessage {
     @Serializable
     data class Characters(val items: List<CharacterDto>) : BridgeMessage
 
-    /** [characterId] is null when no single character is open (none, or a group chat). */
     /** SillyTavern's recent chats, one per chat file, newest first. */
     @Serializable
     data class RecentChats(val items: List<RecentChatDto>) : BridgeMessage
 
+    /**
+     * SillyTavern switched chats. [characterId] is null when no single character is open (none,
+     * or a group chat); [chatFile] is the chat file name without `.jsonl`.
+     */
     @Serializable
-    data class ChatChanged(val characterId: String? = null) : BridgeMessage
+    data class ChatChanged(val characterId: String? = null, val chatFile: String? = null) : BridgeMessage
 
-    /** The chat [selectCharacter][BridgeClient.selectCharacter] asked for is drawn and settled. */
+    /**
+     * The chat [selectCharacter][BridgeClient.selectCharacter] asked for ([requestId]) is drawn
+     * and settled. [chatFile] is the chat that actually opened.
+     */
     @Serializable
-    data class ChatOpened(val characterId: String) : BridgeMessage
+    data class ChatOpened(
+        val requestId: String,
+        val characterId: String,
+        val chatFile: String? = null
+    ) : BridgeMessage
+
+    /** SillyTavern started ([running]) or stopped generating (replies and impersonate). */
+    @Serializable
+    data class GenerationState(val running: Boolean) : BridgeMessage
+
+    /** A message was tapped in clean mode. [sendDate] identifies it for the stale check. */
+    @Serializable
+    data class MessageTapped(
+        val messageId: Int,
+        val sendDate: String,
+        val name: String = "",
+        val isUser: Boolean,
+        val isLatest: Boolean,
+        val isHidden: Boolean = false,
+        val canRegenerate: Boolean = false,
+        val canContinue: Boolean = false
+    ) : BridgeMessage
+
+    /**
+     * The answer to a chat command ([requestId]). [error] is `stale`, `busy` or `failed`;
+     * [text] is set by the copy action.
+     */
+    @Serializable
+    data class ChatResult(
+        val requestId: String,
+        val ok: Boolean,
+        val error: String? = null,
+        val text: String? = null
+    ) : BridgeMessage
+
+    /** Impersonate finished; [text] is what it wrote for the user. */
+    @Serializable
+    data class ImpersonateReady(val text: String) : BridgeMessage
 
     @Serializable
     data class MessageReceived(val characterId: String? = null, val messageId: Int) : BridgeMessage
@@ -54,13 +97,6 @@ sealed interface BridgeMessage {
     @Serializable
     data class TokenCount(val requestId: String, val count: Int) : BridgeMessage
 
-    /**
-     * The in-page mic button was tapped. [target] is `story` (SillyTavern's main chat) or
-     * `text` (EchoText's input, from 1.7); anything else is ignored by the receiver.
-     */
-    @Serializable
-    data class MicPressed(val target: String) : BridgeMessage
-
     @Serializable
     data class Error(val message: String) : BridgeMessage
 
@@ -82,12 +118,14 @@ data class CharacterDto(
 )
 
 /**
- * One chat file from SillyTavern's recent chats. [lastMessage] is trimmed to 200 characters
- * and null for a chat with no messages; [lastMessageAt] is epoch milliseconds.
+ * One chat file from SillyTavern's recent chats. [chatFile] is its name without `.jsonl`.
+ * [lastMessage] is trimmed to 200 characters and null for a chat with no messages;
+ * [lastMessageAt] is epoch milliseconds.
  */
 @Serializable
 data class RecentChatDto(
     val characterId: String,
+    val chatFile: String? = null,
     val lastMessage: String? = null,
     val lastMessageAt: Long? = null,
     val messageCount: Int = 0

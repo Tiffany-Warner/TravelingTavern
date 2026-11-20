@@ -87,7 +87,7 @@
         post('characters', { items: items });
     }
 
-    /** One /api/chats/recent row → { characterId, lastMessage, lastMessageAt, messageCount }. */
+    /** One /api/chats/recent row → { characterId, chatFile, lastMessage, lastMessageAt, messageCount }. */
     function toRecentChat(row) {
         const F = S.recentChat;
         const count = Number(row[F.messageCount]) || 0;
@@ -95,6 +95,7 @@
         const at = Date.parse(row[F.lastMessageAt]);
         return {
             characterId: row[F.characterId],
+            chatFile: typeof row[F.chatFile] === 'string' ? row[F.chatFile] : null,
             // An empty chat reports a placeholder text, not a message.
             lastMessage: count > 0 && text ? text.slice(0, PREVIEW_MAX_CHARS) : null,
             lastMessageAt: isNaN(at) ? null : at,
@@ -459,10 +460,6 @@
         check();
     }
 
-    function postChatOpened(id) {
-        whenChatSettled(function () { post('chatOpened', { characterId: id }); });
-    }
-
     function onMessageReceived(messageId) {
         const ctx = context();
         const message = (ctx[S.context.chat] || [])[messageId];
@@ -476,7 +473,10 @@
     function listen(ctx) {
         const events = ctx[S.context.eventSource];
         events.on(eventName(ctx, S.events.chatChanged), function () {
-            post('chatChanged', { characterId: currentCharacterId(context()) });
+            const current = context();
+            rememberOpenChat(current);
+            post('chatChanged', { characterId: appState.characterId, chatFile: appState.chatFile });
+            refreshChatDecorations();
         });
         events.on(eventName(ctx, S.events.messageReceived), onMessageReceived);
         S.events.charactersChanged.forEach(function (key) {
@@ -499,6 +499,7 @@
         if (ctx) {
             try {
                 listen(ctx);
+            setUpChatScreen(ctx);
             } catch (e) {
                 postError('Bridge setup failed: ' + e);
             }
@@ -511,102 +512,351 @@
         setTimeout(function () { waitForSillyTavern(startedAt); }, READY_POLL_MS);
     }
 
-    // ---- Voice input (1.7b): the app's mic button, and filling the chat input with what the
-    // phone recognized. Recognition itself runs natively; the page only shows the text.
+    // ---- Story chat (1.7): app state, generation state, message taps and actions, the input
+    // bar's commands, swipes that never generate, the "…" card and the scroll button.
 
-    const MIC_ID = 'tt-mic';
-    const MIC_LISTENING_CLASS = 'tt-mic-listening';
-    let voiceInput = null;
-    let voiceBase = '';
+    const C = S.chatScreen;
+    const SWIPE_END_CLASS = 'tt-swipe-end';
+    const HAS_BACKGROUND_CLASS = 'tt-has-bg';
+    const BACKGROUND_SIZE_VAR = '--tt-bg-size';
+    const BACKGROUND_Y_VAR = '--tt-bg-y';
+    const DARK_CLASS = 'tt-dark';
+    const TYPING_ID = 'tt-typing';
+    const SCROLL_BUTTON_ID = 'tt-scroll-newest';
+    /** Body class while the app's actions sheet covers the bottom of the chat. */
+    const REVEAL_CLASS = 'tt-revealing';
+    const REVEAL_GAP_PX = 8;
+    const SCROLL_BUTTON_VISIBLE_CLASS = 'tt-visible';
+    const SCROLL_AWAY_PX = 240;
+    const THEME_COLOR = /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/;
+    const THEME_KEY = /^[a-z][a-zA-Z]*$/;
+    /** Generation types the "…" card waits for (a reply that hasn't appeared yet). */
+    const REPLY_TYPES = ['normal', 'regenerate'];
 
-    /** The input a mic target fills. Only the main chat in 1.7b; 'text' (EchoText) comes with 1.7. */
-    function inputFor(target) {
-        return target === 'story' ? document.querySelector(S.dom.sendTextarea) : null;
+    /** What the app knows about this page; Phase 8 sends it to the Bridge as the heartbeat. */
+    const appState = { foreground: true, characterId: null, chatFile: null };
+    let generating = false;
+    let generationType = null;
+    let afterGeneration = [];
+    let selectionAtPointerDown = false;
+    let scrollScheduled = false;
+
+    function jq() {
+        return window[S.jQuery];
     }
 
-    /** Sets the input's text the way SillyTavern does itself, so it resizes and saves the draft. */
+    function chatOf(ctx) {
+        return ctx[S.context.chat] || [];
+    }
+
+    /** The open chat's file name (without `.jsonl`), or null. */
+    function currentChatFile(ctx) {
+        const file = ctx[S.context.getCurrentChatId]();
+        return typeof file === 'string' && file ? file : null;
+    }
+
+    function rememberOpenChat(ctx) {
+        appState.characterId = currentCharacterId(ctx);
+        appState.chatFile = currentChatFile(ctx);
+    }
+
     function setInputText(input, text) {
         input.value = text;
         input.dispatchEvent(new Event(S.inputEvent, { bubbles: true }));
     }
 
-    function addMicButton() {
-        if (document.getElementById(MIC_ID)) return;
-        const row = document.querySelector(S.dom.rightSendForm);
-        if (!row) return;
-        const mic = document.createElement('div');
-        mic.id = MIC_ID;
-        mic.className = S.micButtonClasses;
-        mic.title = 'Voice input';
-        mic.setAttribute('role', 'button');
-        mic.setAttribute('aria-label', 'Voice input');
-        mic.addEventListener('click', function () { post('micPressed', { target: 'story' }); });
-        row.insertBefore(mic, row.querySelector(S.dom.sendButton));
+    function clickElement(selector) {
+        jq()(selector).trigger('click');
     }
 
-    function setMicListening(listening) {
-        const mic = document.getElementById(MIC_ID);
-        if (mic) mic.classList.toggle(MIC_LISTENING_CLASS, listening);
+    function messageElement(id) {
+        return document.querySelector(S.dom.chat + ' ' + C.message + '[' + C.messageIdAttr + '="' + id + '"]');
     }
 
-    const voiceActions = {
-        /** Adds the mic button next to send, or removes it when voice input isn't available. */
-        setVoiceInputAvailable: function (available) {
-            if (available === true) {
-                addMicButton();
-                return;
+    function clickMessageButton(id, selector) {
+        const element = messageElement(id);
+        const button = element && element.querySelector(selector);
+        if (!button) throw new Error('Message button not found');
+        jq()(button).trigger('click');
+    }
+
+    /** The greeting of an untouched chat: SillyTavern's swipes loop there instead of generating. */
+    function isPristineGreeting(ctx, id) {
+        const metadata = ctx[S.context.chatMetadata] || {};
+        return id === 0 && !metadata[S.chatMetadataTainted];
+    }
+
+    // -- Generation state: SillyTavern shows #mes_stop exactly while it generates.
+
+    function isStopShown() {
+        const stop = document.querySelector(C.stopButton);
+        const display = stop ? stop.style.display : '';
+        return display !== '' && display !== 'none';
+    }
+
+    function onStopButtonChanged() {
+        const running = isStopShown();
+        if (running === generating) return;
+        generating = running;
+        if (!running) {
+            generationType = null;
+            runAfterGeneration();
+        }
+        post('generationState', { running: running });
+        refreshChatDecorations();
+    }
+
+    function whenNotGenerating(fn) {
+        if (generating) afterGeneration.push(fn);
+        else fn();
+    }
+
+    function runAfterGeneration() {
+        const queued = afterGeneration;
+        afterGeneration = [];
+        queued.forEach(function (fn) {
+            try {
+                fn();
+            } catch (e) {
+                postError('Deferred chat action failed: ' + e);
             }
-            const mic = document.getElementById(MIC_ID);
-            if (mic) mic.remove();
-        },
+        });
+    }
 
-        /** Remembers [target]'s current text; recognized text is added after it. */
-        beginVoiceInput: function (target) {
-            voiceInput = inputFor(target);
-            voiceBase = voiceInput ? voiceInput.value : '';
-            setMicListening(voiceInput !== null);
-        },
+    function onGenerationStarted(type, options, dryRun) {
+        if (dryRun || type === 'quiet') return;
+        generationType = type;
+        refreshChatDecorations();
+    }
 
-        /** Shows [text] (everything recognized so far) after the remembered text. */
-        updateVoiceInput: function (text) {
-            if (!voiceInput) return;
-            const gap = voiceBase && text && !/\s$/.test(voiceBase) ? ' ' : '';
-            setInputText(voiceInput, voiceBase + gap + String(text));
-        },
+    // -- Decorations: the swipe-end mark, the "…" card, the background flag, the scroll button.
 
-        /** Leaves the text in place and puts the cursor after it, ready to review and send. */
-        endVoiceInput: function () {
-            setMicListening(false);
-            const input = voiceInput;
-            voiceInput = null;
-            voiceBase = '';
-            if (!input) return;
-            input.focus();
-            input.setSelectionRange(input.value.length, input.value.length);
+    /** Marks the latest message when it shows its last reply, so the CSS hides its right arrow. */
+    function markSwipeEnd(ctx) {
+        document.querySelectorAll('.' + SWIPE_END_CLASS).forEach(function (el) {
+            el.classList.remove(SWIPE_END_CLASS);
+        });
+        const chat = chatOf(ctx);
+        const id = chat.length - 1;
+        const message = chat[id];
+        if (!message || message[S.message.isUser] || message[S.message.isSystem]) return;
+        if (isPristineGreeting(ctx, id)) return;
+        const swipes = Array.isArray(message[S.message.swipes]) ? message[S.message.swipes].length : 1;
+        if (Number(message[S.message.swipeId] || 0) < swipes - 1) return;
+        const element = messageElement(id);
+        if (element) element.classList.add(SWIPE_END_CLASS);
+    }
+
+    function lastMessageElement(chatElement) {
+        const messages = chatElement.querySelectorAll(C.message);
+        return messages.length ? messages[messages.length - 1] : null;
+    }
+
+    /** "…" on the character's side until SillyTavern adds the reply's own message. */
+    function updateTypingCard() {
+        const chatElement = document.querySelector(S.dom.chat);
+        if (!chatElement) return;
+        const last = lastMessageElement(chatElement);
+        const waiting = generating && REPLY_TYPES.indexOf(generationType) >= 0 &&
+            (!last || last.getAttribute(C.isUserAttr) === 'true');
+        let card = document.getElementById(TYPING_ID);
+        if (!waiting) {
+            if (card) card.remove();
+            return;
+        }
+        if (!card) {
+            card = document.createElement('div');
+            card.id = TYPING_ID;
+            card.setAttribute('role', 'status');
+            card.setAttribute('aria-label', 'Writing a reply');
+            card.innerHTML = '<span></span><span></span><span></span>';
+        }
+        if (chatElement.lastElementChild !== card) {
+            chatElement.appendChild(card);
+            chatElement.scrollTop = chatElement.scrollHeight;
+        }
+    }
+
+    function updateBackgroundFlag() {
+        const background = document.querySelector(S.dom.background);
+        const image = background ? getComputedStyle(background).backgroundImage : 'none';
+        document.body.classList.toggle(HAS_BACKGROUND_CLASS, !!image && image !== 'none');
+        updateBackgroundGeometry();
+    }
+
+    /**
+     * Keeps SillyTavern's background picture still while the page's height changes (the app's input
+     * bar growing, the keyboard). #bg1 itself follows the page, but the picture inside it gets a fixed
+     * size and offset: what `cover` gives at the tallest height seen at this width, centered as there.
+     * A shorter page then only hides the picture's bottom instead of rescaling it. Passed to
+     * clean-theme.css as --tt-bg-size / --tt-bg-y; a new width (rotation) starts over.
+     */
+    let backgroundWidth = 0;
+    let backgroundHeight = 0;
+    let backgroundImage = null; // { url, width, height } once loaded
+
+    function updateBackgroundGeometry() {
+        if (window.innerWidth !== backgroundWidth) {
+            backgroundWidth = window.innerWidth;
+            backgroundHeight = 0;
+        }
+        backgroundHeight = Math.max(backgroundHeight, window.innerHeight);
+        const url = backgroundImageUrl();
+        if (!url) return;
+        if (!backgroundImage || backgroundImage.url !== url) {
+            loadBackgroundImage(url);
+            return;
+        }
+        const scale = Math.max(backgroundWidth / backgroundImage.width, backgroundHeight / backgroundImage.height);
+        const width = backgroundImage.width * scale;
+        const height = backgroundImage.height * scale;
+        const root = document.documentElement.style;
+        root.setProperty(BACKGROUND_SIZE_VAR, width + 'px ' + height + 'px');
+        root.setProperty(BACKGROUND_Y_VAR, (backgroundHeight - height) / 2 + 'px');
+    }
+
+    function backgroundImageUrl() {
+        const background = document.querySelector(S.dom.background);
+        const image = background ? getComputedStyle(background).backgroundImage : 'none';
+        const match = /url\(["']?(.*?)["']?\)/.exec(image || '');
+        return match ? match[1] : null;
+    }
+
+    function loadBackgroundImage(url) {
+        const image = new Image();
+        image.onload = function () {
+            if (backgroundImageUrl() !== url || !image.naturalWidth || !image.naturalHeight) return;
+            backgroundImage = { url: url, width: image.naturalWidth, height: image.naturalHeight };
+            updateBackgroundGeometry();
+        };
+        image.src = url;
+    }
+
+    function scrollButton() {
+        let button = document.getElementById(SCROLL_BUTTON_ID);
+        const sheld = document.querySelector(S.dom.sheld);
+        if (button || !sheld) return button;
+        button = document.createElement('div');
+        button.id = SCROLL_BUTTON_ID;
+        button.setAttribute('role', 'button');
+        button.setAttribute('aria-label', 'Scroll to the newest message');
+        button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+            '<path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>';
+        button.addEventListener('click', function () {
+            const chatElement = document.querySelector(S.dom.chat);
+            if (chatElement) chatElement.scrollTo({ top: chatElement.scrollHeight, behavior: 'smooth' });
+        });
+        sheld.appendChild(button);
+        return button;
+    }
+
+    function updateScrollButton() {
+        scrollScheduled = false;
+        const chatElement = document.querySelector(S.dom.chat);
+        const button = scrollButton();
+        if (!chatElement || !button) return;
+        const away = chatElement.scrollHeight - chatElement.scrollTop - chatElement.clientHeight > SCROLL_AWAY_PX;
+        button.classList.toggle(SCROLL_BUTTON_VISIBLE_CLASS, away);
+    }
+
+    function scheduleScrollButton() {
+        if (scrollScheduled) return;
+        scrollScheduled = true;
+        requestAnimationFrame(updateScrollButton);
+    }
+
+    function refreshChatDecorations() {
+        const ctx = context();
+        if (!ctx) return;
+        markSwipeEnd(ctx);
+        updateTypingCard();
+        scheduleScrollButton();
+    }
+
+    // -- Message taps (clean mode only).
+
+    function onChatPointerDown() {
+        const selection = window.getSelection();
+        selectionAtPointerDown = !!selection && !selection.isCollapsed;
+    }
+
+    function onChatClick(event) {
+        if (!document.body.classList.contains(S.cleanClass)) return;
+        if (selectionAtPointerDown) {
+            // A tap while text is selected only clears the selection.
+            selectionAtPointerDown = false;
+            const selection = window.getSelection();
+            if (selection) selection.removeAllRanges();
+            return;
+        }
+        const target = event.target;
+        if (!(target instanceof Element) || target.closest(C.tapIgnore)) return;
+        const element = target.closest(C.message);
+        if (!element || element.querySelector(C.editTextarea)) return;
+        const ctx = context();
+        const id = Number(element.getAttribute(C.messageIdAttr));
+        const message = ctx ? chatOf(ctx)[id] : null;
+        if (message) post('messageTapped', describeTappedMessage(ctx, id, message));
+    }
+
+    function describeTappedMessage(ctx, id, message) {
+        const isLatest = id === chatOf(ctx).length - 1;
+        const isUser = !!message[S.message.isUser];
+        const isHidden = !!message[S.message.isSystem];
+        return {
+            messageId: id,
+            sendDate: String(message[S.message.sendDate] == null ? '' : message[S.message.sendDate]),
+            name: String(message[S.message.name] || ''),
+            isUser: isUser,
+            isLatest: isLatest,
+            isHidden: isHidden,
+            canRegenerate: isLatest && !isHidden && !isPristineGreeting(ctx, id),
+            canContinue: isLatest && !isUser && !isHidden,
+        };
+    }
+
+    // -- Message actions, each through SillyTavern's own handler or function.
+
+    function regenerate(ctx, id) {
+        const message = chatOf(ctx)[id];
+        if (message[S.message.isUser]) {
+            // SillyTavern: regenerating on a user message asks the character to reply.
+            clickElement(C.options.regenerate);
+            return;
+        }
+        // A new swipe past the last one: SillyTavern generates it and, if that fails, shows
+        // the last existing reply again. Not awaited: the answer means "started".
+        const swipes = Array.isArray(message[S.message.swipes]) ? message[S.message.swipes].length : 1;
+        Promise.resolve(ctx[S.context.swipe].to(null, S.swipeRight, { forceMesId: id, forceSwipeId: swipes }))
+            .catch(function (e) { postError('Regenerate failed: ' + e); });
+    }
+
+    const MESSAGE_ACTIONS = {
+        copy: function (ctx, id) {
+            return { text: String(chatOf(ctx)[id][S.message.text] || '') };
         },
+        edit: function (ctx, id) { clickMessageButton(id, C.buttons.edit); },
+        branch: function (ctx, id) { clickMessageButton(id, C.buttons.branch); },
+        hide: function (ctx, id) { clickMessageButton(id, C.buttons.hide); },
+        show: function (ctx, id) { clickMessageButton(id, C.buttons.unhide); },
+        delete: function (ctx, id) { return ctx[S.context.deleteMessage](id); },
+        continue: function () { clickElement(C.options.continue); },
+        regenerate: regenerate,
     };
 
-    window.__ttBridge = Object.freeze(Object.assign({}, lorebookActions, voiceActions, {
-        requestCharacters: function (fromServer) {
-            sendCharacters(fromServer === true);
-        },
-        requestRecentChats: sendRecentChats,
+    function postChatResult(requestId, ok, error, extra) {
+        const payload = { requestId: requestId, ok: ok };
+        if (error) payload.error = error;
+        post('chatResult', Object.assign(payload, extra || {}));
+    }
 
-        /**
-         * Opens the character whose avatar file name is [id], through SillyTavern's own code,
-         * and posts `chatOpened` once its chat is drawn and has stopped moving (right away,
-         * if it is already open).
-         */
-        selectCharacter: function (id) {
-            const ctx = context();
-            if (!ctx) return;
-            if (currentCharacterId(ctx) === id) {
-                postChatOpened(id);
-                return;
-            }
+    // -- Opening a chat (1.6 + 1.7: a specific chat file, reload when stale).
+
+    function selectById(ctx, id) {
+        return new Promise(function (resolve, reject) {
             const index = characterList(ctx).findIndex(function (c) { return c && c[S.character.id] === id; });
             if (index < 0) {
-                postError('Unknown character');
+                reject(new Error('Unknown character'));
                 return;
             }
             const events = ctx[S.context.eventSource];
@@ -614,11 +864,223 @@
             function onChatChanged() {
                 if (currentCharacterId(context()) !== id) return;
                 events.removeListener(changed, onChatChanged);
-                postChatOpened(id);
+                resolve();
             }
             events.on(changed, onChatChanged);
             Promise.resolve(ctx[S.context.selectCharacterById](index, S.selectOptions)).catch(function (e) {
                 events.removeListener(changed, onChatChanged);
+                reject(e);
+            });
+        });
+    }
+
+    async function chatFileExists(ctx, id, chatFile) {
+        const response = await fetch(S.characterChatsApi, {
+            method: 'POST',
+            headers: ctx[S.context.getRequestHeaders](),
+            body: JSON.stringify({ avatar_url: id, simple: true }),
+        });
+        if (!response.ok) return false;
+        const files = await response.json();
+        return Array.isArray(files) && files.some(function (f) { return f && f.file_id === chatFile; });
+    }
+
+    function waitUntilNotGenerating() {
+        return new Promise(function (resolve) { whenNotGenerating(resolve); });
+    }
+
+    /** Opens [id]'s chat ([chatFile] if it exists), re-reading it if [reload] and nothing loaded it. */
+    async function openChat(id, chatFile, reload) {
+        let loaded = false;
+        if (currentCharacterId(context()) !== id) {
+            await selectById(context(), id);
+            loaded = true;
+        }
+        const ctx = context();
+        if (chatFile && currentChatFile(ctx) !== chatFile && await chatFileExists(ctx, id, chatFile)) {
+            await ctx[S.context.openCharacterChat](chatFile);
+            loaded = true;
+        }
+        if (reload && !loaded) {
+            await waitUntilNotGenerating();
+            await context()[S.context.reloadCurrentChat]();
+        }
+    }
+
+    function postChatOpened(requestId, id) {
+        whenChatSettled(function () {
+            post('chatOpened', { requestId: requestId, characterId: id, chatFile: currentChatFile(context()) });
+        });
+    }
+
+    function onImpersonateReady(text) {
+        post('impersonateReady', { text: String(text || '') });
+        // The text now lives in the app's field; don't leave it behind as SillyTavern's draft.
+        const input = document.querySelector(S.dom.sendTextarea);
+        if (input) setInputText(input, '');
+    }
+
+    function setUpChatScreen(ctx) {
+        const events = ctx[S.context.eventSource];
+        events.on(eventName(ctx, S.events.generationStarted), onGenerationStarted);
+        events.on(eventName(ctx, S.events.impersonateReady), onImpersonateReady);
+        S.events.messagesChanged.forEach(function (key) {
+            const name = eventName(ctx, key);
+            if (name) events.on(name, refreshChatDecorations);
+        });
+        const stop = document.querySelector(C.stopButton);
+        if (stop) new MutationObserver(onStopButtonChanged).observe(stop, { attributes: true, attributeFilter: ['style'] });
+        const chatElement = document.querySelector(S.dom.chat);
+        if (chatElement) {
+            new MutationObserver(refreshChatDecorations).observe(chatElement, { childList: true });
+            chatElement.addEventListener('scroll', scheduleScrollButton, { passive: true });
+            chatElement.addEventListener('pointerdown', onChatPointerDown, true);
+            chatElement.addEventListener('click', onChatClick);
+        }
+        const background = document.querySelector(S.dom.background);
+        if (background) new MutationObserver(updateBackgroundFlag).observe(background, { attributes: true, attributeFilter: ['style'] });
+        updateBackgroundFlag();
+        window.addEventListener('resize', updateBackgroundGeometry, { passive: true });
+        updateBackgroundGeometry();
+        rememberOpenChat(ctx);
+        generating = isStopShown();
+        refreshChatDecorations();
+    }
+
+    const chatActions = {
+        /** The page's view of the app (foreground, open chat). Read by Phase 8; nothing reads it yet. */
+        appState: appState,
+
+        setAppState: function (foreground) {
+            appState.foreground = foreground === true;
+        },
+
+        /** Re-reads the open chat from the server, after a running generation ends. */
+        reloadChat: function () {
+            whenNotGenerating(function () {
+                const ctx = context();
+                if (!ctx) return;
+                Promise.resolve(ctx[S.context.reloadCurrentChat]()).catch(function (e) {
+                    postError('reloadChat failed: ' + e);
+                });
+            });
+        },
+
+        /**
+         * Runs [action] on message [messageId] if it still has [sendDate] (else `stale`), and
+         * answers with a `chatResult` tagged [requestId]. Only copy runs during a generation.
+         */
+        messageAction: function (requestId, messageId, sendDate, action) {
+            const ctx = context();
+            const run = Object.prototype.hasOwnProperty.call(MESSAGE_ACTIONS, action) ? MESSAGE_ACTIONS[action] : null;
+            const id = Number(messageId);
+            const message = ctx ? chatOf(ctx)[id] : null;
+            if (!run) {
+                postChatResult(requestId, false, 'failed');
+            } else if (!message || String(message[S.message.sendDate] == null ? '' : message[S.message.sendDate]) !== String(sendDate)) {
+                postChatResult(requestId, false, 'stale');
+            } else if (generating && action !== 'copy') {
+                postChatResult(requestId, false, 'busy');
+            } else {
+                Promise.resolve()
+                    .then(function () { return run(ctx, id); })
+                    .then(function (extra) {
+                        postChatResult(requestId, true, null, extra && extra.text !== undefined ? extra : null);
+                    }, function (e) {
+                        postError('Message action failed: ' + e);
+                        postChatResult(requestId, false, 'failed');
+                    });
+            }
+        },
+
+        /** Sends [text] through SillyTavern's own send (a `/command` runs as if typed there). */
+        sendMessage: function (text) {
+            const input = document.querySelector(S.dom.sendTextarea);
+            if (!input) return;
+            setInputText(input, String(text));
+            clickElement(S.dom.sendButton);
+        },
+
+        /** SillyTavern's impersonate; the text arrives as `impersonateReady`. */
+        impersonate: function () {
+            clickElement(C.options.impersonate);
+        },
+
+        /**
+         * Scrolls message [id] into the part of the chat the app's actions sheet leaves visible:
+         * the bottom [coveredPx] CSS pixels are under the sheet. Adds that much room below the
+         * messages first, so even the latest one can move up. [endReveal] takes the room away.
+         */
+        revealMessage: function (id, coveredPx) {
+            const chat = document.querySelector(S.dom.chat);
+            const element = messageElement(Number(id));
+            if (!chat || !element) return;
+            const covered = Math.max(0, Number(coveredPx) || 0);
+            chat.style.setProperty('--tt-reveal-room', covered + 'px');
+            document.body.classList.add(REVEAL_CLASS);
+            const chatBox = chat.getBoundingClientRect();
+            const box = element.getBoundingClientRect();
+            const visibleBottom = chat.clientHeight - covered - REVEAL_GAP_PX;
+            const bottom = box.bottom - chatBox.top;
+            const top = box.top - chatBox.top;
+            if (bottom > visibleBottom) chat.scrollTop += Math.min(bottom - visibleBottom, top - REVEAL_GAP_PX);
+        },
+
+        endReveal: function () {
+            document.body.classList.remove(REVEAL_CLASS);
+        },
+
+        stopGeneration: function () {
+            const ctx = context();
+            if (ctx) ctx[S.context.stopGeneration]();
+        },
+
+        /** Start new chat ([deleteCurrent] false) or Restart chat (true), answered with `chatResult`. */
+        newChat: function (requestId, deleteCurrent) {
+            if (generating) {
+                postChatResult(requestId, false, 'busy');
+                return;
+            }
+            import(new URL(S.scriptModulePath, location.href).href)
+                .then(function (script) { return script[S.doNewChat]({ deleteCurrentChat: deleteCurrent === true }); })
+                .then(function () { postChatResult(requestId, true); }, function (e) {
+                    postError('New chat failed: ' + e);
+                    postChatResult(requestId, false, 'failed');
+                });
+        },
+
+        /** The app's theme for the clean layout: `{ dark, colors: { name: '#rrggbb' } }` → `--tt-*`. */
+        setTheme: function (theme) {
+            if (!theme || typeof theme !== 'object') return;
+            const colors = theme.colors || {};
+            const style = document.documentElement.style;
+            Object.keys(colors).forEach(function (key) {
+                const value = String(colors[key]);
+                if (!THEME_KEY.test(key) || !THEME_COLOR.test(value)) return;
+                style.setProperty('--tt-' + key.replace(/[A-Z]/g, function (c) { return '-' + c.toLowerCase(); }), value);
+            });
+            document.body.classList.toggle(DARK_CLASS, theme.dark === true);
+        },
+    };
+
+    window.__ttBridge = Object.freeze(Object.assign({}, lorebookActions, chatActions, {
+        requestCharacters: function (fromServer) {
+            sendCharacters(fromServer === true);
+        },
+        requestRecentChats: sendRecentChats,
+
+        /**
+         * Opens [id]'s chat (by avatar file name) through SillyTavern's own code: [chatFile]
+         * (name without `.jsonl`) if given and it exists, else the character's current chat;
+         * re-read first if [reload] and it was already open. Posts `chatOpened` tagged
+         * [requestId] once the chat is drawn and has stopped moving.
+         */
+        selectCharacter: function (requestId, id, chatFile, reload) {
+            if (!context()) return;
+            const file = typeof chatFile === 'string' && chatFile ? chatFile : null;
+            openChat(id, file, reload === true).then(function () {
+                postChatOpened(requestId, id);
+            }, function (e) {
                 postError('selectCharacter failed: ' + e);
             });
         },
@@ -643,17 +1105,8 @@
             }
             style.textContent = css;
         },
-
-        /** Replaces the body's tt-mode-* class with tt-mode-[mode]; an empty mode clears it. */
-        setMode: function (mode) {
-            const body = document.body;
-            Array.from(body.classList)
-                .filter(function (c) { return c.indexOf('tt-mode-') === 0; })
-                .forEach(function (c) { body.classList.remove(c); });
-            if (mode && /^[a-z][a-z-]*$/.test(mode)) body.classList.add('tt-mode-' + mode);
-        },
     }));
 
-    if (!port) return;
+    // Runs in any SillyTavern page: without the app's port, post() simply does nothing.
     waitForSillyTavern(Date.now());
 })();

@@ -51,11 +51,32 @@
     <string name="coming_soon">Coming soon</string>
 
     <string name="chat_back">Back</string>
-    <string name="chat_voice_permission_denied">Microphone access is off. You can turn it on in Settings.</string>
-    <string name="chat_voice_settings">Settings</string>
-    <string name="chat_voice_language_pack">Download the speech pack for your language to use voice input.</string>
-    <string name="chat_voice_no_match">Didn\'t catch that. Try again.</string>
-    <string name="chat_voice_failed">Voice input stopped. Try again.</string>
+    <string name="chat_more">More options</string>
+    <string name="chat_start_new">Start new chat</string>
+    <string name="chat_restart">Restart chat</string>
+    <string name="chat_start_new_title">Start a new chat?</string>
+    <string name="chat_start_new_message">This chat is kept in your chat list.</string>
+    <string name="chat_start_new_action">Start</string>
+    <string name="chat_restart_title">Restart this chat?</string>
+    <string name="chat_restart_message">This deletes every message in it and can\'t be undone.</string>
+    <string name="chat_restart_action">Restart</string>
+    <string name="chat_delete_message_title">Delete this message?</string>
+    <string name="chat_delete_message_text">It\'s removed from the chat, with all its replies.</string>
+    <string name="chat_input_placeholder">Message</string>
+    <string name="chat_write_for_me">Write for me</string>
+    <string name="chat_send">Send</string>
+    <string name="chat_stop">Stop</string>
+    <string name="chat_sent_by">Sent by %1$s</string>
+    <string name="chat_message_changed">This message has changed. Try again.</string>
+    <string name="chat_action_failed">That didn\'t work. Try again.</string>
+    <string name="chat_action_regenerate">Regenerate</string>
+    <string name="chat_action_continue">Continue</string>
+    <string name="chat_action_copy">Copy</string>
+    <string name="chat_action_edit">Edit</string>
+    <string name="chat_action_branch">Branch</string>
+    <string name="chat_action_hide">Hide from AI</string>
+    <string name="chat_action_show">Show to AI</string>
+    <string name="chat_action_delete">Delete</string>
 
     <string name="lorebooks_search">Search lorebooks</string>
     <string name="lorebooks_close_search">Close search</string>

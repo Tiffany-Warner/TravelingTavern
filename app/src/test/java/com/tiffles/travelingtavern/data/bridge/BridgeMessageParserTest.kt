@@ -50,7 +50,7 @@ class BridgeMessageParserTest {
     fun `recent chats with a message, an empty chat and missing fields`() {
         val raw = """
             {"v":1,"type":"recentChats","items":[
-              {"characterId":"Bob.png","lastMessage":"Hi there","lastMessageAt":1794925197539,"messageCount":17},
+              {"characterId":"Bob.png","chatFile":"Bob - 2026-11-19","lastMessage":"Hi there","lastMessageAt":1794925197539,"messageCount":17},
               {"characterId":"Oliver.png","lastMessage":null,"lastMessageAt":1794943178395,"messageCount":0},
               {"characterId":"New.png"}
             ]}
@@ -60,9 +60,9 @@ class BridgeMessageParserTest {
 
         assertEquals(
             listOf(
-                RecentChatDto("Bob.png", "Hi there", 1794925197539L, 17),
-                RecentChatDto("Oliver.png", null, 1794943178395L, 0),
-                RecentChatDto("New.png", null, null, 0)
+                RecentChatDto("Bob.png", chatFile = "Bob - 2026-11-19", lastMessage = "Hi there", lastMessageAt = 1794925197539L, messageCount = 17),
+                RecentChatDto("Oliver.png", lastMessage = null, lastMessageAt = 1794943178395L, messageCount = 0),
+                RecentChatDto("New.png")
             ),
             message.items
         )
@@ -74,16 +74,25 @@ class BridgeMessageParserTest {
     }
 
     @Test
-    fun `chat opened needs a character id`() {
+    fun `chat opened needs a request id and a character id, the chat file is optional`() {
         assertEquals(
-            BridgeMessage.ChatOpened(characterId = "Tide Pods.png"),
-            parse("""{"v":1,"type":"chatOpened","characterId":"Tide Pods.png"}""")
+            BridgeMessage.ChatOpened(requestId = "r1", characterId = "Tide Pods.png", chatFile = "Tide Pods - 2026-11-19"),
+            parse("""{"v":1,"type":"chatOpened","requestId":"r1","characterId":"Tide Pods.png","chatFile":"Tide Pods - 2026-11-19"}""")
         )
-        assertNull(parse("""{"v":1,"type":"chatOpened"}"""))
+        assertEquals(
+            BridgeMessage.ChatOpened(requestId = "r1", characterId = "Tide Pods.png"),
+            parse("""{"v":1,"type":"chatOpened","requestId":"r1","characterId":"Tide Pods.png","chatFile":null}""")
+        )
+        assertNull(parse("""{"v":1,"type":"chatOpened","characterId":"Tide Pods.png"}"""))
+        assertNull(parse("""{"v":1,"type":"chatOpened","requestId":"r1"}"""))
     }
 
     @Test
     fun `chat changed with a character and with none`() {
+        assertEquals(
+            BridgeMessage.ChatChanged(characterId = "Bob.png", chatFile = "Bob - 1"),
+            parse("""{"v":1,"type":"chatChanged","characterId":"Bob.png","chatFile":"Bob - 1"}""")
+        )
         assertEquals(
             BridgeMessage.ChatChanged(characterId = "Bob.png"),
             parse("""{"v":1,"type":"chatChanged","characterId":"Bob.png"}""")
@@ -204,15 +213,57 @@ class BridgeMessageParserTest {
     }
 
     @Test
-    fun `mic presses for both targets`() {
-        assertEquals(BridgeMessage.MicPressed("story"), parse("""{"v":1,"type":"micPressed","target":"story"}"""))
-        assertEquals(BridgeMessage.MicPressed("text"), parse("""{"v":1,"type":"micPressed","target":"text"}"""))
+    fun `mic presses from an old page are an unknown type now`() {
+        assertEquals(BridgeMessage.Unknown("micPressed"), parse("""{"v":1,"type":"micPressed","target":"story"}"""))
     }
 
     @Test
-    fun `mic press with an unknown target is kept for the receiver to ignore, without one it's dropped`() {
-        assertEquals(BridgeMessage.MicPressed("sidebar"), parse("""{"v":1,"type":"micPressed","target":"sidebar"}"""))
-        assertNull(parse("""{"v":1,"type":"micPressed"}"""))
-        assertNull(parse("""{"v":1,"type":"micPressed","target":3}"""))
+    fun `generation state`() {
+        assertEquals(BridgeMessage.GenerationState(true), parse("""{"v":1,"type":"generationState","running":true}"""))
+        assertEquals(BridgeMessage.GenerationState(false), parse("""{"v":1,"type":"generationState","running":false}"""))
+        assertNull(parse("""{"v":1,"type":"generationState"}"""))
+        assertNull(parse("""{"v":1,"type":"generationState","running":"yes"}"""))
+    }
+
+    @Test
+    fun `message tapped with all fields, with defaults, and malformed`() {
+        assertEquals(
+            BridgeMessage.MessageTapped(
+                messageId = 4, sendDate = "2026-11-19T15:04:00.000Z", name = "Seraphina", isUser = false,
+                isLatest = true, isHidden = false, canRegenerate = true, canContinue = true
+            ),
+            parse(
+                """{"v":1,"type":"messageTapped","messageId":4,"sendDate":"2026-11-19T15:04:00.000Z","name":"Seraphina",
+                "isUser":false,"isLatest":true,"isHidden":false,"canRegenerate":true,"canContinue":true}"""
+            )
+        )
+        assertEquals(
+            BridgeMessage.MessageTapped(messageId = 0, sendDate = "", isUser = true, isLatest = false),
+            parse("""{"v":1,"type":"messageTapped","messageId":0,"sendDate":"","isUser":true,"isLatest":false}""")
+        )
+        assertNull(parse("""{"v":1,"type":"messageTapped","sendDate":"x","isUser":true,"isLatest":false}"""))
+        assertNull(parse("""{"v":1,"type":"messageTapped","messageId":"four","sendDate":"x","isUser":true,"isLatest":false}"""))
+    }
+
+    @Test
+    fun `chat results, ok with copied text and failed with a reason`() {
+        assertEquals(
+            BridgeMessage.ChatResult(requestId = "c1", ok = true, text = "Hello"),
+            parse("""{"v":1,"type":"chatResult","requestId":"c1","ok":true,"text":"Hello"}""")
+        )
+        assertEquals(
+            BridgeMessage.ChatResult(requestId = "c2", ok = false, error = "stale"),
+            parse("""{"v":1,"type":"chatResult","requestId":"c2","ok":false,"error":"stale"}""")
+        )
+        assertNull(parse("""{"v":1,"type":"chatResult","ok":true}"""))
+    }
+
+    @Test
+    fun `impersonate ready carries its text`() {
+        assertEquals(
+            BridgeMessage.ImpersonateReady("I wave back."),
+            parse("""{"v":1,"type":"impersonateReady","text":"I wave back."}""")
+        )
+        assertNull(parse("""{"v":1,"type":"impersonateReady"}"""))
     }
 }

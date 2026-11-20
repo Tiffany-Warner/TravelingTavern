@@ -47,13 +47,16 @@ This is the **story** style. A second, texting style comes in Phase 2 (`phase2-t
 
 - **Theme colors reach the page.** The page can't read the app's Compose theme. The app shell writes the current colors (surface, on-surface, secondary text, primary container and on-primary-container for user cards, accent; light or dark) into a small store, `PageThemeStore` (like `PageModeStore`), whenever the theme changes. `BridgeInstaller` reads it and sends the colors as CSS variables (`--tt-*`) after every page load, and the store's changes are sent while the page is loaded. The CSS uses only those variables
 - **Background:** SillyTavern's own chat background stays (whatever is set in SillyTavern), under a dark scrim so text stays readable. No background set → the theme's background
+    - The picture stays still while the page's height changes (the input bar growing, the keyboard): `bridge.js` sizes it as `cover` at the tallest page height seen at that width (from the image's natural size) and passes `--tt-bg-size` / `--tt-bg-y`; a shorter page only hides its bottom. A new width starts over (user decision, 2026-11-19)
 - **Messages as cards:**
     - Character messages on the left, user messages on the right, each at most about 85% of the width, 20dp rounded corners, 16dp inner padding, 12dp between messages
     - Character cards use the theme's surface color; user cards use the theme's amber container color (`primaryContainer`, with `onPrimaryContainer` text; user decision, 2026-11-19), so your messages stand apart in both light and dark
     - The sender's name sits under each card in small secondary text, left under the character's and right under the user's
     - Hidden: per-message avatars, the header timestamp, message numbers, token counts, timers and SillyTavern's per-message button row. The time is in the message actions sheet
+- **Reasoning:** SillyTavern's "Thought for …" bar stays, in the message field's colors (`--tt-surface-container-highest`, secondary text, 12dp). Its arrow, actions and the reasoning text are hidden and it can't be opened; a tap on it opens the message's actions sheet. The reasoning stays in SillyTavern (Advanced shows it). CSS only (user decision, 2026-11-19)
+- **Hidden from the AI:** the card stays solid (no transparency, which made image messages see-through); its text uses the secondary color
 - **Text:** narration (SillyTavern's `*asterisks*`, rendered as `<em>`) in italic secondary color; dialogue and plain text in the primary text color; message text at least 16px as in 1.5
-- **SillyTavern's input area is hidden** (`#send_form` and what extensions add to it, such as Quick Replies' bar). The native input bar replaces it
+- **SillyTavern's input area is hidden** (`#form_sheld`: `#send_form`, what extensions add to it such as Quick Replies' bar, and the delete-mode bar). The native input bar replaces it
 - **While a reply is starting:** a small "…" card on the character's side until the first text arrives (with streaming on, the text then appears live). Shown only if SillyTavern isn't already showing its own typing indicator or placeholder **(verify)**, so there's never two
 - **Scroll to newest:** when scrolled up, a round button with a down chevron sits at the bottom right of the page, just above the native input bar; tap scrolls to the newest message. Hidden at the bottom
 - Light and dark both work; nothing outside `body.tt-clean` changes, so Advanced (1.8) and the desktop are unaffected
@@ -104,11 +107,11 @@ This is the **story** style. A second, texting style comes in Phase 2 (`phase2-t
 
 A native Compose bar at the bottom of the Chat screen. SillyTavern's own input area is hidden in clean mode (Look, above).
 
-- **Message field** on top (placeholder "Message"), growing with its text up to a few lines, then scrolling
-- **Control row** below it:
-    - **Left:** the 1.9 persona chip (a native Compose chip). 1.7 leaves the slot empty
-    - **Right:** Write for me (`auto_fix_high` icon, content description "Write for me") and Send
+- **One rounded container** (user decision, 2026-11-19) holding the message field (placeholder "Message") and, pinned to its bottom-right corner, Write for me (`auto_fix_high` icon, content description "Write for me") directly left of Send. The field takes the rest of the width, so its text never runs under the buttons
+    - The field grows upward with its text up to 5 lines, then scrolls; the buttons stay bottom-aligned on its last line
     - **While a reply is generating** (impersonate included): Stop replaces Send and runs SillyTavern's own stop; Write for me is disabled
+    - The 1.9 persona chip no longer has a control row to sit in; 1.9 decides where it goes (above the container, or inside it at the bottom-left)
+    - The field's text lives in Compose state, not in the screen's `StateFlow`: a text field fed back asynchronously drops letters and moves the cursor when typing fast (found on device)
 - **Send:** copies the field's text into SillyTavern's `#send_textarea` and runs SillyTavern's own send, then clears the field. A typed `/command` behaves as SillyTavern handles it **(verify)**. Disabled while the field is empty
 - **Write for me:** runs SillyTavern's impersonate, which writes a message for you. When it finishes, its text is copied from `#send_textarea` into the native field, to edit or send **(verify how to detect it)**. This is the only sync from the page into the field
 - **No in-app mic.** Voice typing is the keyboard's own mic (for example Gboard's), which types into the native field like the keyboard does. Nothing sends until you tap Send
@@ -170,7 +173,7 @@ Branch, Start new chat and Restart chat change the open chat while the Chat scre
 ### Out of scope
 
 - Texting style (Phase 2)
-- Personas: the persona chip in the input bar and the persona screen come in 1.9 (`phase1-9-personas-spec.md`); 1.7 leaves the chip's slot on the left of the control row
+- Personas: the persona chip in the input bar and the persona screen come in 1.9 (`phase1-9-personas-spec.md`); where the chip goes in the input bar is decided there
 - Anything from SillyTavern's wand (extensions) or options (hamburger) menus, including Attach a file; they stay in Advanced
 - An in-app mic of any kind (voice typing is the keyboard's); a possible later voice-note button is not on the roadmap
 - Multi-message delete
@@ -236,6 +239,41 @@ The previous 1.7 (EchoText thread as the chat, main chat as Story view) is dropp
 ### Decision (2026-11-19, user): native input bar, no SillyTavern menus, no in-app mic
 
 The input bar is native Compose instead of SillyTavern's restyled input, so the persona chip (1.9) is a real Compose chip. SillyTavern's wand and options menus are left out entirely (Advanced only) and features from them come back one at a time. Voice typing is the keyboard's own mic; the 1.7b in-app mic is removed. Swipes never generate in clean mode; Regenerate (a new swipe) is the one way to a new reply, offered on the latest message whoever sent it so a failed first reply can be retried.
+
+### Investigation findings (SillyTavern 1.19.0 source, 2026-11-19)
+
+Read from the SillyTavern 1.19.0 source; items marked *(live)* are still to be confirmed on the live page during implementation.
+
+- **Message markup:** `#chat > .mes[mesid][is_user][is_system][ch_name]`, the latest one also `.last_mes`; inside `.mes_block`: `.ch_name .name_text`, `.timestamp`, `.mesIDDisplay`, `.mes_timer`, `.tokenCounterDisplay`, `.mes_buttons` (with `.extraMesButtons`), `.mes_text`, `.swipe_left` / `.swipe_right` / `.swipes-counter`; `.mesAvatarWrapper` holds the avatar. Inline editor: `#curEditTextarea` and `.mes_edit_buttons` (`.mes_edit_done`, `.mes_edit_cancel`, plus `.mes_edit_delete`, `.mes_edit_copy`, `.mes_edit_up` / `.mes_edit_down`, `.mes_edit_add_reasoning`). Clean mode keeps only done and cancel visible
+- **Hidden from AI:** a hidden message has `is_system: true` (`.mes[is_system="true"]`); `isHidden` = `chat[id].is_system`
+- **Message actions, what runs** (each through SillyTavern's own handler):
+    - Copy: SillyTavern copies `chat[id].mes` (`.mes_copy` on `pointerup`). The app copies the same text natively (`ClipboardManager`), since the WebView's clipboard needs page focus
+    - Edit: `.mes_edit` click (jQuery `trigger('click')` on the hidden button runs SillyTavern's handler); confirm / cancel are `.mes_edit_done` / `.mes_edit_cancel`
+    - Delete: `getContext().deleteMessage(id)` with no confirmation (the app confirms natively). It deletes the whole message, all swipes included (SillyTavern's own popup can offer "Delete Swipe" on the latest reply; the app doesn't)
+    - Branch: `.mes_create_branch` click → `branchChat(mesId)` (`scripts/bookmarks.js`), which opens the new chat through `openCharacterChat`
+    - Hide / Show: `.mes_hide` / `.mes_unhide` click → `hideChatMessageRange(id, id, unhide)` (`scripts/chats.js`)
+    - Continue: `getContext().generate('continue')`, guarded like SillyTavern's `#option_continue` (not while editing the latest message, not while generating)
+    - Regenerate on a **user** message: `generate('regenerate')`; SillyTavern's own comment: "Attempting to regenerate a user message will instead generate a new message"
+    - Regenerate on a **character** message as a new swipe: `getContext().swipe.to(null, 'right', { forceMesId: last, forceSwipeId: swipes.length })`, which takes SillyTavern's overswipe path and generates (`OVERSWIPE_BEHAVIOR.REGENERATE` for character messages). If the generation fails, `endSwipe()` clamps `swipe_id` back into range, so the **last existing** reply shows again (the same as the shown one, since swipes only move between existing replies and Regenerate is on the latest message) *(live: a stopped generation keeps its partial text as a swipe?)*
+    - **Exception:** the greeting of an untouched chat (`messageId === 0` and `!chat_metadata.tainted`) has `OVERSWIPE_BEHAVIOR.PRISTINE_GREETING`: an overswipe loops through the alternate greetings instead of generating. See the open question below
+    - Impersonate (Write for me): `generate('impersonate')`. SillyTavern writes the result into `#send_textarea` (live while streaming, with an `input` event) and emits `IMPERSONATE_READY` with the text, which the bridge forwards to the native field. Existing text in the textarea is overwritten, not used as a prompt
+    - Stop: `getContext().stopGeneration()` (what `#mes_stop` runs)
+    - Start new chat / Restart chat: `doNewChat({ deleteCurrentChat })`, exported from `/script.js` but not on `getContext()`; imported by absolute URL like the 1.6b lorebook functions. SillyTavern's own menu shows its popup first; the app calls `doNewChat` directly after its own confirmation. Not while generating (`is_send_press`)
+- **Sending:** set `#send_textarea`'s value, dispatch `input`, then `trigger('click')` on `#send_but`, which runs `sendTextareaMessage()` through SillyTavern's mutex. `Generate('normal')` runs `processCommands()` on the textarea text first, so a typed `/command` behaves as in SillyTavern. With "continue on send" on, an empty send continues; the app's Send is disabled when empty, so this never triggers
+- **Generation state:** `GENERATION_STARTED` also fires for quiet generations (Memory Books summaries, other extensions) and dry runs, so it can't be used alone. SillyTavern's own "generating" UI is `#mes_stop` being shown (`showStopButton()` / `hideStopButton()`, which emits `GENERATION_ENDED`); `stopGeneration()` emits `GENERATION_STOPPED`. The bridge reports `generationState` from `#mes_stop`'s display (a `MutationObserver` on its `style`), which matches exactly when SillyTavern itself shows Stop, impersonate included
+- **"…" card:** SillyTavern core 1.19.0 has no typing indicator (`#typing_indicator_container` is only an extension slot; none installed on this server). With streaming on, SillyTavern adds the reply's message at once with `...` as its text (`StreamingProcessor.firstMessageText`, and `.mes_text` set to `...` on a swipe generation); without streaming nothing appears until the reply is done. So the bridge shows the "…" card only while generating **and** no new character message (or swipe placeholder) has appeared yet
+- **Swipes never generating:** the right arrow's handler is `$(document).on('click', '.last_mes .swipe_right', …)`; the touch gesture (`swiped-left` in `RossAscends-mods.js`) clicks `.swipe_right:last` **only if it's visible**. So the bridge marks the latest message when it is on its last existing swipe (`tt-swipe-end`, refreshed on `MESSAGE_SWIPED`, `CHARACTER_MESSAGE_RENDERED`, `MESSAGE_DELETED`, `CHAT_CHANGED`) and the CSS hides `.swipe_right` there with `!important` (SillyTavern sets `display: flex` inline). Hidden = no arrow and no gesture. The keyboard path (`ArrowRight`) also needs the arrow visible
+- **Input area:** `#form_sheld` holds the delete-mode bar (`#dialogue_del_mes`) and `#send_form`, into which Quick Replies inserts `#qr--bar`. Clean mode hides `#form_sheld`
+- **Open chat file:** `getContext().getCurrentChatId()` = `characters[this_chid].chat`, the file name **without** `.jsonl`. `openCharacterChat(fileName)` (same form) is on `getContext()`. `/api/chats/recent` rows have `file_id` (without `.jsonl`) and `file_name` (with), so the Chats list passes `file_id`. A chat file's existence is checked with `POST /api/characters/chats { avatar_url, simple: true }` (list of `{ file_name, file_id }`)
+- **Reloading the open chat:** `getContext().reloadCurrentChat()` clears and re-reads the chat (`getChat()`), which emits `CHAT_CHANGED` with the same file; the ViewModel ignores a `chatChanged` for the file it already follows *(live: stays at the newest message)*
+
+#### Decision (2026-11-19, user): reasoning bar kept, can't be opened
+
+Hiding the whole reasoning block needed extra JavaScript for the thinking phase (an empty card while the model thinks). Keeping the bar and hiding only its arrow, actions and text is CSS only, with nothing running per message. The block gets `pointer-events: none` because the bridge's tap handler ignores taps on `details` / `summary`, so a tap on the bar reaches the card.
+
+#### Decision (2026-11-19, user): no Regenerate on an untouched greeting
+
+SillyTavern itself never generates on the greeting of an untouched chat (its arrows loop through the alternate greetings). The sheet doesn't offer Regenerate on that message (`messageTapped` carries `canRegenerate`); swiping cycles the existing greetings. Once you reply, the chat is no longer untouched and Regenerate works as specified.
 
 ### Review of this spec against the code (2026-11-19)
 

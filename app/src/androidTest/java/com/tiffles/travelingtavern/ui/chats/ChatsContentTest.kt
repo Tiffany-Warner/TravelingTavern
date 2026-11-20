@@ -37,7 +37,7 @@ class ChatsContentTest {
 
     private fun show(
         state: ChatsUiState,
-        onChatClick: (String) -> Unit = {},
+        onChatClick: (String, String?) -> Unit = { _, _ -> },
         onBrowseCharacters: () -> Unit = {},
         onRetry: () -> Unit = {},
         onOpenServerSettings: () -> Unit = {}
@@ -64,7 +64,7 @@ class ChatsContentTest {
                     chat("Bob", "Test?", Duration.ofHours(26))
                 )
             ),
-            onChatClick = { opened = it }
+            onChatClick = { id, _ -> opened = id }
         )
 
         composeRule.onNodeWithText("Seraphina").assertIsDisplayed()

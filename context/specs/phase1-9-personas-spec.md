@@ -28,7 +28,7 @@ What SillyTavern 1.19.0 has (read from `personas.js`, 2026-11-19), to confirm on
 
 ### Chip in the chat input bar
 
-- A **native Compose chip** on the left of the 1.7 native input bar's control row (the slot 1.7 leaves for it): the persona's small round picture, "Chatting as {name}" and a ▾. Long names are ellipsized. Nothing about it is in the page
+- A **native Compose chip** in the 1.7 native input bar. **Open:** the bar no longer has a control row (field and buttons share one container since 2026-11-19); place the chip above the container or inside it at the bottom-left: the persona's small round picture, "Chatting as {name}" and a ▾. Long names are ellipsized. Nothing about it is in the page
 - Tapping it opens the Personas screen
 - It follows the active persona, including changes made on the desktop or by SillyTavern's own auto-selection (a locked persona is selected when its chat opens)
 

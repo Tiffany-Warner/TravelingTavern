@@ -10,7 +10,7 @@ import java.time.Instant
 import javax.inject.Inject
 
 /**
- * The Chats tab's rows: one per character that has a chat, using its newest chat, sorted by
+ * The Chats tab's rows: one per chat (a character with two chats has two rows), sorted by
  * last message (newest first). Null until SillyTavern has reported both lists.
  */
 class GetRecentChatsUseCase @Inject constructor(
@@ -27,12 +27,10 @@ private fun recentChats(
     if (characters == null || activity == null) return null
     val charactersById = characters.associateBy { it.id }
     return activity
-        .groupBy { it.characterId }
-        .mapNotNull { (characterId, chats) ->
+        .mapNotNull { chat ->
             // Chats for a character that's no longer in the library are skipped.
-            val character = charactersById[characterId] ?: return@mapNotNull null
-            val newest = chats.maxWith(compareBy(nullsFirst()) { it.lastMessageAt })
-            RecentChat(character, newest.lastMessage, newest.lastMessageAt)
+            val character = charactersById[chat.characterId] ?: return@mapNotNull null
+            RecentChat(character, chat.lastMessage, chat.lastMessageAt, chat.chatFile)
         }
         .sortedWith(
             compareByDescending<RecentChat, Instant?>(nullsFirst()) { it.lastMessageAt }

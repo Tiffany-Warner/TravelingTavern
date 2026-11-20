@@ -1,247 +1,129 @@
 # Current Feature
 
-Docs: 1.7 becomes the story chat; texting style becomes Phase 2
+Phase 1.7 — Chat Screen (Story Chat)
 
 ## Status
 
-Completed
+Complete (`feature/story-chat`, awaiting commit). `./gradlew build` green. `0.1.16`.
+
+- Done: investigation (spec Notes); mic removed (files deleted with approval, all refs gone); `bridge.js` / `st-selectors.js` / `clean-theme.css`; bridge messages, `ChatSessionRepository`, `CharacterRepository` chat file + stale/return handling, `AppForegroundTracker` (`lifecycle-process`), `PageThemeStore`; `ChatViewModel`, `ChatScreen`, `ChatInputBar`, `MessageActionsSheet`; `chatFile` route + deep link + `singleTop`; unit tests pass, Compose UI tests compile
+- Verified on Medium_Phone_API_35 (now 4 GB RAM; at 2 GB the whole emulator stalled) against SillyTavern 1.19.0 over Tailscale, Bob's chat: cards, background, names, sheet, Regenerate (new swipe), swipes never generate, Send, "…" card, Stop shown, Write for me, Copy, Edit, Hide / Show, Delete + confirmation, ⋮ menu + Restart confirmation (cancelled), return from background (chat re-read, no page reload). Test messages deleted afterwards; one extra swipe left on Bob's last reply
+- Fixed during verification: names / swipe counter unreadable on the scrim (light theme); input field dropping letters (text now Compose state in `ChatViewModel`); Chats preview one message behind after a reply (re-asked when Chat closes); inline editor dark on light cards; tapped message scrolled above the sheet (`revealMessage` / `endReveal`). Composer redesigned (user): field and buttons in one container, icons bottom-right
+- Also verified (user OK'd the server writes): Continue (on the extra swipe; original reply untouched), Branch (app follows the branch file), Restart in the branch (branch deleted, fresh chat), Start new chat, Stop while thinking (empty reply kept, SillyTavern's own behavior), untouched greeting's arrow generates nothing, deep link while running and from a cold start, Back to Chats, scroll-to-newest. Two throwaway Bob chats left for the user to delete (`…19h40m37s779ms`, `…19h41m54s935ms`)
+- Fixed in this round: a running-app deep link recreated the Activity (`FLAG_ACTIVITY_NEW_TASK` → `handleDeepLink` restarts the task) and the old Activity's `onRelease` then pulled the WebView out of the new one (blank page) — link now handled without task flags, `onRelease` only removes the WebView from its own Activity; system Back from a linked chat closed the app — Chat's `BackHandler` now uses `leaveChat`; scroll-to-newest sat under the messages (z-index 10 < chat's 30), so a tap opened a message's sheet — z-index 1000
+- User requests (2026-11-19): Chats list shows one row per chat instead of per character (1.6 spec updated; rows keyed by character + chat file; verified: two Oliver rows, three Bob rows, each opens its own chat); hidden-from-AI messages keep a solid card (was 60% opacity, which made Seraphina's image messages see-through) — text in the secondary color, label unchanged
+- Reasoning bar ("Thought for …", user requests): message-field colors (`--tt-surface-container-highest` added to the page theme, secondary text, 12dp); arrow, actions and reasoning text hidden, CSS only, and the block ignores taps so a tap on the bar opens the message's sheet (the tap handler skips `details`). Verified in light and dark; reasoning stays in ST (Advanced). Dark theme verified on the emulator (switched live, no page reload)
+- Background picture stays still while the page height changes (user request): bridge computes `cover` at the tallest page height per width from the image's natural size and passes `--tt-bg-size` / `--tt-bg-y`; #bg1 keeps the page's size (a taller #bg1 made the document scrollable by code). Verified: page 730 → 658 px, picture unchanged, no document scroll
+- Not yet verified: on-screen keyboard (the emulator types with the PC keyboard) — best on the Pixel 8
+- Next: commit (ask) → merge into `dev` → push
 
 ## Goals
 
-Follow-up to the 2026-11-18 docs change (PR #8), from Claude Code's review of the 1.7 spec against `dev` and the user's decisions on 2026-11-19:
+Per `context/specs/phase1-7-chat-screen-spec.md`:
 
-- **1.7 is the story chat:** a clean phone layout on SillyTavern's own features (message cards, a tap for SillyTavern's message actions, a native input bar), plus the groundwork for the final phase
-- **Texting style is its own phase (Phase 2):** app-only, story by default; decisions and open items in its own spec
-
-### Deliverables
-
-- 1.7 spec rewritten: story layout, message actions sheet, input bar, theme colors in the page, and the review fixes (early return in `bridge.js`, `setMode` and the mic's `"text"` target removed, chat file in the open check and `chatOpened`, `ProcessLifecycleOwner`, stale chats on return, state re-sent after a page reload, `singleTop` deep link, no reload during a generation, `generationState`, `send_date` stale check)
-- Second review round: native input bar (Write for me and Send; Stop replaces Send while generating), Regenerate on the latest message whoever sent it (as a new swipe), swipes never generate in clean mode, followed chat file in `SavedStateHandle`, ⋮ disabled while generating, `PageThemeStore`, "…" card vs SillyTavern's typing indicator, tap with a selection only clears it, every mic file and binding named in the cleanup
-- New `phase1-9-personas-spec.md`
-- New `phase2-texting-style-spec.md`; `project-schema.md` gains Phase 2 and renumbers the later phases (final phase is now Phase 8)
-- `project-schema.md`, `coding-standards.md`, `CLAUDE.md`, `README.md`, and the 1.6, 1.7b and 1.8 specs updated to match
-- Docs only, no version bump
+- **Investigate:** confirm every **(verify)** vs SillyTavern 1.19.0 (source + live page), record in spec Notes
+- **Cleanup:** drop `bridge.js` early return, `setMode` / `tt-mode-*`, all 1.7b mic files/bindings/tests (delete only after user confirms)
+- **Look:** message cards, ST background under scrim, theme colors via `PageThemeStore`, ST input area hidden, "…" card, scroll to newest
+- **Swipes** never generate in clean mode; **actions sheet** (Regenerate, Continue, Copy, Edit, Branch, Hide/Show, Delete) with `send_date` stale check and `generationState`
+- **⋮ menu:** Start new chat, Restart chat
+- **Native input bar:** field, persona chip slot, Write for me, Send/Stop; WebView above it
+- **Groundwork:** `ProcessLifecycleOwner` + `setAppState`, fresh chats on return, state re-sent after reload, `chatFile` route + chat following (`SavedStateHandle`), `singleTop` deep link
+- Tests per spec; version bump
 
 ## References
 
 - @context/specs/phase1-7-chat-screen-spec.md
-- @context/specs/phase2-texting-style-spec.md
-- @context/project-schema.md
+- @context/specs/phase1-7b-voice-input-spec.md (what cleanup removes)
+- @context/specs/phase1-9-personas-spec.md (chip slot)
+- @context/project-schema.md (Built Toward the Final Phase)
 
 ## History
 
-<!-- Completed work is added here, newest first -->
+<!-- Newest first. Verified against SillyTavern 1.19.0 over Tailscale on the emulator and Pixel 8 unless noted. -->
 
-### 2026-11-19 — Docs: 1.7 story chat; texting style as Phase 2 (branch `docs/1-7-spec-review`)
+### 2026-11-19 — Phase 1.7 Chat Screen (Story Chat) — `0.1.16`
+- Story chat: message cards over ST's background, tap → actions sheet (Regenerate, Continue, Copy, Edit, Branch, Hide/Show, Delete), ⋮ Start new / Restart chat, native input bar (Write for me, Send/Stop), "…" card, scroll to newest; swipes never generate; 1.7b mic removed
+- Groundwork: `ProcessLifecycleOwner` → `setAppState`, chat re-read on return, `chatFile` route + chat following, `singleTop` deep link (handled without task flags: `FLAG_ACTIVITY_NEW_TASK` recreated the Activity and blanked the WebView)
+- User changes: Chats list one row per chat; composer icons inside the field; reasoning bar recolored, can't open (CSS only); background picture stays still as the page height changes; hidden messages stay solid
+- Gotchas: input text must be Compose state (StateFlow round trip dropped letters); ST stacks `#chat` at z-index 30; tap handler skips `details`
+- Verified on an emulator (API 35); on-screen keyboard and Pixel 8 not verified
 
-- **Review against `dev` folded into the 1.7 spec:** remove `bridge.js`'s early return without the port, delete `setMode` / `tt-mode-*`, remove the mic's `"text"` target, chat file in the "already showing" check and `chatOpened`, `ProcessLifecycleOwner` instead of Activity events, stale chat + Chats list refresh on return, state re-sent after a page reload, `singleTop` deep link with Connect and Back rules, no reload during a generation; `project-schema.md` (final phase: `post()` has no port in the headless page) and `coding-standards.md` updated to match
-- **Story chat (user, 2026-11-19):** message cards (character left, user right, name under each card, narration in italic secondary color), a tap on a message opens a sheet with SillyTavern's own actions (regenerate and continue on the latest character message; copy, edit, branch, hide / show, delete on every message), `send_date` stale check, `generationState`; user cards in the amber container color (user); ⋮ menu with Start new chat and Restart chat (SillyTavern's `doNewChat`, restart deletes the current chat after a destructive confirmation); a native Compose input bar (message field on top; control row with the 1.9 persona chip's slot on the left and Write for me (`auto_fix_high`) and Send on the right; Stop replaces Send while a reply generates; Send copies the text into SillyTavern's textarea and runs its own send; Write for me's text is synced back into the field; no mic, no attach, none of SillyTavern's wand or options menu items); theme colors passed to the page as CSS variables (`PageThemeStore`); only SillyTavern's features, nothing it doesn't have
-- **Second review (user decisions, 2026-11-19):** SillyTavern's whole input area hidden in clean mode; Regenerate on the latest message whoever sent it, as a new swipe, so a failed first reply can be retried; swipes never generate in clean mode; no multi-message delete; ⋮ items disabled while generating; followed chat file in `SavedStateHandle` (restore after process death); "…" card marked (verify) against SillyTavern's typing indicator; a tap with text selected only clears it. `ui-guidelines.md`: amber user cards exception, Personas and the persona editor in the full-screen list
-- **Texting style (user, 2026-11-19):** its own spec and Phase 2: app-only (instruction in an in-memory extension prompt, never saved in SillyTavern), per chat, story by default, uses the 1.7 tap actions; open items from the review listed in the spec. Later phases renumbered (final phase now Phase 8)
-- **Personas (user, 2026-11-19):** new `phase1-9-personas-spec.md`: a chip in the chat's input bar, a full-screen list (pick mode from the chat, manage mode from the Me tab) with cards showing SillyTavern's own data (picture, name, description, title, Active / Default / Locked / Connected badges), ⋯ actions (edit, default, chat lock, character connection, delete), and an editor that keeps fields it doesn't edit; only SillyTavern's persona features (no age or gender fields)
-- **Voice typing from the keyboard (user, 2026-11-19):** the 1.7b in-app mic is removed in 1.7 (bridge commands, `#tt-mic`, `data/speech/`, the speech use cases and repositories, `ChatViewModel` voice state); Android keyboards' own voice typing is used instead, and an in-app mic is left for a possible later voice-note button. 1.7b spec marked replaced; README and `coding-standards.md` updated. The 1.7 cleanup names every file, Hilt binding, installer push, Chat screen hook and test to remove; the dead `#microphone_button` rule goes too; `RECORD_AUDIO` stays in the manifest
-- **Personas simplified (user, 2026-11-19):** badges Active, Default and Locked to this chat only; one behavior everywhere (tap to use, ⋯ for Edit / default / Delete); picking a persona in a chat locks it to that chat automatically; no character connections or separate lock action. "Without a chat" means the Chat screen isn't showing: picking from the Me tab never changes the lock on the chat still open in the page (verify against SillyTavern's auto-lock setting); a persona connected on the desktop still auto-selects, with no badge in the app; the chip is a native Compose chip
-- `README.md`, `CLAUDE.md`, and the 1.6, 1.7b and 1.8 specs: phase numbers and references updated; 1.8's Advanced uses `setClean` instead of the removed mode classes
-- No code changed, so no version bump
+### 2026-11-19 — Docs: 1.7 story chat spec; texting style → Phase 2
+- 1.7 spec: story chat design (cards, tap → actions sheet, ⋮ menu, native input bar, `PageThemeStore`), cleanup list, lifecycle/reload/deep-link rules. ST input area hidden; Regenerate = new swipe on latest message; swipes never generate; ⋮ disabled while generating
+- Texting style: own spec, Phase 2, app-only, per chat. Later phases renumbered (final = Phase 8)
+- New 1.9 personas spec (chip, full-screen list, editor; ST features only; picking in a chat locks it)
+- 1.7b in-app mic replaced by keyboard voice typing (`RECORD_AUDIO` stays)
+- No code, no bump
 
-### 2026-11-18 — Docs: main chat only; proactive messages and reminders as the final phase (branch `docs/main-chat-final-phase`)
+### 2026-11-18 — Docs: main chat only; proactive messages → final phase
+- ST's main chat is the only conversation (EchoText dropped: invisible to Memory Books, lorebooks, vectors)
+- Proactive messages/reminders generated on desktop by ST in a headless page via TravelingTavern-Bridge
+- No code, no bump
 
-- **Decisions (user):** SillyTavern's main chat is the only conversation (EchoText dropped: its threads are invisible to Memory Books, keyword lorebooks and vector storage); proactive messages and reminders move to the final phase (Phase 7) and are generated on the desktop by SillyTavern itself, in a headless page driven by TravelingTavern-Bridge
-- `project-schema.md`: One Conversation and Built Toward the Final Phase sections; roadmap reordered; Phase 7 holds the use cases (on-time reminders with the character's words in the notification; spontaneous messages), the desktop design and the app checklist
-- 1.7 spec rewritten (main chat, display styles, reload on return, lifecycle events, `chatFile` route + deep link); 1.7c dropped
-- Other docs: EchoText references removed or marked historical; phase numbers updated; `coding-standards.md` gains rules for `bridge.js` running in any page, SillyTavern's own chat keys and times, and generation settings living in SillyTavern
-- No code changed, so no version bump
+### 2026-11-18 — Fix: new avatar not showing — `0.1.15`
+- Cause: Coil caches by URL; ST list only read at load. Avatar URLs carry `tt_v=<date_added>`; `requestCharacters(fromServer)` calls `getCharacters()`; pull to refresh on Characters
 
-### 2026-11-18 — Fix: a character's new avatar doesn't show in the app (branch `fix/avatar-updates`)
+### 2026-11-18 — Fix: stuck on "Can't reach" after reinstall — `0.1.14`
+- Cause: Auto Backup restored stale server address. Settings DataStore excluded from backup (fresh install → Connect)
+- Unreachable banner: Retry + Server settings; `WebViewHolder` reloads on settings save while in error
 
-- **Cause:** avatar addresses were built from the file name only, and Coil 3 caches by address (ignoring the server's `max-age=0`); and the page's character list was read from the server only when SillyTavern loaded
-- `bridge.js`: both avatar addresses carry `tt_v=<date_added>` (the card file's `ctimeMs`); `requestCharacters(fromServer)` calls SillyTavern's `getCharacters()` first. New names `getCharacters` and `character.changedAt` in `st-selectors.js`. `BridgeClient.requestCharacters(fromServer)`; `CharacterRepositoryImpl.refresh()` asks the server
-- Characters tab: pull to refresh (`CharactersViewModel.refresh` / `isRefreshing`, `PullToRefreshBox` around the grid)
-- Unit tests: `CharactersViewModelTest` +1, `CharacterRepositoryImplTest` +1; `./gradlew build` green
-- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 over Tailscale (DevTools): pull to refresh on Characters → one `/api/characters/all` request, SillyTavern's list objects replaced, the open chat untouched; the `characters` message carries `tt_v` on both addresses; the server serves both, including a name with a space encoded as `+`; the grid shows every picture
-- Verified on the Pixel 8 by the user: an avatar changed on the desktop showed in the app after a pull to refresh
-- Version `0.1.15` / `versionCode 16`
+### 2026-11-18 — Phase 1.7b Voice Input — `0.1.13` (since removed in 1.7)
+- On-device `SpeechRecognizer` mic in ST's input row; 4 s pause tolerance
+- First connected Compose run uninstalled the app from the Pixel (now in release rules)
 
-### 2026-11-18 — Fix: stuck on "Can't reach your server" after a reinstall (branch `fix/connect-after-restore`)
+### 2026-11-18 — Fix: hide EchoText UI in clean mode — `0.1.12`
+- `body.tt-clean ~ #et-portal > * { display: none !important }` (portal is a `<body>` sibling)
 
-- **Cause:** Android Auto Backup restored the settings DataStore on install with a stale server address (the server's previous Tailscale IP), so Connect was skipped; and the "can't reach" banner offered only Retry, so the address couldn't be changed from the app
-- `data_extraction_rules.xml` (cloud backup and device transfer) and `backup_rules.xml` exclude `datastore/settings.preferences_pb` as well as the keyset (user decision): a fresh install always starts at Connect
-- `ConnectionBanner`: Unreachable shows Retry **and** Server settings; AuthFailed keeps Server settings, HttpError keeps Retry
-- `ServerConfigRepositoryImpl.saves` fires on every save; `WebViewHolder` reloads on it while the page is in an error state (reads the stored address, so a changed address isn't retried at the old one first, and `load()` records it so it isn't loaded twice)
-- Compose UI test: `ChatsContentTest.unreachableBannerRetriesOrOpensServerSettings`; `./gradlew build` green
-- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 over Tailscale with the local backup transport: 0.1.13 backed up with a saved server → uninstall → 0.1.14 installed over that backup → no settings restored, Connect on six cold starts in a row; offline start → banner with Retry and Server settings on one line → Server settings opens Connect; stale address planted → banner → new address saved → list loads without Retry; offline start, network back, **same** address saved → list loads without Retry (before the reload-on-save change it stayed on the banner for 2 min)
-- Verified on the Pixel 8 (0.1.14 installed as an update, stale address still saved): banner with Server settings → new address → Test "Connected to SillyTavern" → Save; the user needed one Retry afterwards (that build had no reload-on-save; a changed address did reload by itself on the emulator, so the Pixel's first load may simply have failed — not reproduced)
-- Version `0.1.14` / `versionCode 15`
+### 2026-11-18 — Fix: crash after reinstall with restored backup — `0.1.11`
+- Cause: Tink keyset restored but its Keystore key wasn't. Keyset excluded from backup; `loadKeysetOrReset()` recreates it on failure
+- Not verified on Pixel
 
-### 2026-11-18 — Phase 1.7b Voice Input (branch `feature/voice-input`)
+### 2026-11-17 — Phase 1.6b Lorebooks Tab — `0.1.10`
+- Lorebooks tab (search, filter chips, grid, create/delete), detail (global switch, entries) and entry editor (title, keys, content, enabled; other fields preserved)
+- Gotcha: ST modules must be imported by absolute URL from injected scripts
+- Not verified: persona links (none on server), manual pull to refresh
 
-- Speech: `OnDeviceSpeechInput` (`SpeechRecognizer.createOnDeviceSpeechRecognizer`, main thread, partial results, silence-length extras at 4 s, prefer offline, one recognizer per pass, released on cancel; `triggerModelDownload` when the speech pack is missing); `AndroidMicrophonePermission`. Never a cloud recognizer
-- Domain: `SpeechEvent`, `SpeechError`, `VoiceSessionEvent`, `ChatInputTarget`; `SpeechInputRepository`, `ChatInputRepository`, `MicrophonePermission`; `IsVoiceInputAvailableUseCase`, `ListenForSpeechUseCase` (passes back to back, committed text + current partial, watchdog ends the session after `PAUSE_TOLERANCE_MS = 4000` without a new word — counted from when the recognizer is listening, 10 s start cap; `NoMatch` on a restart isn't an error; 250 ms back-off for passes that never start)
-- Bridge: `#tt-mic` before `#send_but` (row's own icon classes, 48 × 48, added only when on-device recognition is available, re-added after every page load), `micPressed { target: "story" }` (`"text"` reserved for 1.7), `setVoiceInputAvailable` / `beginVoiceInput` / `updateVoiceInput` / `endVoiceInput` (value + bubbling `input` event, as SillyTavern does itself; cursor at the end); `BridgeMessage.MicPressed`; `ChatInputRepositoryImpl`. `clean-theme.css`: extension mic `#microphone_button` hidden in clean mode, `#tt-mic` hidden outside it, `--SmartThemeQuoteColor` while listening. New names in `st-selectors.js`
-- Chat: `ChatViewModel` voice state (`Idle` / `Listening` / `Unavailable`), tap to start / stop, `RECORD_AUDIO` request, stop on leaving Chat and on `ON_STOP`, page mic always reset; snackbars for `PermissionDenied` (+ Settings → app details), `LanguagePackMissing`, `NoMatch`, and a generic failure. Theme: `inversePrimary` / `inverseSurface` / `inverseOnSurface` set (snackbar action amber, not Material purple)
-- Unit tests: `ListenForSpeechUseCaseTest` (7: 2 s pause joins, 5 s pause ends, `NoMatch` on restart, nothing heard, other errors, back-off, slow start), `ChatViewModelTest` +7, `BridgeMessageParserTest` +2, `BridgeScriptTest` +1 (quotes, backslashes, newlines, emoji, U+2028/2029); `./gradlew build` green (150 unit tests). Compose UI tests: `ChatContentTest` (4); the user's connected run (Pixel 8 and emulator) passed 20 of 22 — the 2 failures were `LorebooksContentTest` (1.6b) matching both the Global chip and a card's Global status line, fixed in a separate commit; afterwards 22 / 22 on Medium_Phone_API_35. The run uninstalled the app from the Pixel (now noted in `ai-guidelines.md` → Releasing to main)
-- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 over Tailscale: input-row selectors and the `input` event (box grows and shrinks, nothing sent); mic before send at 48 × 48, extension mic hidden; permission prompt → Don't allow → snackbar with an amber Settings action → app details page; second refusal goes straight to the snackbar; missing speech pack → listening, then idle, and the system's own "Download English (US) update" dialog (declined); one start-up ANR on the first launch after install (main thread in Compose's first composition during class verification on a memory-starved emulator; not reproduced on later starts or on the Pixel)
-- Verified on the Pixel 8: mic present, extension mic hidden, permission granted ("While using the app"), silent session ends 4 s after the recognizer is listening; **user test: dictation works, pauses don't end it, "a lot better than the browser version"**; recognizer log: passes of 16 s and 15 s through pauses with a ~0.75 s restart gap; spoken punctuation ("period", "exclamation mark") comes out as words
-- Found and fixed on the Pixel: the pause tolerance ran from the tap, so a 2.4 s cold start left ~1.6 s to start talking
-- Advanced doesn't exist until 1.8; checked instead on the emulator by turning clean mode off through the bridge: `#tt-mic` hidden and the extension's mic back, and the reverse when it's turned on again
-- Not verified: airplane mode with Tailscale off (on-device proof)
-- Version `0.1.13` / `versionCode 14`
+### 2026-11-17 — Fix: 3 s cap on opening a chat — `0.1.9`
+- `openChat()` reveals chat after 3 s without `chatOpened` (WARN log)
 
-### 2026-11-18 — Fix: hide EchoText's UI in the app until 1.7 (branch `fix/hide-echotext-in-app`)
+### 2026-11-17 — Phase 1.6 Chats & Characters Tabs — `0.1.8`
+- `recentChats` via `POST /api/chats/recent`; `chatOpened` after `selectCharacter`; Coil uses shared OkHttp
+- WebView hosted in app shell, always attached; covered by opaque surface on non-Chat screens (unfocusable, hidden from accessibility)
+- Chats list, Characters grid (search, add sheet "Coming soon"), Chat screen with cover until `chatOpened`
+- No reload across 13 list↔Chat round trips
 
-- **Cause:** with EchoText installed, its window — full screen on a phone, top z-index, reopened after every page load (`autoOpenOnReload` + `panelWasOpen`) — covered SillyTavern's main chat in the Chat screen: the visible list was EchoText's and a tap on the input landed in EchoText's input. Its floating button also floats over the chat
-- `clean-theme.css`: `body.tt-clean ~ #et-portal > * { display: none !important }` — EchoText's portal is a sibling of `<body>` and carries an inline `display: block !important`, so its children are hidden. EchoText keeps running; its settings are untouched. Selector listed in the stylesheet header and `st-selectors.js`
-- 1.7b spec: its `#et-fab` line now points to this fix
-- `./gradlew build` green (no unit-testable code changed)
-- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 with EchoText 1.2.6 over Tailscale (DevTools + screenshot): clean on → EchoText window and button `display: none`, the element at SillyTavern's input and send button is `#send_textarea` / `#send_but`; `setClean(false)` → EchoText's window back over the chat (Advanced and desktop unchanged); `setClean(true)` → hidden again; Bob's chat in the app shows the main chat and its input row with no EchoText UI
-- Verified on the Pixel 8 (0.1.12, same server): same page check — clean on → EchoText window and button hidden, `#send_textarea` / `#send_but` on top; clean off → EchoText's window back; clean on → hidden again; Bob's chat in the app shows the main chat and its input row with no EchoText UI
-- Version `0.1.12` / `versionCode 13`
+### 2026-11-17 — Docs: Compose UI tests going forward
+- UI tests for new/changed native screens; run only before release
 
-### 2026-11-18 — Fix: crash on start after reinstalling with a restored backup (branch `fix/keystore-restore-crash`)
+### 2026-11-17 — Phase 1.5 Clean Theme — `0.1.7`
+- `clean-theme.css` under `body.tt-clean`: hides toolbar, drawers, TopInfoBar; full-height `#sheld`; ≥16px text, ≥48dp buttons
+- `setClean`, `installStyle`; `selectCharacter` without editor
+- Gotcha: forcing `display` on input buttons showed hidden `#mes_stop`
 
-- **Cause:** Android Auto Backup restored the Tink keyset (`tt_credentials_keyset_prefs.xml`) on reinstall, but the Android Keystore master key that wraps it was deleted with the old install (Keystore keys are never backed up). `AndroidKeysetManager.build()` threw `InvalidKeyException` while Hilt created the first ViewModel, so the app crashed on every launch until its storage was cleared. Present since 1.2; found on the Pixel 8 after reinstalling 0.1.10
-- `data_extraction_rules.xml` (cloud backup and device transfer) and `backup_rules.xml` exclude the keyset file; the rest (server address) is still backed up. Restored encrypted credentials read as empty
-- `loadKeysetOrReset()` (`data/settings/KeysetRecovery.kt`): if the keyset can't be loaded (security, storage or Keystore error), `SecurityModule` logs a warning, deletes the keyset prefs and creates a new keyset; other errors and a second failure are thrown
-- Unit tests: `KeysetRecoveryTest` (4); `./gradlew build` green
-- Verified on Medium_Phone_API_35 with the local backup transport: 0.1.10 backup → uninstall → reinstall crashed with the Pixel's exact error (reproduced); 0.1.11 installed over that same backup → keyset not restored, app starts; keyset file kept with its Keystore key removed (`pm clear` + file put back) → warning logged, new keyset, Connect screen usable, second launch clean; 0.1.11 backup → uninstall → reinstall → no keyset restored, app starts
-- Not verified: the Pixel 8 (the restore test would wipe its saved setup; nothing device-specific changed); a restored server address with a server that needs a login (this server has none)
-- Version `0.1.11` / `versionCode 12`
+### 2026-11-17 — Fix: WebView load timeout + status-bar strip — `0.1.6`
+- `LoadWatchdog` 15 s (reset by `onPageCommitVisible`); Tailscale-off error now ~18 s (was ~2 min)
+- Strip: transparent WebView background + `clipToBounds()`
 
-### 2026-11-17 — Phase 1.6b Lorebooks Tab (branch `feature/lorebooks-tab`)
+### 2026-11-17 — Phase 1.4 JS Bridge Foundation — `0.1.5`
+- `bridge.js` + `st-selectors.js`; `{ v: 1, type }` messages; frozen `window.__ttBridge`; double-run guards
+- Listener for saved origin only, main frame; scripts injected on every `onPageFinished`; parser never throws
+- `PageError.WebViewOutdated` when `WEB_MESSAGE_LISTENER` unsupported
 
-- Spec: decisions written in (no "Chat" status, Unused = not global / character / persona, chat links wait for "Lore in this chat", one tap target per card, Character chip hidden when unused, tonal empty-state button, delete sheet names attached characters and personas with the "keeps a link" note); every **(verify)** item checked against SillyTavern 1.19.0 and recorded in the spec's Notes. `ui-guidelines.md`: four tabs, item grids, filter chips, Screen Map row
-- Bridge: `lorebooks` (name, entry count, global flag, attached character IDs and persona names) after `ready`, with the other lists, and on `WORLDINFO_UPDATED` / `WORLDINFO_SETTINGS_UPDATED`; `requestLorebooks(fromServer)` re-reads the list and drops cached copies (pull to refresh); `requestLorebook`, `createLorebook`, `deleteLorebook` (charLore cleanup + `deleteWorldInfo`, like SillyTavern's Delete button), `setLorebookGlobal` (through SillyTavern's `#world_info` control), `saveLorebookEntry` (title, keys, content, enabled only), `deleteLorebookEntry`, `countTokens` — each answers with a request ID. SillyTavern's `world-info.js` / `utils.js` imported by absolute URL. All names in `st-selectors.js`
-- Data / domain: `BridgeMessage.Lorebooks` / `LorebookEntries` / `LorebookResult` / `TokenCount`; `LorebookRepository` + `LorebookRepositoryImpl` (request-ID matching, 10 s action timeout, 15 s refresh, `entriesChanged`); `Lorebook`, `LorebookEntry`, `LorebookCard` + `LorebookStatus`, `LorebookFilter`, `isSameLorebookName` (case and accents ignored); use cases `GetLorebooks`, `FilterLorebooks`, `CreateLorebook` (name check), `GetLorebookEntries`, `SetLorebookActive`, `SaveLorebookEntry`, `DeleteLorebook`, `DeleteLorebookEntry`
-- UI: Lorebooks tab (book icon) with search (lorebook and character names), chips All / Global / Character ▾ / Unused, character sheet, 2-column item grid (neutral 4:3 cover, name, entry count, status line), pull to refresh, "No lorebooks match" + Clear filters, FAB → create sheet (Create disabled while empty or taken), empty state; full-screen lorebook detail (global switch, "Attached to …", entries with keyword pills and preview, FAB, overflow → delete sheet) and entry editor (title, keywords, content with token count, enabled, Save at the bottom above the keyboard, overflow → delete). Shared `AppBarSearchField` (moved from Characters) and `ConfirmDeleteSheet`
-- Unit tests: `FilterLorebooksUseCaseTest` (8), `GetLorebooksUseCaseTest` (4), `CreateLorebookUseCaseTest` (5), `LorebookRepositoryImplTest` (6), `LorebooksViewModelTest` (7), `LorebookDetailViewModelTest` (6), `LorebookEntryViewModelTest` (6), `BridgeMessageParserTest` +4; `./gradlew build` green (all unit tests). Compose UI tests: `LorebooksContentTest` (6) — compiled; run before release per the testing rule
-- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 over Tailscale: bridge functions on the live page (throwaway lorebooks, deleted afterwards), including fields the app doesn't edit (order, depth, probability, position) surviving an app save; through the app's UI: four tabs, grid with Seraphina's link and "Not active", search by character name, Unused / Global / Clear filters, character sheet and ✕, duplicate name refused, create "TT Test" (opened itself), new entry with token count, edit and switch off ("Off"), global on (Global chip lists it), delete entry, delete lorebook, Eldoria's delete sheet wording (cancelled); the user's lorebooks unchanged at the end (entry counts and global list checked on the server)
-- Found and fixed during testing (see Notes): module import from injected scripts; create answering with a lorebook made on the desktop meanwhile — the UI test added one test entry to a real lorebook, removed right away
-- Verified on the Pixel 8 by the user: the Lorebooks tab worked well (after clearing the app's storage to get past the crash fixed in 0.1.11)
-- Not verified: pull to refresh by hand (covered by the ViewModel test and the bridge call); persona links (none on this server); a lorebook attached to several characters on device (unit and Compose UI tests)
-- Version `0.1.10` / `versionCode 11`
+### 2026-11-17 — Android CI
+- GitHub Actions: build, unit tests, lint on PRs/pushes to `dev`/`main`. `gradlew` made executable. `main` protected; `dev` created
 
-### 2026-11-17 — Fix: 3 s cap on opening a chat (branch `fix/chat-open-timeout`)
+### 2026-11-17 — Min SDK 31 — `0.1.4`
 
-- `CharacterRepositoryImpl.openChat()` reveals the chat after at most 3 s (was 10 s) from the request even without `chatOpened`, and logs `No chatOpened within 3000 ms; showing the chat anyway` at WARN (no character or message data); the page-load wait before the request doesn't count
-- Verified SillyTavern's "# Msg. to Load (0 = All)" setting (`power_user.chat_truncation`, default 100, this server on the default) and how `printMessages()` / `scrollOnMediaLoad()` use it; noted in the 1.6 spec
-- Unit tests: `CharacterRepositoryImplTest` (3, virtual time); `./gradlew build` green
-- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 over Tailscale: a normal open (Bob) got `chatOpened` and logged nothing; opening Tide Pods with the page's JavaScript frozen for 4.5 s through DevTools logged the warning, revealed the chat at 3 s, and the late `chatOpened` 3.2 s later was ignored
-- Not verified on the Pixel 8 (it was locked during testing); nothing device-specific changed
-- Version `0.1.9` / `versionCode 10`
+### 2026-11-17 — Phase 1.3 WebView Host — `0.1.3`
+- `WebViewHolder` singleton on `MutableContextWrapper`; basic auth for saved host only; other hosts → browser; Aegis file chooser/permissions; `adjustResize`
+- Not verified: basic auth, camera
 
-### 2026-11-17 — Phase 1.6 Chats & Characters Tabs (branch `feature/chats-characters-tabs`)
+### 2026-11-16 — Phase 1.2 Connect Screen — `0.1.2`
+- URL normalization; DataStore + Tink/Keystore credentials; shared OkHttp with host-scoped basic auth; test = `GET /` checking `<title>SillyTavern</title>`; Save only after a passing test
+- Auth paths covered by unit tests only (server has auth off)
 
-- Bridge: `requestRecentChats()` posts `recentChats` from SillyTavern's `POST /api/chats/recent` (`{ max: 100 }`, `getRequestHeaders()`): character ID, last message (≤ 200 chars, null for an empty chat), last-message time, message count; sent with `characters` after `ready` and on the same debounced events. `characters` now also carries `fullAvatarUrl` (`/characters/<encoded avatar>`). `selectCharacter` answers with `chatOpened` once the chat is drawn and settled (see Notes). New selectors (`getRequestHeaders`, `fullAvatarPath`, `api`, `recentChat`, `dom.chat`) in `st-selectors.js`
-- Data / domain: `BridgeMessage.RecentChats` + `ChatOpened`; `BridgeRepository` exposes `chatActivity` and `characters` as nullable (null = not reported yet); `CharacterRepository` + `CharacterRepositoryImpl` (`characters`, `chatActivity`, `pageState`, `refresh()` waits for the answer ≤ 5 s, `retry()`, `openChat()` waits for `chatOpened` ≤ 10 s); `ChatActivity`, `RecentChat`; `CharacterSummary.portraitUrl`; `GetRecentChatsUseCase` (one row per character from its newest chat, newest first, undated last), `GetCharacterLibraryUseCase` (by name, case-insensitive, filtered by query). Coil uses the shared OkHttp client (`TravelingTavernApplication` is the `SingletonImageLoader.Factory`)
-- WebView hosting moved to the app shell (`TravelingTavernNavHost`): always attached, fixed size, every destination but Chat wrapped in an opaque touch-consuming surface; while covered the WebView is unfocusable, gives up the keyboard and is hidden from accessibility (`importantForAccessibility = noHideDescendants`); `WebViewBackHandler` is registered by Chat so it wins over the NavHost
-- UI: `ChatsScreen` / `ChatsViewModel` (list, pull to refresh, empty state → Characters, banner, re-select scrolls to top, times refresh every minute); `CharactersScreen` / `CharactersViewModel` (search field in the app bar, 2-column 3:4 grid with full-size portraits and name on a scrim, "no matches" text, FAB → Create / Import sheet "Coming soon", empty state → Advanced); `ChatScreen` / `ChatViewModel` (top bar, cover until `chatOpened`); shared `CharacterAvatar` / `CharacterImage` (initial until the image loads), `ConnectionBanner`, `EmptyState`, `RelativeTime`
-- Unit tests: `GetRecentChatsUseCaseTest` (5), `GetCharacterLibraryUseCaseTest` (4), `ChatsViewModelTest` (6), `CharactersViewModelTest` (5), `ChatViewModelTest` (3), `RelativeTimeTest` (5), `BridgeMessageParserTest` +4; `./gradlew build` green. Compose UI tests: `ChatsContentTest` (5), `CharactersContentTest` (6) — compiled; run before release per the testing rule
-- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 over Tailscale: Chats list with avatars, previews (emphasis markers stripped), empty-chat row without preview, relative times; Characters grid with full-size portraits, search filtering, add sheet; list → Chat → back for Bob, Seraphina and (from Characters) Oliver with the character panel closed and no reload
-- Verified on the Pixel 8 (dark theme): list data 8 s after a cold start; covered WebView: 10 × 100 ms timers took ~1.01 s (no throttling), `visibilityState` visible, a SillyTavern event while covered produced fresh `characters` + `recentChats`, no WebView in the accessibility tree, a tap on the list where SillyTavern's input sits doesn't reach the page; Chat: WebView in the accessibility tree, tap on the input opens the keyboard (`mInputShown=true`) with the input row right above it; landscape in Chat and on the list (no page visible in the cutout strip); 13 list → Chat → back round trips across Bob, Tide Pods, Seraphina and Jasper with on-device frame capture: no blank or half-drawn page frame (cover, then the settled chat — Bob ~1 s, Tide Pods ~1.5–2 s, Seraphina with images ~2.5 s), reopening the already-open chat is immediate, and a JS marker survived the whole session (no reload); 0 crashes
-- Not verified: pull to refresh by hand (covered by the ViewModel test; `refresh()` exercised through the bridge), the error banners on device (previews + Compose UI tests), a library with no characters, Advanced (still a placeholder)
-- Version `0.1.8` / `versionCode 9`
+### 2026-11-16 — Phase 1.1b Bottom Navigation & Style — `0.1.1`
+- Tabs Chats/Characters/Me + full-screen routes; amber accent, Inter font, dynamic color off by default
 
-### 2026-11-17 — Docs: Compose UI tests going forward (branch `docs/compose-ui-tests`)
-
-- `coding-standards.md` → Testing: new and changed native Compose screens/components with real behavior get Compose UI tests in `androidTest` (stateless `…Content` composable, fixed `UiState`, fake callbacks; states render, taps call the right callback, enabled/disabled rules). Layout-only composables and the WebView host are exempt; WebView/bridge stays manual on device
-- Unit tests (fast) still run before every commit and merge via `./gradlew build` — now stated explicitly in the workflow's Test step. Android tests (slow) run only before each release: `ai-guidelines.md` → Releasing to main has a new step 2 (run `./gradlew connectedDebugAndroidTest` on an emulator or device, note the result in the PR)
-- `CLAUDE.md`: added `./gradlew connectedDebugAndroidTest`. Not in CI (would need an emulator runner); no tests backfilled for existing screens
-- Dependencies were already present (`ui-test-junit4`, `ui-test-manifest`), so no build changes and no version bump
-
-<!-- Completed work is added here, newest last -->
-
-### 2026-11-17 — Phase 1.5 Clean Theme (branch `feature/clean-theme`)
-
-- `clean-theme.css` (all rules under `body.tt-clean`, colors left to SillyTavern's theme): hides the top toolbar and all nine drawer panels, the TopInfoBar chat bar, and the in-chat `.drawer-opener` shortcut buttons (they would open hidden drawers); `#sheld` fills the viewport (`top: 0`, `100dvh`); message text and input at least 16px (`max(16px, var(--mainFontSize))`); input-row buttons at least 48×48 without touching their `display`, so `#mes_stop` stays hidden until a generation runs
-- Bridge: `setClean(enabled)`, `installStyle(id, base64)` (UTF-8 via `TextDecoder`, replaces an existing tag); `selectCharacter` opens the chat without the character editor (`switchMenu: false`). Kotlin: `BridgeScript.installStyle`, `PageModeStore` (clean on by default), `BridgeInstaller` injects the stylesheet + current mode after the bridge on every page load, `BridgeClient.setCleanMode()`
-- Unit tests: 2 new in `BridgeScriptTest` (Base64 round-trip with quotes, backslashes, newlines and unicode; only Base64-safe characters in the script); `./gradlew build` green
-- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 over Tailscale (DevTools + screenshots): cold start → `tt-clean` on, toolbar and TopInfoBar hidden, `#sheld` at the top and full height, all four input buttons 48×48, messages 16px, one style tag; welcome screen without the drawer shortcuts; opening Bob through the bridge shows his chat directly (character panel stays closed); `setClean(false)` brings back the full UI, `setClean(true)` hides it again; `location.reload()` re-applies clean mode with still one style tag
-- First pass bug fixed during verification: forcing `display: flex` on the input buttons made the hidden stop button appear
-- Not verified on device: `BridgeClient.setCleanMode` from Kotlin (no caller until 1.8; the JS it calls was exercised), the Pixel 8, a light SillyTavern theme
-- Version `0.1.7` / `versionCode 8`
-
-### 2026-11-17 — Fix: WebView load timeout and status-bar strip (branch `fix/webview-load-timeout`)
-
-- **Load timeout:** new `LoadWatchdog` (15 s, coroutine timer on the app scope). Started when the app loads the server and on every `onPageStarted`; cancelled by `onPageCommitVisible` (the server's response started rendering), so a slow but reachable server is never cut off. On timeout, if the page is still loading: `stopLoading()` + `PageError.Unreachable`
-- **Status-bar strip — cause found:** a blank WebView paints white, and a Compose `AndroidView` doesn't clip, so the white page also covered the status-bar area (invisible light icons in dark theme). Fix: WebView background transparent (also removes the white flash before SillyTavern paints) and `clipToBounds()` on the `AndroidView`
-- Unit tests: `LoadWatchdogTest` (4, virtual time); `./gradlew build` green
-- Verified on Medium_Phone_API_35 (dark theme): error state with a dark status bar and visible icons (white before the fix); emulator `network delay 120000` (a connection that never answers) → Unreachable overlay ~20 s after launch, including app start-up and polling (was ~2 min on the Pixel); `network delay none` + Retry → page and bridge (`Ready`) back; `network delay 5000` (slow but reachable) → page loads, `Ready` after ~14 s, no false timeout
-- Verified on Pixel 8 (0.1.6): Tailscale off → cold start → Unreachable overlay ~18 s after launch (was ~120 s), dark status bar with visible icons in both the loading and error states; Tailscale on → Retry → SillyTavern and the bridge (`Ready`, `characters (3)`) back
-- Version `0.1.6` / `versionCode 7`
-
-### 2026-11-17 — Phase 1.4 JS Bridge Foundation (branch `feature/js-bridge`)
-
-- Assets: `st-selectors.js` holds every SillyTavern name (event keys, context members, character/message fields); `bridge.js` waits for `SillyTavern.getContext()`, listens to SillyTavern's `eventSource`, posts `{ v: 1, type, ... }` messages (`ready`, `characters` debounced 300 ms, `chatChanged`, `messageReceived` for character messages only, `error`) and exposes a frozen `window.__ttBridge` (`requestCharacters`, `selectCharacter` maps avatar ID → index → `selectCharacterById`, `setMode` swaps the `tt-mode-*` body class). Both scripts guard against running twice
-- Data: `BridgeInstaller` registers the `TravelingTavern` listener for the saved origin only (re-registered if the server changes, main frame only) right before each load, and injects the scripts on every `onPageFinished`; `BridgeMessageParser` never throws (malformed / missing `v` or `type` / missing fields → dropped and logged, unknown types → `Unknown`); `BridgeRepository` exposes `messages`, `characters`, `isReady` (reset on each page start) and logs only the message type at DEBUG; `BridgeScript` + `BridgeClient` are the only place JS call strings are built, arguments JSON-encoded with U+2028/2029 escaped
-- Domain: `CharacterSummary` (`lastChatAt: Instant?`)
-- WebView without `WEB_MESSAGE_LISTENER` → `PageError.WebViewOutdated` overlay ("update it in the Play Store", no Retry / Server settings since neither helps)
-- Unit tests: `BridgeMessageParserTest` (10), `BridgeScriptTest` (6); `./gradlew build` green, lint only version suggestions
-- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 (DevTools + logcat): cold start delivers `characters (3)` then `Ready`; `selectCharacter("default_Seraphina.png")` opens Seraphina in SillyTavern and Kotlin gets `ChatChanged`; an unknown ID produces a bridge `Error`; `setMode` sets `tt-mode-story` and rejects invalid names; `location.reload()` re-injects cleanly with exactly one `Ready`
-- Verified on Pixel 8 (Android 17), user and Claude (logcat + DevTools): cold start → `characters` + `Ready`, full-height page; `selectCharacter` for `default_Seraphina.png`, `Tide Pods.png` (space in ID) and `Bob.png` each opened the chat and produced one `ChatChanged`; replies the user generated in Bob's and Tide Pods' chats produced `MessageReceived`; page reload → exactly one `Ready`; Tailscale off → Unreachable overlay, Tailscale on → Retry recovers with the bridge back; drawer + JS marker survived backgrounding and two rotations (no reload); import file picker opens, cancel returns to a usable page twice; GitHub link opens the browser. Whole run: 0 crashes, 0 bridge errors or malformed messages
-- Found on the Pixel, not fixed here: with Tailscale **off** the page sits on the loading spinner for ~2 min (the WebView's own network timeout) before the Unreachable overlay appears — airplane mode fails fast, a silently dropped connection doesn't. Also, during the cold-start loading and error states the status-bar strip is white with invisible icons
-- Not verified on device: the Kotlin `BridgeClient` path (no screen calls it until 1.6 — covered by `BridgeScriptTest`, the JS it produces was exercised through DevTools), the character-list events from editing/duplicating a character (skipped to avoid changing the user's data), the origin restriction (relies on the WebView API; other-host pages open in the browser anyway), the outdated-WebView overlay (preview only)
-- Version `0.1.5` / `versionCode 6`
-
-### 2026-11-17 — Android CI (branch `chore/android-ci`)
-
-- Added `.github/workflows/android-ci.yml`: on PRs into `main`, pushes to `main` and manual runs, builds (`assembleDebug`), runs unit tests and lint on `ubuntu-latest` with Temurin JDK 21 and `gradle/actions/setup-gradle` caching; uploads the debug APK and test/lint reports as artifacts (14 days)
-- Marked `gradlew` executable in Git (`100644` → `100755`); it was committed from Windows without the flag, so `./gradlew` failed with "Permission denied" on Linux/macOS. No effect on Windows (`gradlew.bat`)
-- Branching: `main` is now protected by a GitHub ruleset (PR + green CI required, no force pushes or deletion); new long-lived `dev` branch for day-to-day merges. `ai-guidelines.md` updated (branch from and merge into `dev`, release to `main` by PR with a merge commit); CI also runs on PRs into and pushes to `dev`
-- No app code changed, so no version bump
-- Verified by the PR's own CI run; nothing on device changed
-
-### 2026-11-17 — Min SDK 31 (branch `chore/min-sdk-31`)
-
-- `minSdk` 26 → 31 (Android 12) so 1.7b's on-device speech recognizer (`createOnDeviceSpeechRecognizer`, API 31) is always available as an API; updated `CLAUDE.md`, `README.md` and the 1.7b spec (`Unavailable` now only means on-device recognition isn't available)
-- Removed the now-redundant API 31 check around dynamic color in `Theme.kt`
-- `./gradlew build` green; installed on Pixel 8 (`minSdk=31`, `0.1.4`), launches and loads SillyTavern normally
-- Version `0.1.4` / `versionCode 5`
-
-### 2026-11-17 — Phase 1.3 WebView Host (branch `feature/webview-host`)
-
-- Domain: `PageState` (`Loading` / `Ready` / `Error`) and `PageError` (`Unreachable`, `AuthFailed`, `HttpError(code)`)
-- Data: `WebViewHolder` (`@Singleton`) creates the one WebView lazily on a `MutableContextWrapper`, swaps in the Activity on `attach` and back on `detach` (guarded so a late detach can't undo a new attach), loads the saved URL once and reloads only when it changes or a settings change happens while in an error state. `PageStateTracker` keeps a main-frame error alive past the `onPageFinished` that follows it. `TavernWebViewClient`: basic auth answered once and only for the saved host, main-frame errors → `PageState.Error`, other-host links → system browser. `TavernWebChromeClient` (Aegis port, ISC notice kept): file chooser via Activity Result, mic/camera only for the server origin and only what the user granted. `@ApplicationScope` coroutine scope added (`CoroutineModule`)
-- UI: `SillyTavernWebView` + `SillyTavernWebViewModel` attach the shared WebView (removed from its parent, never destroyed, on dispose), flush cookies on pause, `BackHandler` while the WebView can go back; `PageStateOverlay` with loading and error states (Retry, Server settings) and previews. Chats tab hosts it temporarily (spec said Home, which no longer exists)
-- Navigation: Server settings opens Connect; saving from there pops back instead of rebuilding Chats. Scaffold padding is now consumed so `imePadding()` doesn't double-count the system bars; `adjustResize` set on the Activity
-- Manifest: `RECORD_AUDIO`, `CAMERA` (requested only when the page asks), camera/mic features optional; `buildConfig` enabled for `BuildConfig.DEBUG`
-- Unit tests: `PageStateTrackerTest` (5), `ServerOriginTest` (5); `./gradlew build` green, lint only version suggestions
-- Verified on Medium_Phone_API_35 against SillyTavern 1.19.0 (over Tailscale): page loads in the Chats tab; an open SillyTavern drawer survived tab switches, backgrounding and two rotations (no reload); airplane mode → Unreachable overlay → Retry recovers; Server settings opens Connect and back returns; character import opens the system file picker, cancel leaves the page usable (second open works); GitHub link opens Chrome, not the WebView
-- Verified on Pixel 8 (Android 17) against the same server: clean install → Connect → Save loads a full-height page (before the fix: collapsed layout, `100dvh` = 0); docked keyboard pushes SillyTavern's input bar above it; GitHub link opens the default browser and back returns; backgrounding and returning keeps the page (a JS marker survived, so no reload)
-- Mic: voice input via the SillyTavern **Speech Recognition** extension tested manually on the Pixel 8 by the user — works. Which STT provider it uses, and whether it goes through our `onPermissionRequest` path over plain `http://`, was not checked. Speech Recognition is now listed under "SillyTavern Extensions" in `README.md`
-- Not verified on device: back navigation inside the WebView (SillyTavern adds no history entries in normal use), basic auth (server has it off), camera
-- Version `0.1.3` / `versionCode 4`
-
-### 2026-11-16 — Phase 1.2 Connect Screen (branch `feature/connect-screen`)
-
-- Domain: `ServerConfig`, `ConnectionResult`, `normalizeServerUrl()` (pure `java.net.URI`, adds `http://`, strips path/trailing slash, lowercases host), `ServerConfigRepository`, `ConnectionTester`, `TestConnectionUseCase`
-- Data: Preferences DataStore (`settings`) for the base URL; username and password stored as Tink AES256-GCM ciphertext wrapped by an Android Keystore master key (`SecurityModule`, `CredentialCipher`); `ServerConfigRepositoryImpl` exposes decrypted credentials only to the data layer
-- Network: one `@Singleton` `OkHttpClient` with `BasicAuthInterceptor` — adds basic auth only when scheme/host/port match the saved server and no `Authorization` header is already set. `OkHttpConnectionTester` does `GET {baseUrl}/` with a 10 s call timeout and classifies by status code and `<title>SillyTavern</title>` (first 64 KB of body)
-- UI: `ConnectScreen` (stateless `ConnectContent` + previews for empty/testing/error/success), `ConnectViewModel` — any input edit resets the test result so Save is only enabled for tested inputs; `AuthRequired` auto-reveals the login fields
-- Navigation: `StartDestinationViewModel` reads the saved config once at launch → Connect or Chats; saving navigates to Chats with Connect popped; tab switching now pops to the Chats graph instead of the root start destination (which may be Connect)
-- Tink `1.24.0` added; `FilledTonalButton` used for Test (the only filled button is Save, per ui-guidelines)
-- Unit tests: `ServerUrlTest` (6), `TestConnectionUseCaseTest` (3), `ConnectViewModelTest` (6) — all passing; `./gradlew build` green, lint only version suggestions
-- Verified on Medium_Phone_API_35 against the real SillyTavern 1.19.0 (over Tailscale): fresh install opens Connect; bare `host:port` → "Connected to SillyTavern" → Save → Chats; back exits (Connect popped); cold relaunch opens Chats directly. Error cases shown correctly: invalid address, `example.com` → not SillyTavern, unreachable IP → timeout message after 10 s, login toggle reveals fields. `AuthRequired`/`AuthFailed` not exercised on device (server has basic auth off) — covered by unit tests
-- Version `0.1.2` / `versionCode 3`
-
-### 2026-11-16 — Phase 1.1b Bottom Navigation & Visual Style (branch `feature/bottom-navigation`)
-
-- `Routes.kt` split into `Routes.Tab` (Chats, Characters, Me — nested graphs) and `Routes.FullScreen` (Connect, Chat, Advanced). Home and Settings screens removed
-- `TravelingTavernNavHost` is now the shell: one `Scaffold`, `TravelingTavernBottomBar` shown only when the current destination is inside a tab graph and the IME is hidden; tab switches use `popUpTo(start) { saveState }` + `restoreState`; re-selecting the current tab emits on `TabReselectEvents` (via `LocalTabReselectEvents`) for 1.6 lists to scroll to top
-- Tab icons are vector drawables (Material Icons, outlined/filled pairs) — `?attr/colorControlNormal` tint had to be dropped since the app has no AppCompat; Compose `Icon` tints from `LocalContentColor`
-- Theme: neutral light/dark palette, amber on primary **and** secondary so the `NavigationBar` indicator uses the accent; `useDynamicColor` parameter defaults to `false`; Inter Regular/Medium/SemiBold bundled in `res/font/` (OFL text in `licenses/Inter-OFL.txt`) and applied to the whole M3 type scale; shapes 12/16/16dp
-- Version `0.1.1` / `versionCode 2`
-- `./gradlew build` passes; lint only reports newer-version suggestions
-- Verified on Medium_Phone_API_35: all three tabs in dark and light, selected indicator and labels, back from Me returns to Chats, back again exits. Not device-verifiable yet: bottom bar hiding on full-screen routes and under the keyboard (no navigation to those routes or text fields exist until 1.2/1.6) — covered by code path only
-
-### 2026-11-16 — Phase 1.1 Project Setup & App Shell (branch `feature/project-setup`)
-
-- Added all spec dependencies to the version catalog; Hilt (`TravelingTavernApplication`, `MainActivity`), Compose navigation, brand theme (Color/Shape/Theme), `Routes.kt`, `TravelingTavernNavHost`, placeholder screens, `assets/web/` placeholders, `network_security_config.xml`, `INTERNET` permission, package scaffold
-- **Toolchain notes (AGP 9.0.1 uses built-in Kotlin):**
-  - Android Studio's template pulled `core-ktx 1.19.0` / `lifecycle 2.11.0`, which require compileSdk 37 + AGP 9.1. Only SDK 36 is installed and the spec targets 36, so pinned `core-ktx 1.17.0`, `lifecycle 2.9.4`, `activity-compose 1.11.0`, Compose BOM `2025.09.01`
-  - Kotlin plugins (compose, serialization) set to `2.2.10` to match AGP 9.0's bundled Kotlin
-  - Hilt `2.60.1` — 2.57.x fails on AGP 9 ("Android BaseExtension not found")
-  - KSP `2.3.4` — KSP1 (`2.0.21-1.0.x`) and `2.2.10-2.0.2` both fail on AGP 9 (`kotlin.sourceSets` DSL not allowed with built-in Kotlin)
-  - `material-icons-core` added explicitly (not transitive from Material 3 1.4)
-  - Gradle needs `JAVA_HOME` pointed at Android Studio's JBR (`C:\Program Files\Android\Android Studio1\jbr`)
-- `./gradlew build` passes (lint + unit tests). Remaining lint warnings are newer-version suggestions and unused template colors in `res/values/colors.xml`
-- Verified on Medium_Phone_API_35 emulator: launches to Home, top bar Settings action navigates to Settings, back returns, light and dark both render, no crashes. Dynamic color was active (API 35), so the brand fallback palette is covered by previews only
+### 2026-11-16 — Phase 1.1 Project Setup — `0.1.0`
+- Toolchain (AGP 9.0.1, built-in Kotlin): SDK 36 pins `core-ktx 1.17.0`, `lifecycle 2.9.4`, `activity-compose 1.11.0`, Compose BOM `2025.09.01`; Kotlin plugins `2.2.10`; Hilt `2.60.1`; KSP `2.3.4`; `material-icons-core` explicit; `JAVA_HOME` → Android Studio JBR

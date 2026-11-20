@@ -1,7 +1,9 @@
 package com.tiffles.travelingtavern.ui.components
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.view.View
 import android.view.ViewGroup
@@ -16,15 +18,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.tiffles.travelingtavern.data.bridge.PageTheme
 import com.tiffles.travelingtavern.data.webview.WebViewHost
 
 /**
@@ -44,6 +53,9 @@ fun SillyTavernWebView(
     viewModel: SillyTavernWebViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val colorScheme = MaterialTheme.colorScheme
+    val pageTheme = remember(colorScheme) { colorScheme.toPageTheme() }
+    LaunchedEffect(pageTheme) { viewModel.setPageTheme(pageTheme) }
     val sized = if (revealed) modifier.fillMaxSize().imePadding() else modifier.fillMaxSize()
 
     Box(modifier = sized) {
@@ -88,8 +100,9 @@ private fun AttachedWebView(
         // AndroidView doesn't clip; without this the WebView can paint over the status bar.
         modifier = modifier.fillMaxSize().clipToBounds(),
         update = { it.setRevealed(revealed) },
-        // Leave the WebView alive and parentless so the next Activity can attach it.
-        onRelease = { it.removeFromParent() }
+        // Leave the WebView alive and parentless so the next Activity can attach it. If a new
+        // Activity already took it (it can be created before this one is destroyed), leave it there.
+        onRelease = { if (it.isHostedBy(activity)) it.removeFromParent() }
     )
 }
 
@@ -135,6 +148,37 @@ private fun WebView.setRevealed(revealed: Boolean) {
         val keyboard = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         keyboard?.hideSoftInputFromWindow(windowToken, 0)
     }
+}
+
+/** The colors the clean chat layout uses (`--tt-*` in clean-theme.css). */
+private fun ColorScheme.toPageTheme() = PageTheme(
+    dark = background.luminance() < DARK_LUMINANCE,
+    colors = mapOf(
+        "background" to background.toHex(),
+        "surface" to surfaceContainerHigh.toHex(),
+        // The message field's container; the reasoning bar matches it.
+        "surfaceContainerHighest" to surfaceContainerHighest.toHex(),
+        "onSurface" to onSurface.toHex(),
+        "onSurfaceVariant" to onSurfaceVariant.toHex(),
+        "primary" to primary.toHex(),
+        "primaryContainer" to primaryContainer.toHex(),
+        "onPrimaryContainer" to onPrimaryContainer.toHex()
+    )
+)
+
+private fun Color.toHex(): String = "#%06X".format(toArgb() and RGB_MASK)
+
+private const val DARK_LUMINANCE = 0.5f
+private const val RGB_MASK = 0xFFFFFF
+
+/** True while this view sits in [activity]'s own window, not in a newer Activity's. */
+private fun View.isHostedBy(activity: Activity): Boolean =
+    (parent as? View)?.context?.findActivity() === activity
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 private fun View.removeFromParent() {
