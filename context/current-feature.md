@@ -1,40 +1,41 @@
 # Current Feature
 
-Phase 1.6c — Chats Tab: Hide and Delete
+Connect Screen Refresh (1.2 update)
 
 ## Status
 
-Complete (`feature/chats-hide-delete`). `./gradlew build` green. `0.1.17`.
+Complete (`feature/connect-refresh`). `./gradlew build` green. `0.1.18`.
 
-- Done: source investigation (spec Notes): `deleteCharacterChatByName` imported from `/script.js`, success = `CHAT_DELETED`; open chat deleted → `replaceCurrentChat()` (as ST's Manage chats); only-chat delete needs nothing extra
-- Done: implementation — `bridge.js` `deleteChat` (+ `scriptModule()` helper), `HiddenChatsStore` (settings DataStore), `GetRecentChatsUseCase` → `ChatList` (visible + hidden count), `CharacterRepository.deleteChat` / `generatingChat`, `ChatsViewModel` options state + snackbar events, `ChatOptionsSheet`, ⋮ menu; unit tests pass, Compose UI tests compile; `./gradlew build` green; `0.1.17`
-- User decision: deleting a character's only chat → SillyTavern's fresh greeting chat stays (hide it if unwanted)
-- User request (2026-11-19): deleting a whole chat (Delete here, Restart chat in 1.7) confirms in an alert dialog (`ConfirmDeleteChatDialog`, red icon + button) instead of a sheet, so it can't be mixed up with the Start new chat sheet; ui-guidelines exception added
-- User request: ⋮ Restart chat renamed **Delete and restart** (title and button too); both delete-chat dialogs open with a bold red "This also deletes the chat on your SillyTavern."
-- Verified on the emulator (API 35) vs SillyTavern 1.19.0 over Tailscale, throwaway Bob chats: long press sheet; Hide → row gone + snackbar + ⋮; Undo; hidden survives app restart; ⋮ Show hidden chats (⋮ disappears); Delete dialog, Cancel keeps; Delete removes the row and the file on the desktop; deleting the chat open in the page (page moved to the next chat, `chatChanged` + `chatResult ok`, Bob then opened fine); Delete and restart dialog (cancelled). Two throwaways deleted; one left (`…21h29m28s056ms`)
-- Not verified: Tailscale off → "Couldn't delete" snackbar; Delete disabled while generating (unit + UI tests only); deleting a character's only chat through the app (user confirmed SillyTavern's behavior); haptic
-- App icon committed separately (`feat: app icon`)
-- Next: commit (ask) → merge into `dev` → push
+- Done: `ConnectViewModel.connect()` (test → save + `Saved`, or `Failed`; edits ignored while connecting, clear the error otherwise); `ConnectScreen` rewritten (logo, centered header, one address field, authentication row, inline error card, Connect / spinner + "Connecting…" in a fixed-height slot); shared `AppLogo` draws the launcher icon's layers; unit tests rewritten; new `ConnectContentTest` (compiles)
+- User request: subtitle and unreachable error no longer assume Tailscale (any reachable http(s) server works)
+- Extra: the whole "Server requires authentication" row toggles, not only the switch (one 56dp tap target)
+- Verified on the emulator (API 35, dark theme, fresh data) vs SillyTavern 1.19.0 over Tailscale: layout; Connect disabled when empty; row toggles the login fields; unreachable address (fast fail and 10 s timeout) → spinner + "Connecting…", then inline error, Connect back, address kept; real server via keyboard Done → straight into Chats
+- Not verified: light theme, authentication (server has auth off; unit tests only)
+- Not mine, left uncommitted: icon recolor in `ic_launcher_background.xml` / `ic_launcher_foreground.xml` (user to confirm)
 
 ## Goals
 
-Per `context/specs/phase1-6c-chats-actions-spec.md`:
+User request (2026-11-19), updates `context/specs/phase1-2-connect-screen-spec.md`:
 
-- **Investigate:** how ST deletes a chat that isn't open (page function, server call), what happens when the open chat or a character's only chat is deleted, whether an event fires
-- **Long press** a Chats row → sheet (avatar, name, time; Hide, Delete); tap still opens the chat; Delete disabled while that chat generates
-- **Delete:** `ConfirmDeleteSheet` → new `__ttBridge` command (avatar + chat file), selectors in `st-selectors.js`; re-read `recentChats`; failure snackbar; drop from hidden list
-- **Hide:** app-only (DataStore string set of `avatar/chatFile`), snackbar with Undo; stale entries dropped on read
-- **⋮ menu:** Show hidden chats, only while something is hidden
-- Tests per spec; version bump
+- App logo centered near the top (72dp), cleaner spacing and hierarchy
+- One server address field (IP, hostname, URL, optional port; normalization unchanged)
+- Toggle renamed "Server requires authentication"; username / password shown when on
+- One full-width **Connect** button replaces Test connection + Save
+- While connecting: the button is replaced by a centered spinner with "Connecting…" below it
+- Success: save and go into the app (no confirmation). Failure: Connect comes back, inline error, inputs kept
+- Connection test, credential storage and navigation unchanged; tests updated; version bump
 
 ## References
 
-- @context/specs/phase1-6c-chats-actions-spec.md
-- @context/specs/phase1-6-home-character-list-spec.md
-- @context/specs/phase1-7-chat-screen-spec.md (Restart confirmation, `doNewChat` import pattern)
-- @context/project-schema.md (Built Toward the Final Phase)
+- @context/specs/phase1-2-connect-screen-spec.md
+- @context/ui-guidelines.md
 
 ## History
+
+### 2026-11-19 — Connect screen refresh — `0.1.18`
+- One full-width Connect (test, then save and open Chats; no confirmation) replaces Test connection + Save; spinner with "Connecting…" below it while connecting; failure shows an inline error and keeps the inputs
+- App logo at the top (`AppLogo` draws the launcher icon's layers); toggle renamed "Server requires authentication", whole row toggles; no tailnet wording (any reachable http(s) server works)
+- Verified on an emulator (API 35, dark); not verified: light theme, authentication (server has auth off)
 
 ### 2026-11-19 — Phase 1.6c Chats Hide and Delete — `0.1.17`
 - Long press a chat → sheet: Hide (app only, DataStore `avatar/chatFile` keys, snackbar Undo; ⋮ Show hidden chats while any is hidden) and Delete (SillyTavern's `deleteCharacterChatByName`, imported from `/script.js`; success = `CHAT_DELETED`, answered with `chatResult`)

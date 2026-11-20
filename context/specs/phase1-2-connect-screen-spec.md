@@ -28,22 +28,26 @@ Let the user point the app at their SillyTavern server, optionally log in, and t
 
 ### Screen (`ui/connect/ConnectScreen.kt`)
 
-- URL field with example placeholder `http://100.x.y.z:8000`
-- Accepts bare host/IP and adds `http://` if no scheme is given
-- Optional "Server requires login" toggle revealing username and password fields
-- Test & Save button; Save only enabled after a `Success` result
-- Result messages:
-    - `Unreachable` → "Can't reach the server. Is Tailscale connected and SillyTavern running?"
-    - `AuthRequired` → "This server needs a login" (and reveals the login fields)
+Updated 2026-11-19 (user request): one Connect button instead of Test & Save.
+
+- App logo centered near the top (72dp: the launcher icon's layers in a rounded square), then title and subtitle ("Enter the address of your SillyTavern server." — no tailnet wording: any reachable http(s) server works, Tailscale is just the usual setup)
+- One address field: IP, hostname or full URL, optional port; placeholder `100.64.0.2:8000`. A bare host gets `http://`
+- "Server requires authentication" toggle (off by default) revealing username and password fields
+- One full-width **Connect** button (disabled while the address is empty). The keyboard's Done on the last field also connects
+- Connecting: the button is replaced by a centered spinner with "Connecting…" directly below it; fields are disabled
+- Success: the config is saved and the app opens the Chats tab, no confirmation (Connect cleared from the back stack)
+- Failure: the Connect button comes back, an inline error shows above it, and every input is kept. Editing an input clears the error
+- Error messages:
+    - `Unreachable` → "Can't reach the server. Check your connection (and Tailscale, if you use it) and that SillyTavern is running."
+    - `AuthRequired` → "This server needs a login" (and turns the authentication toggle on)
     - `AuthFailed` → "Username or password is wrong"
     - `NotSillyTavern` → "That address answered, but it doesn't look like SillyTavern"
     - `InvalidUrl` → "That doesn't look like a valid address"
-- On save, navigate to the Chats tab and clear Connect from the back stack
 
 ### ViewModel (`ui/connect/ConnectViewModel.kt`)
 
-- `UiState`: url, loginEnabled, username, password, `testState` (`Idle`, `Testing`, `Result(ConnectionResult)`)
-- `testConnection()`, `save()`
+- `UiState`: url, loginEnabled, username, password, `status` (`Idle`, `Connecting`, `Failed(ConnectionResult)`)
+- `connect()`: test, then save and emit `Saved` on `Success`; otherwise `Failed`
 
 ### Start Destination
 

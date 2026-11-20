@@ -2,16 +2,21 @@ package com.tiffles.travelingtavern.ui.connect
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -19,24 +24,31 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tiffles.travelingtavern.R
 import com.tiffles.travelingtavern.domain.model.ConnectionResult
+import com.tiffles.travelingtavern.ui.components.AppLogo
 import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
 
 @Composable
@@ -61,23 +73,22 @@ fun ConnectScreen(
         onLoginEnabledChange = viewModel::onLoginEnabledChange,
         onUsernameChange = viewModel::onUsernameChange,
         onPasswordChange = viewModel::onPasswordChange,
-        onTest = viewModel::testConnection,
-        onSave = viewModel::save,
+        onConnect = viewModel::connect,
         modifier = modifier
     )
 }
 
 @Composable
-private fun ConnectContent(
+fun ConnectContent(
     uiState: ConnectUiState,
     onUrlChange: (String) -> Unit,
     onLoginEnabledChange: (Boolean) -> Unit,
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
-    onTest: () -> Unit,
-    onSave: () -> Unit,
+    onConnect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val editable = !uiState.isConnecting
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
         Column(
             modifier = Modifier
@@ -85,52 +96,65 @@ private fun ConnectContent(
                 .padding(innerPadding)
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 16.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = stringResource(R.string.connect_title),
-                style = MaterialTheme.typography.titleLarge
-            )
-            Text(
-                text = stringResource(R.string.connect_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            ServerUrlField(url = uiState.url, enabled = !uiState.isTesting, onUrlChange = onUrlChange)
-
-            LoginToggleRow(
-                checked = uiState.loginEnabled,
-                enabled = !uiState.isTesting,
-                onCheckedChange = onLoginEnabledChange
-            )
-            if (uiState.loginEnabled) {
-                LoginFields(
-                    username = uiState.username,
-                    password = uiState.password,
-                    enabled = !uiState.isTesting,
-                    onUsernameChange = onUsernameChange,
-                    onPasswordChange = onPasswordChange
+            Spacer(modifier = Modifier.height(24.dp))
+            ConnectHeader()
+            Spacer(modifier = Modifier.height(32.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                ServerUrlField(
+                    url = uiState.url,
+                    enabled = editable,
+                    isLastField = !uiState.loginEnabled,
+                    onUrlChange = onUrlChange,
+                    onDone = onConnect
                 )
+                AuthToggleRow(checked = uiState.loginEnabled, enabled = editable, onCheckedChange = onLoginEnabledChange)
+                if (uiState.loginEnabled) {
+                    LoginFields(
+                        username = uiState.username,
+                        password = uiState.password,
+                        enabled = editable,
+                        onUsernameChange = onUsernameChange,
+                        onPasswordChange = onPasswordChange,
+                        onDone = onConnect
+                    )
+                }
+                (uiState.status as? ConnectStatus.Failed)?.let { ConnectError(result = it.result) }
             }
-
-            TestResultMessage(testState = uiState.testState)
-
-            Spacer(modifier = Modifier.height(8.dp))
-            ActionButtons(
-                isTesting = uiState.isTesting,
-                canTest = uiState.url.isNotBlank(),
-                canSave = uiState.canSave,
-                onTest = onTest,
-                onSave = onSave
-            )
+            Spacer(modifier = Modifier.height(24.dp))
+            ConnectAction(isConnecting = uiState.isConnecting, enabled = uiState.canConnect, onConnect = onConnect)
         }
     }
 }
 
 @Composable
-private fun ServerUrlField(url: String, enabled: Boolean, onUrlChange: (String) -> Unit) {
+private fun ConnectHeader() {
+    AppLogo()
+    Spacer(modifier = Modifier.height(24.dp))
+    Text(
+        text = stringResource(R.string.connect_title),
+        style = MaterialTheme.typography.headlineSmall,
+        textAlign = TextAlign.Center
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    Text(
+        text = stringResource(R.string.connect_subtitle),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center
+    )
+}
+
+@Composable
+private fun ServerUrlField(
+    url: String,
+    enabled: Boolean,
+    isLastField: Boolean,
+    onUrlChange: (String) -> Unit,
+    onDone: () -> Unit
+) {
     OutlinedTextField(
         value = url,
         onValueChange = onUrlChange,
@@ -140,22 +164,32 @@ private fun ServerUrlField(url: String, enabled: Boolean, onUrlChange: (String) 
         placeholder = { Text(stringResource(R.string.connect_url_placeholder)) },
         supportingText = { Text(stringResource(R.string.connect_url_hint)) },
         singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done)
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Uri,
+            imeAction = if (isLastField) ImeAction.Done else ImeAction.Next
+        ),
+        keyboardActions = KeyboardActions(onDone = { onDone() })
     )
 }
 
 @Composable
-private fun LoginToggleRow(checked: Boolean, enabled: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun AuthToggleRow(checked: Boolean, enabled: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    // The whole row toggles (one tap target), so the switch itself takes no clicks.
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
+            .heightIn(min = 56.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = stringResource(R.string.connect_requires_login),
-            style = MaterialTheme.typography.bodyLarge
+            text = stringResource(R.string.connect_requires_auth),
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
         )
-        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }
 
@@ -165,7 +199,8 @@ private fun LoginFields(
     password: String,
     enabled: Boolean,
     onUsernameChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit
+    onPasswordChange: (String) -> Unit,
+    onDone: () -> Unit
 ) {
     OutlinedTextField(
         value = username,
@@ -184,117 +219,88 @@ private fun LoginFields(
         label = { Text(stringResource(R.string.connect_password)) },
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done)
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { onDone() })
     )
 }
 
+/** Inline error for a failed attempt, announced by screen readers when it appears. */
 @Composable
-private fun TestResultMessage(testState: TestState) {
-    val result = (testState as? TestState.Result)?.result ?: return
-    val isSuccess = result is ConnectionResult.Success
-    Text(
-        text = stringResource(result.messageRes()),
-        style = MaterialTheme.typography.bodyMedium,
-        color = if (isSuccess) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-    )
+private fun ConnectError(result: ConnectionResult) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer
+    ) {
+        Text(
+            text = stringResource(result.messageRes()),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        )
+    }
 }
 
 private fun ConnectionResult.messageRes(): Int = when (this) {
-    ConnectionResult.Success -> R.string.connect_result_success
-    ConnectionResult.Unreachable -> R.string.connect_result_unreachable
+    // Success never shows: it saves and leaves the screen.
+    ConnectionResult.Success, ConnectionResult.Unreachable -> R.string.connect_result_unreachable
     ConnectionResult.AuthRequired -> R.string.connect_result_auth_required
     ConnectionResult.AuthFailed -> R.string.connect_result_auth_failed
     ConnectionResult.NotSillyTavern -> R.string.connect_result_not_sillytavern
     ConnectionResult.InvalidUrl -> R.string.connect_result_invalid_url
 }
 
+/** The full-width Connect button, or a spinner with "Connecting…" below it while connecting. */
 @Composable
-private fun ActionButtons(
-    isTesting: Boolean,
-    canTest: Boolean,
-    canSave: Boolean,
-    onTest: () -> Unit,
-    onSave: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        FilledTonalButton(
-            onClick = onTest,
-            enabled = canTest && !isTesting,
-            modifier = Modifier.weight(1f)
-        ) {
-            if (isTesting) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-            } else {
-                Text(stringResource(R.string.connect_test))
+private fun ConnectAction(isConnecting: Boolean, enabled: Boolean, onConnect: () -> Unit) {
+    // Same height either way, so nothing below jumps when the spinner replaces the button.
+    Box(modifier = Modifier.fillMaxWidth().heightIn(min = ACTION_HEIGHT), contentAlignment = Alignment.Center) {
+        if (isConnecting) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                Text(
+                    text = stringResource(R.string.connect_connecting),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            Button(onClick = onConnect, enabled = enabled, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+                Text(stringResource(R.string.connect_action), style = MaterialTheme.typography.titleMedium)
             }
         }
-        Button(
-            onClick = onSave,
-            enabled = canSave,
-            modifier = Modifier.weight(1f)
-        ) {
-            Text(stringResource(R.string.connect_save))
-        }
+    }
+}
+
+private val ACTION_HEIGHT = 80.dp
+
+private val previewActions: @Composable (ConnectUiState) -> Unit = { state ->
+    TravelingTavernTheme {
+        ConnectContent(
+            uiState = state,
+            onUrlChange = {}, onLoginEnabledChange = {}, onUsernameChange = {}, onPasswordChange = {}, onConnect = {}
+        )
     }
 }
 
 @Preview(name = "Empty · light", showBackground = true)
 @Preview(name = "Empty · dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun ConnectContentEmptyPreview() {
-    TravelingTavernTheme {
-        ConnectContent(
-            uiState = ConnectUiState(),
-            onUrlChange = {}, onLoginEnabledChange = {}, onUsernameChange = {},
-            onPasswordChange = {}, onTest = {}, onSave = {}
-        )
-    }
-}
+private fun ConnectContentEmptyPreview() = previewActions(ConnectUiState())
 
-@Preview(name = "Login + error", showBackground = true)
+@Preview(name = "Authentication + error", showBackground = true)
 @Composable
-private fun ConnectContentErrorPreview() {
-    TravelingTavernTheme {
-        ConnectContent(
-            uiState = ConnectUiState(
-                url = "http://100.64.0.2:8000",
-                loginEnabled = true,
-                username = "tavern",
-                password = "secret",
-                testState = TestState.Result(ConnectionResult.AuthFailed)
-            ),
-            onUrlChange = {}, onLoginEnabledChange = {}, onUsernameChange = {},
-            onPasswordChange = {}, onTest = {}, onSave = {}
-        )
-    }
-}
+private fun ConnectContentErrorPreview() = previewActions(
+    ConnectUiState(
+        url = "http://100.64.0.2:8000",
+        loginEnabled = true,
+        username = "user",
+        password = "pass",
+        status = ConnectStatus.Failed(ConnectionResult.AuthFailed)
+    )
+)
 
-@Preview(name = "Success", showBackground = true)
+@Preview(name = "Connecting", showBackground = true)
 @Composable
-private fun ConnectContentSuccessPreview() {
-    TravelingTavernTheme {
-        ConnectContent(
-            uiState = ConnectUiState(
-                url = "http://100.64.0.2:8000",
-                testState = TestState.Result(ConnectionResult.Success)
-            ),
-            onUrlChange = {}, onLoginEnabledChange = {}, onUsernameChange = {},
-            onPasswordChange = {}, onTest = {}, onSave = {}
-        )
-    }
-}
-
-@Preview(name = "Testing", showBackground = true)
-@Composable
-private fun ConnectContentTestingPreview() {
-    TravelingTavernTheme {
-        ConnectContent(
-            uiState = ConnectUiState(url = "100.64.0.2:8000", testState = TestState.Testing),
-            onUrlChange = {}, onLoginEnabledChange = {}, onUsernameChange = {},
-            onPasswordChange = {}, onTest = {}, onSave = {}
-        )
-    }
-}
+private fun ConnectContentConnectingPreview() =
+    previewActions(ConnectUiState(url = "desktop.tail1234.ts.net:8000", status = ConnectStatus.Connecting))
