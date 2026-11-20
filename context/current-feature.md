@@ -1,28 +1,25 @@
 # Current Feature
 
-Phase 1.9 Personas
+Fix: Stale Page Overwrites
 
 ## Status
 
-Complete. Merged into `dev`.
+Spec final (`fix/stale-page-overwrites`). **Blocked on TravelingTavern-Extension `v0.1.0`**: the save guard (`save-guard.js`) is built in that repo first (its own spec, `ext-0.1-save-guard-spec.md`), then included here as a submodule.
 
 ## Goals
 
-Per `context/specs/phase1-9-personas-spec.md`:
+Per `context/specs/fix-stale-page-overwrites-spec.md` (user decision 2026-11-20, very high priority: nothing TravelingTavern runs deletes or overwrites SillyTavern data without a confirmed dialog):
 
-- Persona chip in the chat's input bar ("Chatting as {name}"), following the active persona
-- Full-screen Personas list: cards with picture, name, description, badges (Active, Default; "Locked to this chat" dropped, user decision); tap to use (in a chat: switch + lock to this chat; elsewhere: switch only, never touching the open chat's lock)
-- ⋯ dropdown: Edit, Set / Remove default, Delete (alert dialog)
-- Persona editor for Create and Edit (picture, name, title, description with token count); unedited fields kept
-- Bridge: `personas` message, `requestPersonas`, `selectPersona`, `requestPersona`, `savePersona`, `createPersona`, `deletePersona`
-- Tests per spec; version bump
+- Every whole-file save (settings, lorebooks, chats, characters) is conditional: sent only if the server's file is still the version the saving copy came from; otherwise blocked and the user told
+- Guard injected at document start from the extension submodule; desktop tabs guarded by the extension (install / update prompt in the app)
+- Freshness: `checkFresh` on return, screen open and persona actions; `checkChat` before sending; at most one automatic reload per 30 s; 1.9 persona re-read removed
+- Reactions: reload, snackbars, unsent chat text restored; tests per spec; version `0.1.20`
 
 ## References
 
-- @context/specs/phase1-9-personas-spec.md
-- @context/specs/phase1-6b-lorebooks-tab-spec.md
-- @context/specs/phase1-7-chat-screen-spec.md
-- @context/ui-guidelines.md
+- @context/specs/fix-stale-page-overwrites-spec.md
+- @context/specs/phase1-9-personas-spec.md (Notes → Stale page)
+- @context/specs/phase1-7-chat-screen-spec.md (lifecycle, reload on return)
 
 ## History
 
