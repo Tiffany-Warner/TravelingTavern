@@ -9,10 +9,12 @@ import com.tiffles.travelingtavern.data.repository.CharacterRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.ChatSessionRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.LorebookRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.ServerConfigRepositoryImpl
+import com.tiffles.travelingtavern.data.settings.HiddenChatsStore
 import com.tiffles.travelingtavern.data.settings.settingsDataStore
 import com.tiffles.travelingtavern.domain.repository.CharacterRepository
 import com.tiffles.travelingtavern.domain.repository.ChatSessionRepository
 import com.tiffles.travelingtavern.domain.repository.ConnectionTester
+import com.tiffles.travelingtavern.domain.repository.HiddenChatsRepository
 import com.tiffles.travelingtavern.domain.repository.LorebookRepository
 import com.tiffles.travelingtavern.domain.repository.ServerConfigRepository
 import dagger.Binds
@@ -42,6 +44,9 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindChatSessionRepository(impl: ChatSessionRepositoryImpl): ChatSessionRepository
+
+    @Binds
+    abstract fun bindHiddenChatsRepository(impl: HiddenChatsStore): HiddenChatsRepository
 
     companion object {
         @Provides

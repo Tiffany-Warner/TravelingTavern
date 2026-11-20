@@ -6,6 +6,7 @@ import com.tiffles.travelingtavern.data.bridge.BridgeClient
 import com.tiffles.travelingtavern.data.bridge.BridgeRepository
 import com.tiffles.travelingtavern.data.lifecycle.AppForegroundTracker
 import com.tiffles.travelingtavern.data.webview.WebViewHolder
+import com.tiffles.travelingtavern.domain.model.ChatRef
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -14,6 +15,7 @@ import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -215,5 +217,57 @@ class CharacterRepositoryImplTest {
         repository.setChatVisible(false)
 
         coVerify(exactly = 1) { client.requestRecentChats() }
+    }
+
+    private val bobChat = ChatRef("Bob.png", "Bob - 1")
+
+    private fun chatResult(requestId: String, ok: Boolean, error: String? = null) {
+        val errorField = error?.let { ""","error":"$it"""" }.orEmpty()
+        bridge.onRawMessage("""{"v":1,"type":"chatResult","requestId":"$requestId","ok":$ok$errorField}""")
+    }
+
+    @Test
+    fun `deleteChat succeeds on its own chatResult and re-reads the lists`() = runTest(UnconfinedTestDispatcher()) {
+        val repository = repository()
+        pageReady()
+        coEvery { client.deleteChat(any(), "Bob.png", "Bob - 1") } coAnswers {
+            chatResult("another request", ok = false, error = "failed")
+            chatResult(firstArg(), ok = true)
+        }
+
+        assertTrue(repository.deleteChat(bobChat))
+        coVerify(exactly = 1) { client.requestRecentChats() }
+    }
+
+    @Test
+    fun `deleteChat fails when SillyTavern says so`() = runTest(UnconfinedTestDispatcher()) {
+        val repository = repository()
+        pageReady()
+        coEvery { client.deleteChat(any(), any(), any()) } coAnswers { chatResult(firstArg(), ok = false, error = "failed") }
+
+        assertFalse(repository.deleteChat(bobChat))
+        coVerify(exactly = 0) { client.requestRecentChats() }
+    }
+
+    @Test
+    fun `deleteChat gives up when the page never loads (Tailscale off)`() = runTest(UnconfinedTestDispatcher()) {
+        val repository = repository()
+
+        assertFalse(repository.deleteChat(bobChat))
+        assertEquals(CharacterRepositoryImpl.DELETE_CHAT_TIMEOUT_MS, currentTime)
+        coVerify(exactly = 0) { client.deleteChat(any(), any(), any()) }
+    }
+
+    @Test
+    fun `generatingChat is the open chat while SillyTavern generates`() = runTest(UnconfinedTestDispatcher()) {
+        val repository = repository()
+        bridge.onRawMessage("""{"v":1,"type":"chatChanged","characterId":"Bob.png","chatFile":"Bob - 1"}""")
+        assertNull(repository.generatingChat.first())
+
+        bridge.onRawMessage("""{"v":1,"type":"generationState","running":true}""")
+        assertEquals(bobChat, repository.generatingChat.first())
+
+        bridge.onPageStarted()
+        assertNull(repository.generatingChat.first())
     }
 }

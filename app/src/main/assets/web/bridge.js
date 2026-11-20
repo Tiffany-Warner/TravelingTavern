@@ -844,6 +844,29 @@
         regenerate: regenerate,
     };
 
+    /** SillyTavern's script.js module (exports that aren't on getContext()), by absolute URL. */
+    function scriptModule() {
+        return import(new URL(S.scriptModulePath, location.href).href);
+    }
+
+    /**
+     * Deletes chat [chatFile] of character [index] with SillyTavern's own function. It reports
+     * nothing, so this resolves true only if CHAT_DELETED fired for that file (server said OK).
+     */
+    function deleteChatFile(ctx, index, chatFile) {
+        const events = ctx[S.context.eventSource];
+        const name = eventName(ctx, S.events.chatDeleted);
+        let deleted = false;
+        function onDeleted(file) {
+            if (file === chatFile) deleted = true;
+        }
+        events.on(name, onDeleted);
+        return scriptModule()
+            .then(function (script) { return script[S.deleteCharacterChatByName](String(index), chatFile); })
+            .then(function () { return deleted; })
+            .finally(function () { events.removeListener(name, onDeleted); });
+    }
+
     function postChatResult(requestId, ok, error, extra) {
         const payload = { requestId: requestId, ok: ok };
         if (error) payload.error = error;
@@ -1041,10 +1064,44 @@
                 postChatResult(requestId, false, 'busy');
                 return;
             }
-            import(new URL(S.scriptModulePath, location.href).href)
+            scriptModule()
                 .then(function (script) { return script[S.doNewChat]({ deleteCurrentChat: deleteCurrent === true }); })
                 .then(function () { postChatResult(requestId, true); }, function (e) {
                     postError('New chat failed: ' + e);
+                    postChatResult(requestId, false, 'failed');
+                });
+        },
+
+        /**
+         * Deletes character [id]'s chat [chatFile] (no `.jsonl`) through SillyTavern's own code.
+         * If it's the chat open in the page, the page then moves to the newest chat left (or a
+         * new one), as deleting in SillyTavern's chat list does. Answered with `chatResult`.
+         */
+        deleteChat: function (requestId, id, chatFile) {
+            const ctx = context();
+            const index = ctx ? characterList(ctx).findIndex(function (c) { return c && c[S.character.id] === id; }) : -1;
+            if (index < 0 || typeof chatFile !== 'string' || !chatFile) {
+                postChatResult(requestId, false, 'failed');
+                return;
+            }
+            const isOpen = currentCharacterId(ctx) === id && currentChatFile(ctx) === chatFile;
+            if (isOpen && generating) {
+                postChatResult(requestId, false, 'busy');
+                return;
+            }
+            deleteChatFile(ctx, index, chatFile)
+                .then(function (deleted) {
+                    if (!deleted) {
+                        postChatResult(requestId, false, 'failed');
+                        return;
+                    }
+                    const moveOn = isOpen
+                        ? scriptModule().then(function (script) { return script[S.replaceCurrentChat](); })
+                        : Promise.resolve();
+                    return moveOn.then(function () { postChatResult(requestId, true); });
+                })
+                .catch(function (e) {
+                    postError('Delete chat failed: ' + e);
                     postChatResult(requestId, false, 'failed');
                 });
         },

@@ -21,6 +21,8 @@
             generationStarted: 'GENERATION_STARTED',
             /** (text) once impersonate has written its result into #send_textarea. */
             impersonateReady: 'IMPERSONATE_READY',
+            /** (fileName without `.jsonl`) after the server deleted a character's chat file. */
+            chatDeleted: 'CHAT_DELETED',
             /** Events after which the latest message or its swipes may have changed. */
             messagesChanged: Object.freeze([
                 'MESSAGE_SWIPED',
@@ -96,6 +98,14 @@
         /** script.js export for Start new chat / Restart chat (not on getContext()). */
         scriptModulePath: '/script.js',
         doNewChat: 'doNewChat',
+        /**
+         * (characterId = index in characters, as a string; fileName without `.jsonl`). Deletes
+         * the file and repoints the character's current chat, but leaves the open page alone;
+         * returns nothing either way (success = CHAT_DELETED). See the 1.6c spec's Notes.
+         */
+        deleteCharacterChatByName: 'deleteCharacterChatByName',
+        /** Clears the page and opens the character's newest chat left, or a new one (CHAT_CHANGED). */
+        replaceCurrentChat: 'replaceCurrentChat',
 
         /** POST { avatar_url, simple: true } → [{ file_name, file_id }] for one character. */
         characterChatsApi: '/api/characters/chats',

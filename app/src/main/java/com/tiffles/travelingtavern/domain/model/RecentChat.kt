@@ -21,3 +21,19 @@ data class RecentChat(
     val lastMessageAt: Instant?,
     val chatFile: String? = null
 )
+
+/** The row's chat as SillyTavern identifies it, or null if SillyTavern didn't report the file. */
+val RecentChat.ref: ChatRef?
+    get() = chatFile?.let { ChatRef(character.id, it) }
+
+/**
+ * One SillyTavern chat, by SillyTavern's own keys: the character's avatar file ([characterId])
+ * and the chat file name without `.jsonl` ([chatFile]).
+ */
+data class ChatRef(val characterId: String, val chatFile: String)
+
+/**
+ * The Chats tab's list: [visible] rows, and how many of SillyTavern's chats are hidden in the
+ * app ([hiddenCount]; hidden entries for chats that no longer exist don't count).
+ */
+data class ChatList(val visible: List<RecentChat>, val hiddenCount: Int)

@@ -39,6 +39,17 @@
 
     <string name="chats_empty">No chats yet.</string>
     <string name="chats_browse_characters">Browse characters</string>
+    <string name="chats_options_label">Chat options</string>
+    <string name="chats_option_hide">Hide</string>
+    <string name="chats_option_delete">Delete</string>
+    <string name="chats_delete_title">Delete this chat?</string>
+    <string name="chats_delete_message">Every message in it is gone for good. This can\'t be undone.</string>
+    <string name="chat_delete_warning">This also deletes the chat on your SillyTavern.</string>
+    <string name="chats_hidden">Chat hidden</string>
+    <string name="chats_undo">Undo</string>
+    <string name="chats_delete_failed">Couldn\'t delete the chat</string>
+    <string name="chats_more">More options</string>
+    <string name="chats_show_hidden">Show hidden chats</string>
 
     <string name="characters_search">Search characters</string>
     <string name="characters_close_search">Close search</string>
@@ -53,13 +64,13 @@
     <string name="chat_back">Back</string>
     <string name="chat_more">More options</string>
     <string name="chat_start_new">Start new chat</string>
-    <string name="chat_restart">Restart chat</string>
+    <string name="chat_restart">Delete and restart</string>
     <string name="chat_start_new_title">Start a new chat?</string>
     <string name="chat_start_new_message">This chat is kept in your chat list.</string>
     <string name="chat_start_new_action">Start</string>
-    <string name="chat_restart_title">Restart this chat?</string>
-    <string name="chat_restart_message">This deletes every message in it and can\'t be undone.</string>
-    <string name="chat_restart_action">Restart</string>
+    <string name="chat_restart_title">Delete and restart?</string>
+    <string name="chat_restart_message">Every message in it is gone for good, and a fresh chat starts with the greeting. This can\'t be undone.</string>
+    <string name="chat_restart_action">Delete and restart</string>
     <string name="chat_delete_message_title">Delete this message?</string>
     <string name="chat_delete_message_text">It\'s removed from the chat, with all its replies.</string>
     <string name="chat_input_placeholder">Message</string>

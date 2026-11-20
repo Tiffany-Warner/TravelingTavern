@@ -57,6 +57,7 @@ import com.tiffles.travelingtavern.domain.model.MessageAction
 import com.tiffles.travelingtavern.ui.chat.components.ChatInputBar
 import com.tiffles.travelingtavern.ui.chat.components.MessageActionsSheet
 import com.tiffles.travelingtavern.ui.components.CharacterAvatar
+import com.tiffles.travelingtavern.ui.components.ConfirmDeleteChatDialog
 import com.tiffles.travelingtavern.ui.components.ConfirmDeleteSheet
 import com.tiffles.travelingtavern.ui.components.WebViewBackHandler
 import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
@@ -241,7 +242,7 @@ private fun ChatConfirmationSheet(confirmation: ChatConfirmation, actions: ChatA
             onConfirm = actions.onConfirm,
             onDismiss = actions.onConfirmationDismissed
         )
-        ChatConfirmation.RestartChat -> ConfirmDeleteSheet(
+        ChatConfirmation.RestartChat -> ConfirmDeleteChatDialog(
             title = stringResource(R.string.chat_restart_title),
             message = stringResource(R.string.chat_restart_message),
             confirmLabel = stringResource(R.string.chat_restart_action),

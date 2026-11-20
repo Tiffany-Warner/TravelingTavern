@@ -2,6 +2,7 @@ package com.tiffles.travelingtavern.domain
 
 import com.tiffles.travelingtavern.domain.model.CharacterSummary
 import com.tiffles.travelingtavern.domain.model.ChatActivity
+import com.tiffles.travelingtavern.domain.model.ChatRef
 import com.tiffles.travelingtavern.domain.model.PageState
 import com.tiffles.travelingtavern.domain.repository.CharacterRepository
 import kotlinx.coroutines.CompletableDeferred
@@ -13,12 +14,20 @@ class FakeCharacterRepository : CharacterRepository {
     override val characters = MutableStateFlow<List<CharacterSummary>?>(null)
     override val chatActivity = MutableStateFlow<List<ChatActivity>?>(null)
     override val pageState = MutableStateFlow<PageState>(PageState.Ready)
+    override val generatingChat = MutableStateFlow<ChatRef?>(null)
 
     var refreshCalls = 0
     var retryCalls = 0
     val openedChats = mutableListOf<String>()
     val requestedChatFiles = mutableListOf<String?>()
     var visibleNow = false
+    val deletedChats = mutableListOf<ChatRef>()
+
+    /** What [deleteChat] reports. */
+    var deleteSucceeds = true
+
+    /** When set, [deleteChat] suspends until it completes. */
+    var deleteGate: CompletableDeferred<Unit>? = null
 
     /** What [openChat] reports as opened; by default the requested file, or this when none was requested. */
     var currentChatFile: String? = "current"
@@ -32,6 +41,12 @@ class FakeCharacterRepository : CharacterRepository {
     override suspend fun refresh() {
         refreshCalls++
         refreshGate?.await()
+    }
+
+    override suspend fun deleteChat(chat: ChatRef): Boolean {
+        deletedChats += chat
+        deleteGate?.await()
+        return deleteSucceeds
     }
 
     override fun retry() {
@@ -58,8 +73,9 @@ fun character(name: String, id: String = "$name.png") = CharacterSummary(
     lastChatAt = null
 )
 
-fun activity(characterId: String, lastMessage: String?, at: String?) = ChatActivity(
+fun activity(characterId: String, lastMessage: String?, at: String?, chatFile: String? = null) = ChatActivity(
     characterId = characterId,
     lastMessage = lastMessage,
-    lastMessageAt = at?.let(Instant::parse)
+    lastMessageAt = at?.let(Instant::parse),
+    chatFile = chatFile
 )

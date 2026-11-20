@@ -50,6 +50,7 @@ The look is **quiet and simple**: neutral surfaces, one accent color, and the ch
 - **Empty states:** one short sentence + one action button, no illustrations for now
 - **Errors:** inline banner at the top of the content ("Can't reach your server — Retry"), not dialogs. Connection status is not shown at all when things are working
 - **Sheets over dialogs** for choices (e.g. Create vs Import)
+    - Exception: deleting a whole chat (Delete in Chats, Restart chat) confirms in an alert dialog (`ConfirmDeleteChatDialog`: red delete icon, a bold red first line "This also deletes the chat on your SillyTavern.", red button) so it can't be mistaken for the Start new chat sheet (1.6c, user decision 2026-11-19)
 - **Motion:** Material defaults only; no custom animations until a later polish pass
 
 ## Screen Map
