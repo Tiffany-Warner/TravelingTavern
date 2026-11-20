@@ -18,7 +18,8 @@ import javax.inject.Singleton
 @Singleton
 class BridgeClient @Inject constructor(
     private val holder: WebViewHolder,
-    private val pageMode: PageModeStore
+    private val pageMode: PageModeStore,
+    private val pageTheme: PageThemeStore
 ) {
     /** Asks for a fresh `characters` message; [fromServer] re-reads the list from the server first. */
     suspend fun requestCharacters(fromServer: Boolean) =
@@ -27,8 +28,64 @@ class BridgeClient @Inject constructor(
     /** Asks the page to send a fresh `recentChats` message. */
     suspend fun requestRecentChats() = run(BridgeScript.call("requestRecentChats"))
 
-    /** Opens a character's chat in SillyTavern by its avatar file name. */
-    suspend fun selectCharacter(id: String) = run(BridgeScript.call("selectCharacter", JsonPrimitive(id)))
+    /**
+     * Opens character [id]'s chat (avatar file name): [chatFile] (without `.jsonl`) if it
+     * exists, else the current one; re-read first when [reload] and it was already open.
+     * Answered by `chatOpened` tagged [requestId].
+     */
+    suspend fun selectCharacter(requestId: String, id: String, chatFile: String?, reload: Boolean) =
+        run(
+            BridgeScript.call(
+                "selectCharacter",
+                JsonPrimitive(requestId),
+                JsonPrimitive(id),
+                chatFile?.let(::JsonPrimitive) ?: JsonNull,
+                JsonPrimitive(reload)
+            )
+        )
+
+    /** Tells the page whether the app is in the foreground (kept in `appState`). */
+    suspend fun setAppState(foreground: Boolean) = run(BridgeScript.call("setAppState", JsonPrimitive(foreground)))
+
+    /** Re-reads the open chat from the server once no generation is running. */
+    suspend fun reloadChat() = run(BridgeScript.call("reloadChat"))
+
+    /** Runs [action] on a message, answered by `chatResult` tagged [requestId]. */
+    suspend fun messageAction(requestId: String, messageId: Int, sendDate: String, action: String) =
+        run(
+            BridgeScript.call(
+                "messageAction",
+                JsonPrimitive(requestId),
+                JsonPrimitive(messageId),
+                JsonPrimitive(sendDate),
+                JsonPrimitive(action)
+            )
+        )
+
+    /** Sends [text] through SillyTavern's own send. */
+    suspend fun sendMessage(text: String) = run(BridgeScript.call("sendMessage", JsonPrimitive(text)))
+
+    /** SillyTavern's impersonate; its text arrives as `impersonateReady`. */
+    suspend fun impersonate() = run(BridgeScript.call("impersonate"))
+
+    suspend fun stopGeneration() = run(BridgeScript.call("stopGeneration"))
+
+    /** Scrolls message [messageId] above the actions sheet, which covers the bottom [coveredPx] of the page. */
+    suspend fun revealMessage(messageId: Int, coveredPx: Int) =
+        run(BridgeScript.call("revealMessage", JsonPrimitive(messageId), JsonPrimitive(coveredPx)))
+
+    /** The actions sheet closed: takes away the room [revealMessage] added. */
+    suspend fun endReveal() = run(BridgeScript.call("endReveal"))
+
+    /** Start new chat, or Restart chat when [deleteCurrent]; answered by `chatResult`. */
+    suspend fun newChat(requestId: String, deleteCurrent: Boolean) =
+        run(BridgeScript.call("newChat", JsonPrimitive(requestId), JsonPrimitive(deleteCurrent)))
+
+    /** The app's colors for the clean layout. Remembered, so it is re-applied after every reload. */
+    suspend fun setPageTheme(theme: PageTheme) = withContext(Dispatchers.Main) {
+        pageTheme.theme = theme
+        holder.webView.evaluateJavascript(BridgeScript.setTheme(theme), null)
+    }
 
     /** Asks for a fresh `lorebooks` message; [fromServer] re-reads everything from the server first. */
     suspend fun requestLorebooks(fromServer: Boolean) =
@@ -56,21 +113,6 @@ class BridgeClient @Inject constructor(
 
     suspend fun countTokens(requestId: String, text: String) =
         run(BridgeScript.call("countTokens", JsonPrimitive(requestId), JsonPrimitive(text)))
-
-    /** Adds the in-page mic button (or removes it, when [available] is false). */
-    suspend fun setVoiceInputAvailable(available: Boolean) =
-        run(BridgeScript.call("setVoiceInputAvailable", JsonPrimitive(available)))
-
-    /** Starts filling the [target] input (`story` or `text`) with recognized text. */
-    suspend fun beginVoiceInput(target: String) = run(BridgeScript.call("beginVoiceInput", JsonPrimitive(target)))
-
-    /** Sets the input to its text from before [beginVoiceInput] plus [text]. */
-    suspend fun updateVoiceInput(text: String) = run(BridgeScript.call("updateVoiceInput", JsonPrimitive(text)))
-
-    suspend fun endVoiceInput() = run(BridgeScript.call("endVoiceInput"))
-
-    /** Sets the page's `tt-mode-*` body class (1.7); an empty [mode] clears it. */
-    suspend fun setMode(mode: String) = run(BridgeScript.call("setMode", JsonPrimitive(mode)))
 
     /**
      * Turns the clean theme on or off (Advanced, 1.8). Remembered, so it is re-applied after

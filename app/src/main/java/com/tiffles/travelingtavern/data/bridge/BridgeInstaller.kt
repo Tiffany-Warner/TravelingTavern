@@ -5,7 +5,7 @@ import android.util.Log
 import android.webkit.WebView
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
-import com.tiffles.travelingtavern.domain.repository.SpeechInputRepository
+import com.tiffles.travelingtavern.data.lifecycle.AppForegroundTracker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.json.JsonPrimitive
 import javax.inject.Inject
@@ -21,7 +21,8 @@ class BridgeInstaller @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val repository: BridgeRepository,
     private val pageMode: PageModeStore,
-    private val speech: SpeechInputRepository
+    private val pageTheme: PageThemeStore,
+    private val foreground: AppForegroundTracker
 ) {
     private var registeredOrigin: String? = null
 
@@ -55,16 +56,18 @@ class BridgeInstaller @Inject constructor(
     }
 
     /**
-     * Runs st-selectors.js and bridge.js, installs the clean theme, applies the current
-     * clean-mode setting and adds the mic button if voice input is available. Safe to run
-     * twice: the scripts guard themselves, the style tag is replaced and the mic button is
-     * added only once.
+     * Runs st-selectors.js and bridge.js, installs the clean theme, and re-applies what the
+     * page loses on a reload: clean mode, the app's foreground state and its theme colors.
+     * Safe to run twice: the scripts guard themselves and the style tag is replaced.
      */
     fun injectScripts(view: WebView) {
         if (!isSupported) return
-        val applyMode = BridgeScript.call("setClean", JsonPrimitive(pageMode.cleanMode))
-        val applyVoice = BridgeScript.call("setVoiceInputAvailable", JsonPrimitive(speech.isAvailable()))
-        view.evaluateJavascript(scripts + "\n" + applyMode + "\n" + applyVoice, null)
+        val state = listOfNotNull(
+            BridgeScript.call("setClean", JsonPrimitive(pageMode.cleanMode)),
+            BridgeScript.call("setAppState", JsonPrimitive(foreground.isForeground.value)),
+            pageTheme.theme?.let(BridgeScript::setTheme)
+        )
+        view.evaluateJavascript((listOf(scripts) + state).joinToString("\n"), null)
     }
 
     fun onPageStarted() = repository.onPageStarted()

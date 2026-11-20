@@ -42,7 +42,7 @@ class GetRecentChatsUseCaseTest {
     }
 
     @Test
-    fun `one row per character, from its newest chat`() = runTest {
+    fun `one row per chat, so a character with two chats has two rows`() = runTest {
         repository.characters.value = listOf(character("Bob"))
         repository.chatActivity.value = listOf(
             activity("Bob.png", "old chat", "2026-11-01T10:00:00Z"),
@@ -52,8 +52,7 @@ class GetRecentChatsUseCaseTest {
 
         val chats = useCase().first()!!
 
-        assertEquals(1, chats.size)
-        assertEquals("new chat", chats[0].lastMessage)
+        assertEquals(listOf("new chat", "old chat", "undated"), chats.map { it.lastMessage })
         assertEquals(Instant.parse("2026-11-17T10:00:00Z"), chats[0].lastMessageAt)
     }
 

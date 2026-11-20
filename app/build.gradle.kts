@@ -17,8 +17,8 @@ android {
         minSdk = 31
         targetSdk = 36
         // See "Versioning" in CLAUDE.md
-        versionCode = 16
-        versionName = "0.1.15"
+        versionCode = 17
+        versionName = "0.1.16"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -48,6 +48,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
 

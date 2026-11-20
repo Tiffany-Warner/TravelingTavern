@@ -24,15 +24,26 @@ object Routes {
         const val CONNECT = "connect"
         const val ADVANCED = "advanced"
 
+        /**
+         * One character's chat; [ARG_CHAT_FILE] (SillyTavern's chat file name without `.jsonl`)
+         * is optional — without it SillyTavern's current chat for the character opens.
+         */
         object Chat {
             const val ARG_CHARACTER_ID = "characterId"
-            const val ROUTE = "chat/{$ARG_CHARACTER_ID}"
+            const val ARG_CHAT_FILE = "chatFile"
+            const val ROUTE = "chat/{$ARG_CHARACTER_ID}?$ARG_CHAT_FILE={$ARG_CHAT_FILE}"
+
+            /** For Phase 8's notification tap: `travelingtavern://chat/<id>?chatFile=<file>`. */
+            const val DEEP_LINK = "travelingtavern://chat/{$ARG_CHARACTER_ID}?$ARG_CHAT_FILE={$ARG_CHAT_FILE}"
 
             /**
-             * Builds the route for one character. SillyTavern character IDs are avatar
-             * file names (e.g. `Seraphina.png`), so the ID is URL-encoded.
+             * Builds the route. SillyTavern character IDs are avatar file names (e.g.
+             * `Seraphina.png`) and chat files contain spaces, so both are URL-encoded.
              */
-            fun create(characterId: String): String = "chat/${Uri.encode(characterId)}"
+            fun create(characterId: String, chatFile: String? = null): String {
+                val base = "chat/${Uri.encode(characterId)}"
+                return if (chatFile == null) base else "$base?$ARG_CHAT_FILE=${Uri.encode(chatFile)}"
+            }
         }
 
         /** One lorebook's entries. Lorebook names are their IDs (and file names), so URL-encoded. */

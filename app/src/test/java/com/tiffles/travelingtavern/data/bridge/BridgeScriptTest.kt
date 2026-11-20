@@ -1,6 +1,7 @@
 package com.tiffles.travelingtavern.data.bridge
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
@@ -89,7 +90,7 @@ class BridgeScriptTest {
     }
 
     @Test
-    fun `recognized text with quotes, backslashes, newlines and emoji reaches the page unchanged`() {
+    fun `a message with quotes, backslashes, newlines, emoji and a slash command reaches the page unchanged`() {
         val texts = listOf(
             "She said \"hi\" and it's fine",
             "a back\\slash and a </script> tag",
@@ -97,14 +98,63 @@ class BridgeScriptTest {
             "emoji \uD83D\uDE00\uD83D\uDC4D\uD83C\uDFFD and line\u2028separator\u2029paragraph",
         )
         texts.forEach { text ->
-            val script = BridgeScript.call("updateVoiceInput", JsonPrimitive(text))
+            val script = BridgeScript.call("sendMessage", JsonPrimitive(text))
             val argument = script
-                .removePrefix("window.__ttBridge && window.__ttBridge.updateVoiceInput(")
+                .removePrefix("window.__ttBridge && window.__ttBridge.sendMessage(")
                 .removeSuffix(");")
 
             val breaksLine = listOf('\n', '\r', '\u2028', '\u2029').any { it in script }
             assertFalse("line break left in: $script", breaksLine)
             assertEquals(text, Json.parseToJsonElement(argument).jsonPrimitive.content)
         }
+    }
+
+    @Test
+    fun `theme colors travel as one object`() {
+        val script = BridgeScript.setTheme(PageTheme(dark = true, colors = mapOf("primaryContainer" to "#5A4300")))
+        assertEquals(
+            """window.__ttBridge && window.__ttBridge.setTheme({"dark":true,"colors":{"primaryContainer":"#5A4300"}});""",
+            script
+        )
+    }
+
+    @Test
+    fun `selectCharacter with a chat file and without one`() {
+        assertEquals(
+            """window.__ttBridge && window.__ttBridge.selectCharacter("r1","Tide Pods.png","Tide Pods - 2026-11-19 @15h 04m",true);""",
+            BridgeScript.call(
+                "selectCharacter",
+                JsonPrimitive("r1"),
+                JsonPrimitive("Tide Pods.png"),
+                JsonPrimitive("Tide Pods - 2026-11-19 @15h 04m"),
+                JsonPrimitive(true)
+            )
+        )
+        assertEquals(
+            """window.__ttBridge && window.__ttBridge.selectCharacter("r1","Bob.png",null,false);""",
+            BridgeScript.call("selectCharacter", JsonPrimitive("r1"), JsonPrimitive("Bob.png"), JsonNull, JsonPrimitive(false))
+        )
+    }
+
+    @Test
+    fun `message action and the other chat commands`() {
+        assertEquals(
+            """window.__ttBridge && window.__ttBridge.messageAction("c1",4,"2026-11-19T15:04:00.000Z","regenerate");""",
+            BridgeScript.call(
+                "messageAction",
+                JsonPrimitive("c1"),
+                JsonPrimitive(4),
+                JsonPrimitive("2026-11-19T15:04:00.000Z"),
+                JsonPrimitive("regenerate")
+            )
+        )
+        assertEquals("window.__ttBridge && window.__ttBridge.setAppState(false);", BridgeScript.call("setAppState", JsonPrimitive(false)))
+        assertEquals("window.__ttBridge && window.__ttBridge.reloadChat();", BridgeScript.call("reloadChat"))
+        assertEquals("window.__ttBridge && window.__ttBridge.impersonate();", BridgeScript.call("impersonate"))
+        assertEquals("window.__ttBridge && window.__ttBridge.stopGeneration();", BridgeScript.call("stopGeneration"))
+        assertEquals(
+            """window.__ttBridge && window.__ttBridge.newChat("n1",true);""",
+            BridgeScript.call("newChat", JsonPrimitive("n1"), JsonPrimitive(true))
+        )
     }
 }

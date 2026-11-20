@@ -27,9 +27,16 @@ interface CharacterRepository {
     fun retry()
 
     /**
-     * Opens [characterId]'s chat in SillyTavern (waiting for the page to be ready first) and
-     * returns once SillyTavern has drawn it and it has stopped scrolling — or failed, or
-     * after a timeout.
+     * Opens [characterId]'s chat in SillyTavern (waiting for the page to be ready first):
+     * [chatFile] (without `.jsonl`) if it exists, else the character's current chat. Returns
+     * once SillyTavern has drawn it and it has stopped scrolling, with the chat file that
+     * opened — or null if it failed or timed out. A chat marked stale is re-read first.
      */
-    suspend fun openChat(characterId: String)
+    suspend fun openChat(characterId: String, chatFile: String? = null): String?
+
+    /**
+     * Whether the Chat screen is showing. When the app comes back from the background the
+     * open chat is re-read if it is, and marked stale (re-read on the next open) if not.
+     */
+    fun setChatVisible(visible: Boolean)
 }

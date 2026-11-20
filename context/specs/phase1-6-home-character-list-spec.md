@@ -16,7 +16,7 @@ Fill the Chats and Characters tabs with real data from the JS bridge. **Chats** 
 ### Chats tab (`ui/chats/ChatsScreen.kt`)
 
 - Top app bar: plain "Chats" title
-- `LazyColumn`, one row per character that has at least one chat:
+- `LazyColumn`, one row per chat (**changed 2026-11-19, user:** was one row per character; a character with two chats now has two rows, and a tap opens that row's chat file):
     - 48dp round avatar
     - Name (`titleMedium`)
     - Last message preview, one line, ellipsized (`bodyMedium`, secondary color) **(verify how to get the last message per character; if not available cheaply, show nothing in Phase 1 and note it here)**

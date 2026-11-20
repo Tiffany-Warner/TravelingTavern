@@ -23,6 +23,7 @@ class BridgeRepository @Inject constructor() {
     private val _chatActivity = MutableStateFlow<List<ChatActivity>?>(null)
     private val _lorebooks = MutableStateFlow<List<Lorebook>?>(null)
     private val _isReady = MutableStateFlow(false)
+    private val _generating = MutableStateFlow(false)
 
     /** Every valid message, including ones handled here. One-shot events (chat changed, new message). */
     val messages: SharedFlow<BridgeMessage> = _messages.asSharedFlow()
@@ -39,6 +40,9 @@ class BridgeRepository @Inject constructor() {
     /** True once SillyTavern has loaded and the bridge is listening; false again on every reload. */
     val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
 
+    /** True while SillyTavern is generating (Stop is shown); false again on every reload. */
+    val generating: StateFlow<Boolean> = _generating.asStateFlow()
+
     /** Raw JSON from the page. Invalid input is logged and dropped. */
     fun onRawMessage(raw: String) {
         val message = BridgeMessageParser.parse(raw)
@@ -52,6 +56,7 @@ class BridgeRepository @Inject constructor() {
     /** The page is reloading: nothing it said before still holds. */
     fun onPageStarted() {
         _isReady.value = false
+        _generating.value = false
     }
 
     private fun onMessage(message: BridgeMessage) {
@@ -61,11 +66,12 @@ class BridgeRepository @Inject constructor() {
             is BridgeMessage.Characters -> _characters.value = message.items.map { it.toDomain() }
             is BridgeMessage.RecentChats -> _chatActivity.value = message.items.map { it.toDomain() }
             is BridgeMessage.Lorebooks -> _lorebooks.value = message.items.map { it.toDomain() }
+            is BridgeMessage.GenerationState -> _generating.value = message.running
             is BridgeMessage.Error -> Log.w(TAG, "Bridge reported an error")
             is BridgeMessage.Unknown -> Log.d(TAG, "Ignored unknown bridge message type: ${message.type}")
             is BridgeMessage.ChatChanged, is BridgeMessage.ChatOpened, is BridgeMessage.MessageReceived,
             is BridgeMessage.LorebookEntries, is BridgeMessage.LorebookResult, is BridgeMessage.TokenCount,
-            is BridgeMessage.MicPressed -> Unit
+            is BridgeMessage.MessageTapped, is BridgeMessage.ChatResult, is BridgeMessage.ImpersonateReady -> Unit
         }
         _messages.tryEmit(message)
     }
@@ -77,6 +83,8 @@ class BridgeRepository @Inject constructor() {
         is BridgeMessage.Lorebooks -> "lorebooks (${items.size})"
         is BridgeMessage.LorebookEntries -> "lorebookEntries (${entries.size})"
         is BridgeMessage.LorebookResult -> if (ok) "lorebookResult ok" else "lorebookResult ${error.orEmpty()}"
+        is BridgeMessage.ChatResult -> if (ok) "chatResult ok" else "chatResult ${error.orEmpty()}"
+        is BridgeMessage.GenerationState -> "generationState $running"
         else -> this::class.simpleName.orEmpty()
     }
 
@@ -98,6 +106,7 @@ class BridgeRepository @Inject constructor() {
 
     private fun RecentChatDto.toDomain() = ChatActivity(
         characterId = characterId,
+        chatFile = chatFile,
         lastMessage = lastMessage,
         lastMessageAt = lastMessageAt?.let(Instant::ofEpochMilli)
     )

@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -53,7 +53,7 @@ import java.time.ZoneId
 
 @Composable
 fun ChatsScreen(
-    onOpenChat: (characterId: String) -> Unit,
+    onOpenChat: (characterId: String, chatFile: String?) -> Unit,
     onBrowseCharacters: () -> Unit,
     onOpenServerSettings: () -> Unit,
     modifier: Modifier = Modifier,
@@ -96,7 +96,7 @@ fun ChatsContent(
     isRefreshing: Boolean,
     now: Instant,
     onRefresh: () -> Unit,
-    onChatClick: (characterId: String) -> Unit,
+    onChatClick: (characterId: String, chatFile: String?) -> Unit,
     onBrowseCharacters: () -> Unit,
     onRetry: () -> Unit,
     onOpenServerSettings: () -> Unit,
@@ -135,7 +135,7 @@ private fun ChatList(
     chats: List<RecentChat>,
     now: Instant,
     zone: ZoneId,
-    onChatClick: (characterId: String) -> Unit,
+    onChatClick: (characterId: String, chatFile: String?) -> Unit,
     listState: LazyListState
 ) {
     LazyColumn(
@@ -143,8 +143,9 @@ private fun ChatList(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 8.dp)
     ) {
-        items(chats, key = { it.character.id }) { chat ->
-            ChatRow(chat = chat, now = now, zone = zone, onClick = { onChatClick(chat.character.id) })
+        // A character can have several chats, so the key is the pair (the position if the file is unknown).
+        itemsIndexed(chats, key = { index, chat -> chat.character.id + "/" + (chat.chatFile ?: "#$index") }) { _, chat ->
+            ChatRow(chat = chat, now = now, zone = zone, onClick = { onChatClick(chat.character.id, chat.chatFile) })
         }
     }
 }
@@ -221,7 +222,7 @@ private fun ChatsContentSuccessPreview() {
     TravelingTavernTheme {
         ChatsContent(
             uiState = ChatsUiState.Success(previewChats), isRefreshing = false, now = previewNow,
-            onRefresh = {}, onChatClick = {}, onBrowseCharacters = {}, onRetry = {}, onOpenServerSettings = {},
+            onRefresh = {}, onChatClick = { _, _ -> }, onBrowseCharacters = {}, onRetry = {}, onOpenServerSettings = {},
             zone = ZoneId.of("UTC")
         )
     }
@@ -233,7 +234,7 @@ private fun ChatsContentEmptyPreview() {
     TravelingTavernTheme {
         ChatsContent(
             uiState = ChatsUiState.Empty, isRefreshing = false, now = previewNow,
-            onRefresh = {}, onChatClick = {}, onBrowseCharacters = {}, onRetry = {}, onOpenServerSettings = {}
+            onRefresh = {}, onChatClick = { _, _ -> }, onBrowseCharacters = {}, onRetry = {}, onOpenServerSettings = {}
         )
     }
 }
@@ -244,7 +245,7 @@ private fun ChatsContentErrorPreview() {
     TravelingTavernTheme {
         ChatsContent(
             uiState = ChatsUiState.Error(PageError.Unreachable), isRefreshing = false, now = previewNow,
-            onRefresh = {}, onChatClick = {}, onBrowseCharacters = {}, onRetry = {}, onOpenServerSettings = {}
+            onRefresh = {}, onChatClick = { _, _ -> }, onBrowseCharacters = {}, onRetry = {}, onOpenServerSettings = {}
         )
     }
 }
@@ -255,7 +256,7 @@ private fun ChatsContentLoadingPreview() {
     TravelingTavernTheme {
         ChatsContent(
             uiState = ChatsUiState.Loading, isRefreshing = false, now = previewNow,
-            onRefresh = {}, onChatClick = {}, onBrowseCharacters = {}, onRetry = {}, onOpenServerSettings = {}
+            onRefresh = {}, onChatClick = { _, _ -> }, onBrowseCharacters = {}, onRetry = {}, onOpenServerSettings = {}
         )
     }
 }
