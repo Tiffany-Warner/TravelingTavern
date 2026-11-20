@@ -12,9 +12,10 @@ Take your SillyTavern companions with you. TravelingTavern is a native Android a
 - **Characters tab** — your character library as a portrait grid, with search
 - **Lorebooks tab** — browse, create and delete lorebooks, and edit their entries
 - **Story chat** — SillyTavern's chat as message cards over its background, without the desktop menus. Tap a message for SillyTavern's own actions (regenerate, continue, copy, edit, branch, hide, delete); a native input bar with Write for me; start a new chat or delete and restart from the ⋮ menu
+- **Personas** — a "Chatting as {name}" chip under the message box shows who you're chatting as. Tap it to switch persona (the pick sticks to that chat), create, edit and delete personas, or set the default for new chats
 - **Connect screen** — enter your server address and tap Connect
 
-Coming next: the Me tab and personas. After that, a texting style for the chat, the character creator, voice notes and selfies, and the rest of the roadmap, with proactive messages and reminders as the final phase.
+Coming next: protection against old copies overwriting your changes (with the TravelingTavern extension), then the Me tab. After that, a texting style for the chat, the character creator, voice notes and selfies, and the rest of the roadmap, with proactive messages and reminders as the final phase.
 
 ## How It Works
 
