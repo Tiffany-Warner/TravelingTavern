@@ -1,3 +1,5 @@
+> Superseded 2026-11-20 by the session-lease direction. Kept for its source findings. Do not implement.
+
 # Fix: Stale Page Overwrites — `0.1.20`
 
 Replaces the earlier draft. App side only; the guard's behavior is in `ext-0.1-save-guard-spec.md` (**read it first**). All decisions: user + design reviews, 2026-11-20.
