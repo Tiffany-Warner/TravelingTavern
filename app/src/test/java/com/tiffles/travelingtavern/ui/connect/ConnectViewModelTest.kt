@@ -7,13 +7,14 @@ import com.tiffles.travelingtavern.domain.usecase.TestConnectionUseCase
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
-import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -41,67 +42,31 @@ class ConnectViewModelTest {
         Dispatchers.resetMain()
     }
 
-    @Test
-    fun `save is disabled until a successful test`() = runTest {
-        viewModel.onUrlChange("100.64.0.2:8000")
-        assertFalse(viewModel.uiState.value.canSave)
-
-        coEvery { testConnection("100.64.0.2:8000", null, null) } returns ConnectionResult.Success
-        viewModel.testConnection()
-
-        assertTrue(viewModel.uiState.value.canSave)
-        assertEquals(TestState.Result(ConnectionResult.Success), viewModel.uiState.value.testState)
+    private fun TestScope.collectEvents(): List<ConnectEvent> {
+        val events = mutableListOf<ConnectEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.events.toList(events) }
+        return events
     }
 
     @Test
-    fun `editing any field invalidates the last result`() = runTest {
+    fun `connect is disabled until there is an address`() {
+        assertFalse(viewModel.uiState.value.canConnect)
+
         viewModel.onUrlChange("100.64.0.2:8000")
-        coEvery { testConnection(any(), any(), any()) } returns ConnectionResult.Success
-        viewModel.testConnection()
 
-        viewModel.onUrlChange("100.64.0.2:8001")
-
-        assertEquals(TestState.Idle, viewModel.uiState.value.testState)
-        assertFalse(viewModel.uiState.value.canSave)
+        assertTrue(viewModel.uiState.value.canConnect)
     }
 
     @Test
-    fun `auth required reveals the login fields`() = runTest {
-        viewModel.onUrlChange("100.64.0.2:8000")
-        coEvery { testConnection(any(), null, null) } returns ConnectionResult.AuthRequired
-
-        viewModel.testConnection()
-
-        assertTrue(viewModel.uiState.value.loginEnabled)
-        assertFalse(viewModel.uiState.value.canSave)
-    }
-
-    @Test
-    fun `credentials are only sent when login is enabled`() = runTest {
-        viewModel.onUrlChange("100.64.0.2:8000")
-        viewModel.onUsernameChange("user")
-        viewModel.onPasswordChange("pass")
-        coEvery { testConnection("100.64.0.2:8000", null, null) } returns ConnectionResult.Success
-
-        viewModel.testConnection()
-
-        coVerify(exactly = 1) { testConnection("100.64.0.2:8000", null, null) }
-    }
-
-    @Test
-    fun `save persists the normalized config and emits Saved`() = runTest {
+    fun `success saves the normalized config and emits Saved`() = runTest {
+        val events = collectEvents()
         viewModel.onUrlChange("100.64.0.2:8000/")
         viewModel.onLoginEnabledChange(true)
         viewModel.onUsernameChange("user")
         viewModel.onPasswordChange("pass")
         coEvery { testConnection(any(), "user", "pass") } returns ConnectionResult.Success
-        viewModel.testConnection()
 
-        val events = mutableListOf<ConnectEvent>()
-        val collector = launch(start = CoroutineStart.UNDISPATCHED) { viewModel.events.collect { events += it } }
-        viewModel.save()
-        runCurrent()
-        collector.cancel()
+        viewModel.connect()
 
         assertEquals(listOf(ConnectEvent.Saved), events)
         coVerify {
@@ -113,11 +78,73 @@ class ConnectViewModelTest {
     }
 
     @Test
-    fun `save does nothing without a successful test`() = runTest {
+    fun `shows connecting while the test runs and ignores repeat taps`() = runTest {
+        val gate = CompletableDeferred<ConnectionResult>()
         viewModel.onUrlChange("100.64.0.2:8000")
+        coEvery { testConnection(any(), any(), any()) } coAnswers { gate.await() }
 
-        viewModel.save()
+        viewModel.connect()
+        viewModel.connect()
+        viewModel.onUrlChange("ignored while connecting")
 
+        assertEquals(ConnectStatus.Connecting, viewModel.uiState.value.status)
+        assertEquals("100.64.0.2:8000", viewModel.uiState.value.url)
+        coVerify(exactly = 1) { testConnection(any(), any(), any()) }
+        gate.complete(ConnectionResult.Unreachable)
+        assertEquals(ConnectStatus.Failed(ConnectionResult.Unreachable), viewModel.uiState.value.status)
+    }
+
+    @Test
+    fun `failure shows the error, keeps the inputs and saves nothing`() = runTest {
+        val events = collectEvents()
+        viewModel.onUrlChange("100.64.0.2:8000")
+        viewModel.onLoginEnabledChange(true)
+        viewModel.onUsernameChange("user")
+        viewModel.onPasswordChange("wrong")
+        coEvery { testConnection(any(), any(), any()) } returns ConnectionResult.AuthFailed
+
+        viewModel.connect()
+
+        val state = viewModel.uiState.value
+        assertEquals(ConnectStatus.Failed(ConnectionResult.AuthFailed), state.status)
+        assertEquals(listOf("100.64.0.2:8000", "user", "wrong"), listOf(state.url, state.username, state.password))
+        assertTrue(state.loginEnabled && state.canConnect)
+        assertTrue(events.isEmpty())
         coVerify(exactly = 0) { repository.save(any(), any()) }
+    }
+
+    @Test
+    fun `editing any field clears the error`() = runTest {
+        viewModel.onUrlChange("100.64.0.2:8000")
+        coEvery { testConnection(any(), any(), any()) } returns ConnectionResult.Unreachable
+        viewModel.connect()
+
+        viewModel.onUrlChange("100.64.0.2:8001")
+
+        assertEquals(ConnectStatus.Idle, viewModel.uiState.value.status)
+    }
+
+    @Test
+    fun `auth required turns on the authentication fields`() = runTest {
+        viewModel.onUrlChange("100.64.0.2:8000")
+        coEvery { testConnection(any(), null, null) } returns ConnectionResult.AuthRequired
+
+        viewModel.connect()
+
+        assertTrue(viewModel.uiState.value.loginEnabled)
+        assertEquals(ConnectStatus.Failed(ConnectionResult.AuthRequired), viewModel.uiState.value.status)
+    }
+
+    @Test
+    fun `credentials are only sent when authentication is on`() = runTest {
+        viewModel.onUrlChange("100.64.0.2:8000")
+        viewModel.onUsernameChange("user")
+        viewModel.onPasswordChange("pass")
+        coEvery { testConnection("100.64.0.2:8000", null, null) } returns ConnectionResult.Success
+
+        viewModel.connect()
+
+        coVerify(exactly = 1) { testConnection("100.64.0.2:8000", null, null) }
+        coVerify { repository.save(ServerConfig("http://100.64.0.2:8000", username = null, hasPassword = false), null) }
     }
 }

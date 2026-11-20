@@ -23,20 +23,21 @@ data class ConnectUiState(
     val loginEnabled: Boolean = false,
     val username: String = "",
     val password: String = "",
-    val testState: TestState = TestState.Idle
+    val status: ConnectStatus = ConnectStatus.Idle
 ) {
-    /** Save is only allowed once the current inputs have passed a connection test. */
-    val canSave: Boolean
-        get() = testState is TestState.Result && testState.result is ConnectionResult.Success
+    val isConnecting: Boolean
+        get() = status is ConnectStatus.Connecting
 
-    val isTesting: Boolean
-        get() = testState is TestState.Testing
+    val canConnect: Boolean
+        get() = url.isNotBlank() && !isConnecting
 }
 
-sealed class TestState {
-    data object Idle : TestState()
-    data object Testing : TestState()
-    data class Result(val result: ConnectionResult) : TestState()
+sealed class ConnectStatus {
+    data object Idle : ConnectStatus()
+    data object Connecting : ConnectStatus()
+
+    /** The last attempt failed with [result] (never [ConnectionResult.Success]). */
+    data class Failed(val result: ConnectionResult) : ConnectStatus()
 }
 
 sealed class ConnectEvent {
@@ -63,43 +64,49 @@ class ConnectViewModel @Inject constructor(
 
     fun onPasswordChange(password: String) = edit { copy(password = password) }
 
-    fun testConnection() {
+    /**
+     * Tests the entered server and, if it is SillyTavern and the login works, saves it and
+     * emits [ConnectEvent.Saved]. On failure the inputs stay as they are.
+     */
+    fun connect() {
         val state = _uiState.value
-        if (state.isTesting) return
-        _uiState.update { it.copy(testState = TestState.Testing) }
+        if (!state.canConnect) return
+        _uiState.update { it.copy(status = ConnectStatus.Connecting) }
         viewModelScope.launch {
-            val result = testConnection(
-                rawUrl = state.url,
-                username = state.username.takeIf { state.loginEnabled },
-                password = state.password.takeIf { state.loginEnabled }
-            )
-            _uiState.update {
-                it.copy(
-                    testState = TestState.Result(result),
-                    // The server asked for a login the user hadn't turned on: reveal the fields.
-                    loginEnabled = it.loginEnabled || result is ConnectionResult.AuthRequired
-                )
+            val username = state.username.takeIf { state.loginEnabled }
+            val password = state.password.takeIf { state.loginEnabled }
+            val result = testConnection(rawUrl = state.url, username = username, password = password)
+            val baseUrl = normalizeServerUrl(state.url)
+            if (result is ConnectionResult.Success && baseUrl != null) {
+                save(state, baseUrl)
+            } else {
+                onFailed(if (baseUrl == null) ConnectionResult.InvalidUrl else result)
             }
         }
     }
 
-    fun save() {
-        val state = _uiState.value
-        if (!state.canSave) return
-        val baseUrl = normalizeServerUrl(state.url) ?: return
+    private suspend fun save(state: ConnectUiState, baseUrl: String) {
         val username = state.username.takeIf { state.loginEnabled && it.isNotBlank() }
         val password = state.password.takeIf { state.loginEnabled && it.isNotEmpty() }
-        viewModelScope.launch {
-            repository.save(
-                config = ServerConfig(baseUrl = baseUrl, username = username, hasPassword = password != null),
-                password = password
+        repository.save(
+            config = ServerConfig(baseUrl = baseUrl, username = username, hasPassword = password != null),
+            password = password
+        )
+        _events.emit(ConnectEvent.Saved)
+    }
+
+    private fun onFailed(result: ConnectionResult) {
+        _uiState.update {
+            it.copy(
+                status = ConnectStatus.Failed(result),
+                // The server asked for a login the user hadn't turned on: reveal the fields.
+                loginEnabled = it.loginEnabled || result is ConnectionResult.AuthRequired
             )
-            _events.emit(ConnectEvent.Saved)
         }
     }
 
-    /** Any input change invalidates the last test result. */
+    /** Any input change clears the last error. Ignored while connecting (the fields are disabled). */
     private fun edit(transform: ConnectUiState.() -> ConnectUiState) {
-        _uiState.update { it.transform().copy(testState = TestState.Idle) }
+        _uiState.update { if (it.isConnecting) it else it.transform().copy(status = ConnectStatus.Idle) }
     }
 }
