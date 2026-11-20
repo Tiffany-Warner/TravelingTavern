@@ -20,7 +20,7 @@
 ## How It Fits Together
 
 - **Desktop:** SillyTavern + TravelingTavern-Bridge (server plugin, final phase). No EchoText: SillyTavern's main chat is the only conversation
-- **Network:** Tailscale between phone and PC
+- **Network:** any address the phone can reach; Tailscale between phone and PC is the recommended setup (private, works away from home)
 - **Phone (this repo):** native screens + one shared WebView showing SillyTavern + a JS bridge between them
 
 ## One Conversation: the Main Chat
@@ -54,7 +54,7 @@ Proactive messages and reminders come last, but every phase before them keeps to
 
 - [x] 1.1 Project setup & app shell (dependencies, theme, navigation, placeholder screens)
 - [x] 1.1b Bottom navigation (Chats, Characters, Me) & quiet visual style
-- [x] 1.2 Connect screen — server URL, optional login, connection test
+- [x] 1.2 Connect screen — server URL, optional login; one Connect button tests, saves and opens the app (refreshed 2026-11-19)
 - [x] 1.3 WebView host — single retained WebView, file upload, mic/camera permissions, back handling, error states
 - [x] 1.4 JS bridge foundation — injected script, typed messages, Kotlin ↔ JS calls
 - [x] 1.5 Clean theme — injected CSS that hides SillyTavern clutter inside the app only
@@ -171,7 +171,7 @@ Proactive messages and reminders come last, but every phase before them keeps to
 - Using the app while the PC is off
 - iOS
 - Multiple users / accounts
-- Public internet exposure (Tailscale only)
+- Exposing SillyTavern to the public internet for the user (the app connects to whatever address it's given; Tailscale is recommended)
 
 ---
 
