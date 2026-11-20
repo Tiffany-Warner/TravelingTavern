@@ -14,7 +14,7 @@ Take your SillyTavern companions with you. TravelingTavern is a native Android a
 - **Clean chat view** — SillyTavern's chat without the desktop menus, sized for a phone
 - **Connect screen** — enter your server address and test it before saving
 
-Coming next: a texting look for the chat and the Me tab. After that, the character creator, voice notes and selfies, and the rest of the roadmap, with proactive messages and reminders as the final phase.
+Coming next: the story chat, the Me tab and personas. After that, a texting style for the chat, the character creator, voice notes and selfies, and the rest of the roadmap, with proactive messages and reminders as the final phase.
 
 ## How It Works
 
