@@ -1,36 +1,37 @@
 # Current Feature
 
-Connect Screen Refresh (1.2 update)
+Phase 1.9 Personas
 
 ## Status
 
-Complete (`feature/connect-refresh`). `./gradlew build` green. `0.1.18`.
-
-- Done: `ConnectViewModel.connect()` (test → save + `Saved`, or `Failed`; edits ignored while connecting, clear the error otherwise); `ConnectScreen` rewritten (logo, centered header, one address field, authentication row, inline error card, Connect / spinner + "Connecting…" in a fixed-height slot); shared `AppLogo` draws the launcher icon's layers; unit tests rewritten; new `ConnectContentTest` (compiles)
-- User request: subtitle and unreachable error no longer assume Tailscale (any reachable http(s) server works)
-- Extra: the whole "Server requires authentication" row toggles, not only the switch (one 56dp tap target)
-- Verified on the emulator (API 35, dark theme, fresh data) vs SillyTavern 1.19.0 over Tailscale: layout; Connect disabled when empty; row toggles the login fields; unreachable address (fast fail and 10 s timeout) → spinner + "Connecting…", then inline error, Connect back, address kept; real server via keyboard Done → straight into Chats
-- Not verified: light theme, authentication (server has auth off; unit tests only)
-- Not mine, left uncommitted: icon recolor in `ic_launcher_background.xml` / `ic_launcher_foreground.xml` (user to confirm)
+Complete. Merged into `dev`.
 
 ## Goals
 
-User request (2026-11-19), updates `context/specs/phase1-2-connect-screen-spec.md`:
+Per `context/specs/phase1-9-personas-spec.md`:
 
-- App logo centered near the top (72dp), cleaner spacing and hierarchy
-- One server address field (IP, hostname, URL, optional port; normalization unchanged)
-- Toggle renamed "Server requires authentication"; username / password shown when on
-- One full-width **Connect** button replaces Test connection + Save
-- While connecting: the button is replaced by a centered spinner with "Connecting…" below it
-- Success: save and go into the app (no confirmation). Failure: Connect comes back, inline error, inputs kept
-- Connection test, credential storage and navigation unchanged; tests updated; version bump
+- Persona chip in the chat's input bar ("Chatting as {name}"), following the active persona
+- Full-screen Personas list: cards with picture, name, description, badges (Active, Default; "Locked to this chat" dropped, user decision); tap to use (in a chat: switch + lock to this chat; elsewhere: switch only, never touching the open chat's lock)
+- ⋯ dropdown: Edit, Set / Remove default, Delete (alert dialog)
+- Persona editor for Create and Edit (picture, name, title, description with token count); unedited fields kept
+- Bridge: `personas` message, `requestPersonas`, `selectPersona`, `requestPersona`, `savePersona`, `createPersona`, `deletePersona`
+- Tests per spec; version bump
 
 ## References
 
-- @context/specs/phase1-2-connect-screen-spec.md
+- @context/specs/phase1-9-personas-spec.md
+- @context/specs/phase1-6b-lorebooks-tab-spec.md
+- @context/specs/phase1-7-chat-screen-spec.md
 - @context/ui-guidelines.md
 
 ## History
+
+### 2026-11-20 — Phase 1.9 Personas — `0.1.19`
+- Chip "Chatting as {name}" below the chat's message box; full-screen Personas (Active / Default badges, ⋯ dropdown: Edit, Set / Remove default, Delete via the chat's delete dialog, now `ConfirmDeleteDialog`); editor with picture, name, title, description + token count. Picking in a chat locks it to that chat
+- Bridge calls SillyTavern's `/persona-*` command callbacks directly (macros kept as typed, unedited fields kept); pictures shrunk on the phone to a ≤ 1024 px JPEG
+- User changes: dropdown instead of a sheet; horizontal ⋯; "Locked to this chat" badge dropped (it only repeated Active)
+- Gotcha: the page's settings copy goes stale, and SillyTavern saves the whole file from it, which erased a persona made on the desktop. Persona settings are now re-read from the server on opening Personas, on app return and before each persona action; other settings still at risk (fix next)
+- Verified on an emulator (API 35); not verified: the Me-tab path (1.8), deleting the active persona
 
 ### 2026-11-19 — Connect screen refresh — `0.1.18`
 - One full-width Connect (test, then save and open Chats; no confirmation) replaces Test connection + Save; spinner with "Connecting…" below it while connecting; failure shows an inline error and keeps the inputs

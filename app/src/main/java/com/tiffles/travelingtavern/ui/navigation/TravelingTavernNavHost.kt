@@ -54,10 +54,13 @@ import com.tiffles.travelingtavern.ui.lorebooks.LorebookDetailScreen
 import com.tiffles.travelingtavern.ui.lorebooks.LorebookEntryScreen
 import com.tiffles.travelingtavern.ui.lorebooks.LorebooksScreen
 import com.tiffles.travelingtavern.ui.me.MeScreen
+import com.tiffles.travelingtavern.ui.personas.PersonaEditorScreen
+import com.tiffles.travelingtavern.ui.personas.PersonasScreen
 
 /**
  * The app shell: a bottom navigation bar over four tab graphs, plus full-screen
- * destinations (Connect, Chat, Advanced, lorebook detail and entry) that hide the bar. The bar also hides while
+ * destinations (Connect, Chat, Advanced, lorebook detail and entry, Personas and the persona
+ * editor) that hide the bar. The bar also hides while
  * the keyboard is open.
  *
  * The one SillyTavern WebView lives here, behind everything, attached for the whole session
@@ -259,10 +262,45 @@ private fun NavGraphBuilder.fullScreenDestinations(
         ),
         deepLinks = listOf(navDeepLink { uriPattern = Routes.FullScreen.Chat.DEEP_LINK })
     ) {
-        ChatScreen(onBack = { navController.leaveChat() }, onInputBarHeightChange = onInputBarHeightChange)
+        ChatScreen(
+            onBack = { navController.leaveChat() },
+            onInputBarHeightChange = onInputBarHeightChange,
+            onOpenPersonas = { navController.navigate(Routes.FullScreen.Personas.create(inChat = true)) }
+        )
     }
     coveringComposable(Routes.FullScreen.ADVANCED) { AdvancedScreen() }
     lorebookDestinations(navController)
+    personaDestinations(navController)
+}
+
+private fun NavGraphBuilder.personaDestinations(navController: NavHostController) {
+    coveringComposable(
+        route = Routes.FullScreen.Personas.ROUTE,
+        arguments = listOf(
+            navArgument(Routes.FullScreen.Personas.ARG_IN_CHAT) {
+                type = NavType.BoolType
+                defaultValue = false
+            }
+        )
+    ) {
+        PersonasScreen(
+            onClose = { navController.popBackStack() },
+            onOpenEditor = { avatarId -> navController.navigate(Routes.FullScreen.PersonaEditor.create(avatarId)) },
+            onOpenServerSettings = { navController.navigate(Routes.FullScreen.CONNECT) }
+        )
+    }
+    coveringComposable(
+        route = Routes.FullScreen.PersonaEditor.ROUTE,
+        arguments = listOf(
+            navArgument(Routes.FullScreen.PersonaEditor.ARG_AVATAR_ID) {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            }
+        )
+    ) {
+        PersonaEditorScreen(onBack = { navController.popBackStack() })
+    }
 }
 
 private fun NavGraphBuilder.lorebookDestinations(navController: NavHostController) {

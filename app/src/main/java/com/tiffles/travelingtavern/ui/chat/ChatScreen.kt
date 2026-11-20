@@ -90,7 +90,8 @@ data class ChatActions(
     val onRestartChat: () -> Unit = {},
     val onConfirm: () -> Unit = {},
     val onConfirmationDismissed: () -> Unit = {},
-    val onInputBarHeightChange: (Dp) -> Unit = {}
+    val onInputBarHeightChange: (Dp) -> Unit = {},
+    val onPersonaClick: () -> Unit = {}
 )
 
 /**
@@ -101,6 +102,7 @@ data class ChatActions(
 fun ChatScreen(
     onBack: () -> Unit,
     onInputBarHeightChange: (Dp) -> Unit,
+    onOpenPersonas: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ChatViewModel = hiltViewModel()
 ) {
@@ -127,7 +129,8 @@ fun ChatScreen(
             onRestartChat = viewModel::onRestartChat,
             onConfirm = viewModel::onConfirm,
             onConfirmationDismissed = viewModel::onConfirmationDismissed,
-            onInputBarHeightChange = onInputBarHeightChange
+            onInputBarHeightChange = onInputBarHeightChange,
+            onPersonaClick = onOpenPersonas
         ),
         snackbarHostState = snackbarHostState,
         modifier = modifier
@@ -224,6 +227,8 @@ private fun MeasuredInputBar(
         onSend = actions.onSend,
         onWriteForMe = actions.onWriteForMe,
         onStop = actions.onStop,
+        persona = ready?.persona,
+        onPersonaClick = actions.onPersonaClick,
         modifier = Modifier
             .imePadding()
             .onSizeChanged { size -> actions.onInputBarHeightChange(with(density) { size.height.toDp() }) }

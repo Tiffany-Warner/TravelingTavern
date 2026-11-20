@@ -5,6 +5,7 @@ import com.tiffles.travelingtavern.domain.model.CharacterSummary
 import com.tiffles.travelingtavern.domain.model.ChatActivity
 import com.tiffles.travelingtavern.domain.model.ChatRef
 import com.tiffles.travelingtavern.domain.model.Lorebook
+import com.tiffles.travelingtavern.domain.model.Persona
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -23,6 +24,7 @@ class BridgeRepository @Inject constructor() {
     private val _characters = MutableStateFlow<List<CharacterSummary>?>(null)
     private val _chatActivity = MutableStateFlow<List<ChatActivity>?>(null)
     private val _lorebooks = MutableStateFlow<List<Lorebook>?>(null)
+    private val _personas = MutableStateFlow<List<Persona>?>(null)
     private val _isReady = MutableStateFlow(false)
     private val _generating = MutableStateFlow(false)
     private val _openChat = MutableStateFlow<ChatRef?>(null)
@@ -38,6 +40,9 @@ class BridgeRepository @Inject constructor() {
 
     /** Every lorebook. Null until the page first reports them. */
     val lorebooks: StateFlow<List<Lorebook>?> = _lorebooks.asStateFlow()
+
+    /** Every persona, unsorted. Null until the page first reports them. */
+    val personas: StateFlow<List<Persona>?> = _personas.asStateFlow()
 
     /** True once SillyTavern has loaded and the bridge is listening; false again on every reload. */
     val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
@@ -72,6 +77,7 @@ class BridgeRepository @Inject constructor() {
             is BridgeMessage.Characters -> _characters.value = message.items.map { it.toDomain() }
             is BridgeMessage.RecentChats -> _chatActivity.value = message.items.map { it.toDomain() }
             is BridgeMessage.Lorebooks -> _lorebooks.value = message.items.map { it.toDomain() }
+            is BridgeMessage.Personas -> _personas.value = message.items.map { it.toDomain() }
             is BridgeMessage.GenerationState -> _generating.value = message.running
             is BridgeMessage.ChatChanged -> _openChat.value = chatRef(message.characterId, message.chatFile)
             is BridgeMessage.ChatOpened -> _openChat.value = chatRef(message.characterId, message.chatFile)
@@ -79,6 +85,7 @@ class BridgeRepository @Inject constructor() {
             is BridgeMessage.Unknown -> Log.d(TAG, "Ignored unknown bridge message type: ${message.type}")
             is BridgeMessage.MessageReceived,
             is BridgeMessage.LorebookEntries, is BridgeMessage.LorebookResult, is BridgeMessage.TokenCount,
+            is BridgeMessage.PersonaResult,
             is BridgeMessage.MessageTapped, is BridgeMessage.ChatResult, is BridgeMessage.ImpersonateReady -> Unit
         }
         _messages.tryEmit(message)
@@ -90,6 +97,8 @@ class BridgeRepository @Inject constructor() {
         is BridgeMessage.RecentChats -> "recentChats (${items.size})"
         is BridgeMessage.Lorebooks -> "lorebooks (${items.size})"
         is BridgeMessage.LorebookEntries -> "lorebookEntries (${entries.size})"
+        is BridgeMessage.Personas -> "personas (${items.size})"
+        is BridgeMessage.PersonaResult -> if (ok) "personaResult ok" else "personaResult ${error.orEmpty()}"
         is BridgeMessage.LorebookResult -> if (ok) "lorebookResult ok" else "lorebookResult ${error.orEmpty()}"
         is BridgeMessage.ChatResult -> if (ok) "chatResult ok" else "chatResult ${error.orEmpty()}"
         is BridgeMessage.GenerationState -> "generationState $running"

@@ -13,6 +13,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.tiffles.travelingtavern.R
 import com.tiffles.travelingtavern.domain.model.CharacterSummary
 import com.tiffles.travelingtavern.domain.model.MessageAction
+import com.tiffles.travelingtavern.domain.model.Persona
 import com.tiffles.travelingtavern.domain.model.TappedMessage
 import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
 import org.junit.Assert.assertEquals
@@ -40,7 +41,8 @@ class ChatContentTest {
         onMessageAction = { actionsRun += it },
         onStartNewChat = { calls += "startNewChat" },
         onRestartChat = { calls += "restartChat" },
-        onConfirm = { calls += "confirm" }
+        onConfirm = { calls += "confirm" },
+        onPersonaClick = { calls += "persona" }
     )
 
     private val state = mutableStateOf<ChatUiState>(ChatUiState.Loading())
@@ -164,4 +166,23 @@ class ChatContentTest {
         composeRule.onNodeWithText(string(R.string.chat_start_new)).assertIsNotEnabled()
         composeRule.onNodeWithText(string(R.string.chat_restart)).assertIsNotEnabled()
     }
+
+    @Test
+    fun personaChipShowsTheNameAndOpensPersonas() {
+        val mira = Persona("1-Mira.png", "Mira", "", "", null, isActive = true, isDefault = false)
+        show(ChatUiState.Ready(bob, persona = mira))
+
+        composeRule.onNodeWithText(context.getString(R.string.personas_chip, "Mira")).assertIsDisplayed().performClick()
+
+        assertEquals(listOf("persona"), calls)
+    }
+
+    @Test
+    fun noPersonaChipUntilThePersonaIsKnown() {
+        show(ChatUiState.Ready(bob))
+
+        composeRule.onNodeWithText(context.getString(R.string.personas_chip, "Mira")).assertDoesNotExist()
+    }
+
+    private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 }

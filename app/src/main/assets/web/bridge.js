@@ -412,10 +412,282 @@
         },
     };
 
+    // ---- Personas (1.9) -----------------------------------------------------------------
+
+    const P = S.personas;
+    const PERSONA_PREVIEW_MAX_CHARS = 300;
+    let personasModule = null;
+    /**
+     * Part of every persona picture URL. SillyTavern keeps no change time for persona pictures
+     * and an upload keeps the file name, so this changes on a refresh and after an upload.
+     */
+    let personaPictureVersion = Date.now();
+
+    /** SillyTavern's own personas.js module (the instance its UI uses), by absolute URL. */
+    function personasApi() {
+        if (!personasModule) personasModule = import(new URL(P.modulePath, location.href).href);
+        return personasModule;
+    }
+
+    function personaNames(ctx) {
+        return powerUser(ctx)[S.powerUser.personaNames] || {};
+    }
+
+    function personaDescriptor(ctx, id) {
+        return (powerUser(ctx)[P.descriptions] || {})[id] || {};
+    }
+
+    function textField(object, key) {
+        return typeof object[key] === 'string' ? object[key] : '';
+    }
+
+    function toPersona(ctx, id, active, maxDescription) {
+        const descriptor = personaDescriptor(ctx, id);
+        const thumbnail = ctx[S.context.getThumbnailUrl](P.thumbnailType, id);
+        const description = textField(descriptor, P.descriptor.description);
+        return {
+            avatarId: id,
+            name: String(personaNames(ctx)[id] || ''),
+            title: textField(descriptor, P.descriptor.title),
+            description: maxDescription ? description.slice(0, maxDescription) : description,
+            pictureUrl: versionedUrl(thumbnail, personaPictureVersion),
+            isActive: id === active,
+            isDefault: powerUser(ctx)[P.defaultPersona] === id,
+        };
+    }
+
+    /** When this page last changed persona settings itself (its save to the server may still be pending). */
+    let lastPersonaWriteAt = 0;
+    const PERSONA_SYNC_SETTLE_MS = S.api.settingsSaveDelayMs * 5;
+
+    function replaceContents(target, source) {
+        Object.keys(target).forEach(function (key) { delete target[key]; });
+        Object.assign(target, source);
+    }
+
+    /**
+     * Copies the server's saved personas, descriptions and default into this page. The page
+     * reads settings once, at load, and SillyTavern saves the whole settings file from the
+     * page's copy, so a stale page would erase personas made elsewhere (the desktop) the next
+     * time it saves. Skipped right after this page's own persona change, until its debounced
+     * save has reached the server. Best effort: on failure the page keeps its copy.
+     */
+    async function syncPersonaSettings(ctx) {
+        if (Date.now() - lastPersonaWriteAt < PERSONA_SYNC_SETTLE_MS) return;
+        try {
+            const response = await fetch(S.api.settings, {
+                method: 'POST',
+                headers: ctx[S.context.getRequestHeaders](),
+                body: '{}',
+            });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            const body = await response.json();
+            const saved = JSON.parse(body[S.api.settingsJson] || '{}')[S.api.settingsPowerUser];
+            if (!saved || typeof saved[S.powerUser.personaNames] !== 'object') throw new Error('No personas in settings');
+            const settings = powerUser(ctx);
+            [S.powerUser.personaNames, P.descriptions].forEach(function (key) {
+                const source = saved[key] && typeof saved[key] === 'object' ? saved[key] : {};
+                if (settings[key] && typeof settings[key] === 'object') replaceContents(settings[key], source);
+                else settings[key] = Object.assign({}, source);
+            });
+            if (typeof saved[P.defaultPersona] === 'string') settings[P.defaultPersona] = saved[P.defaultPersona];
+            else delete settings[P.defaultPersona];
+        } catch (e) {
+            postError('Persona sync failed: ' + e);
+        }
+    }
+
+    /** Refreshes persona settings from the server, then posts `personas`. */
+    async function syncAndSendPersonas(refreshPictures) {
+        const ctx = context();
+        if (!ctx) return;
+        await syncPersonaSettings(ctx);
+        await sendPersonas(refreshPictures);
+    }
+
+    /** Posts `personas`. [refreshPictures] makes the app load every picture again. */
+    async function sendPersonas(refreshPictures) {
+        const ctx = context();
+        if (!ctx) return;
+        try {
+            const api = await personasApi();
+            if (refreshPictures) personaPictureVersion = Date.now();
+            const active = api[P.module.active];
+            const items = Object.keys(personaNames(ctx)).map(function (id) {
+                return toPersona(ctx, id, active, PERSONA_PREVIEW_MAX_CHARS);
+            });
+            post('personas', { items: items });
+        } catch (e) {
+            postError('Personas failed: ' + e);
+        }
+    }
+
+    let personasTimer = null;
+    function schedulePersonas() {
+        clearTimeout(personasTimer);
+        personasTimer = setTimeout(function () { sendPersonas(false); }, CHARACTERS_DEBOUNCE_MS);
+    }
+
+    function postPersonaResult(requestId, ok, extra) {
+        post('personaResult', Object.assign({ requestId: requestId, ok: ok }, extra || {}));
+    }
+
+    /**
+     * Runs [action] for an existing persona [id] and answers [requestId]: `notFound` if there is
+     * no such persona, `failed` if [action] throws or returns false, else ok plus what it returns.
+     * Persona settings are refreshed from the server first; [writes] marks a change.
+     */
+    function answerPersona(requestId, id, action, writes) {
+        Promise.resolve()
+            .then(async function () {
+                const ctx = context();
+                if (!ctx) return { notFound: true };
+                await syncPersonaSettings(ctx);
+                if (!Object.prototype.hasOwnProperty.call(personaNames(ctx), id)) return { notFound: true };
+                if (writes === true) lastPersonaWriteAt = Date.now();
+                return action(ctx);
+            })
+            .then(function (result) {
+                if (result && result.notFound) postPersonaResult(requestId, false, { error: 'notFound' });
+                else if (result === false) postPersonaResult(requestId, false, { error: 'failed' });
+                else postPersonaResult(requestId, true, result && typeof result === 'object' ? result : {});
+                sendPersonas(false);
+            })
+            .catch(function (e) {
+                postPersonaResult(requestId, false, { error: 'failed' });
+                postError('Persona action failed: ' + e);
+            });
+    }
+
+    /**
+     * Runs SillyTavern's own /persona-* command callback with raw [args]: not through the
+     * parser, so `{{user}}`, quotes and pipes in a description are saved as typed.
+     */
+    function personaCommand(ctx, name, args) {
+        const command = ctx[P.commands.parser].commands[name];
+        if (!command) throw new Error('Missing command ' + name);
+        return Promise.resolve(command.callback(args, ''));
+    }
+
+    /** Command arguments for the fields present in [fields]: name, title, description, picture (data URL). */
+    function personaArgs(fields) {
+        const args = {};
+        ['name', 'title', 'description'].forEach(function (key) {
+            if (typeof fields[key] === 'string') args[key] = fields[key];
+        });
+        if (typeof fields.picture === 'string' && fields.picture) {
+            args.avatar = fields.picture;
+            // No crop popup: the server crops and resizes to SillyTavern's avatar size.
+            args.avatarPromptResize = 'false';
+        }
+        return args;
+    }
+
+    const personaActions = {
+        /** With [refreshPictures] (the Personas screen opening), persona settings are re-read from the server too. */
+        requestPersonas: function (refreshPictures) {
+            if (refreshPictures === true) syncAndSendPersonas(true);
+            else sendPersonas(false);
+        },
+
+        /**
+         * Switches to persona [id] the way a click in SillyTavern's list does. With
+         * [lockToChat] it is then locked to the open chat. Without, SillyTavern's auto-lock
+         * setting is held off, so the open chat's lock never changes.
+         */
+        selectPersona: function (requestId, id, lockToChat) {
+            answerPersona(requestId, id, async function (ctx) {
+                const api = await personasApi();
+                if (lockToChat === true) {
+                    await api[P.module.select](id);
+                    await api[P.module.setLock](true, 'chat');
+                    return true;
+                }
+                const settings = powerUser(ctx);
+                const autoLock = settings[P.autoLock];
+                settings[P.autoLock] = false;
+                try {
+                    await api[P.module.select](id);
+                } finally {
+                    settings[P.autoLock] = autoLock;
+                }
+                return true;
+            }, true);
+        },
+
+        /** Answers with `persona`: [id]'s full name, title and description. */
+        requestPersona: function (requestId, id) {
+            answerPersona(requestId, id, async function (ctx) {
+                const api = await personasApi();
+                return { persona: toPersona(ctx, id, api[P.module.active], 0) };
+            });
+        },
+
+        /** Creates a persona from [fields] without selecting it; answers with its avatar id. */
+        createPersona: function (requestId, fields) {
+            Promise.resolve()
+                .then(async function () {
+                    const args = Object.assign(personaArgs(fields || {}), { select: 'false' });
+                    if (!args.name || !args.name.trim()) throw new Error('No name');
+                    const ctx = context();
+                    await syncPersonaSettings(ctx);
+                    lastPersonaWriteAt = Date.now();
+                    return personaCommand(ctx, P.commands.create, args);
+                })
+                .then(function (id) {
+                    if (typeof id === 'string' && id) {
+                        personaPictureVersion = Date.now();
+                        postPersonaResult(requestId, true, { avatarId: id });
+                    } else {
+                        postPersonaResult(requestId, false, { error: 'failed' });
+                    }
+                    sendPersonas(false);
+                })
+                .catch(function (e) {
+                    postPersonaResult(requestId, false, { error: 'failed' });
+                    postError('Create persona failed: ' + e);
+                });
+        },
+
+        /** Saves only the fields present in [fields]; every other persona field stays as it is. */
+        savePersona: function (requestId, id, fields) {
+            answerPersona(requestId, id, async function (ctx) {
+                const args = Object.assign(personaArgs(fields || {}), { persona: id });
+                const saved = await personaCommand(ctx, P.commands.update, args);
+                if (args.avatar) personaPictureVersion = Date.now();
+                return saved === id;
+            }, true);
+        },
+
+        /** SillyTavern's own delete, including its cleanup of the default and the chat lock. */
+        deletePersona: function (requestId, id) {
+            answerPersona(requestId, id, async function (ctx) {
+                const deleted = await personaCommand(ctx, P.commands.remove, { persona: id, silent: 'true' });
+                return String(deleted) === 'true';
+            }, true);
+        },
+
+        /**
+         * Makes [id] the default persona, or removes it as default. No exported SillyTavern
+         * function does this for a persona that isn't active; this is what its own toggle
+         * does after the confirmation popup.
+         */
+        setDefaultPersona: function (requestId, id, isDefault) {
+            answerPersona(requestId, id, async function (ctx) {
+                const settings = powerUser(ctx);
+                if (isDefault === true) settings[P.defaultPersona] = id;
+                else if (settings[P.defaultPersona] === id) delete settings[P.defaultPersona];
+                ctx[S.context.saveSettingsDebounced]();
+                return true;
+            }, true);
+        },
+    };
+
     function sendLists() {
         sendCharacters();
         sendRecentChats();
         sendLorebooks(false);
+        sendPersonas(false);
     }
 
     let charactersTimer = null;
@@ -486,6 +758,10 @@
         W.events.forEach(function (key) {
             const name = eventName(ctx, key);
             if (name) events.on(name, scheduleLorebooks);
+        });
+        P.events.forEach(function (key) {
+            const name = eventName(ctx, key);
+            if (name) events.on(name, schedulePersonas);
         });
         // APP_READY re-fires for late listeners, so this also covers an injection after load.
         events.on(eventName(ctx, S.events.ready), function () {
@@ -975,7 +1251,10 @@
         appState: appState,
 
         setAppState: function (foreground) {
+            const returning = foreground === true && !appState.foreground;
             appState.foreground = foreground === true;
+            // Personas may have changed on the desktop while the app was away.
+            if (returning) syncAndSendPersonas(false);
         },
 
         /** Re-reads the open chat from the server, after a running generation ends. */
@@ -1120,7 +1399,7 @@
         },
     };
 
-    window.__ttBridge = Object.freeze(Object.assign({}, lorebookActions, chatActions, {
+    window.__ttBridge = Object.freeze(Object.assign({}, lorebookActions, personaActions, chatActions, {
         requestCharacters: function (fromServer) {
             sendCharacters(fromServer === true);
         },

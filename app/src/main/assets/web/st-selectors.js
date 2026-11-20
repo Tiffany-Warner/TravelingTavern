@@ -152,6 +152,15 @@
         api: Object.freeze({
             recentChats: '/api/chats/recent',
             recentChatsMax: 100,
+            /**
+             * POST, body `{}`: the saved settings. `settings` is settings.json as a string;
+             * its `power_user` holds the personas. Needs getRequestHeaders().
+             */
+            settings: '/api/settings/get',
+            settingsJson: 'settings',
+            settingsPowerUser: 'power_user',
+            /** SillyTavern saves settings 1 s after a change (saveSettingsDebounced, debounce_timeout.relaxed). */
+            settingsSaveDelayMs: 1000,
         }),
         /** Fields of one /api/chats/recent row. */
         recentChat: Object.freeze({
@@ -215,6 +224,49 @@
             personaDescriptions: 'persona_descriptions',
             personaLorebook: 'lorebook',
             currentPersonaLorebook: 'persona_description_lorebook',
+        }),
+
+        /**
+         * Personas (1.9). Verified against 1.19.0 source (see the 1.9 spec's Notes). Data is
+         * in powerUser.context; `user_avatar` isn't on getContext(), so the bridge imports
+         * SillyTavern's own personas module (a live binding: read it each time).
+         */
+        personas: Object.freeze({
+            modulePath: '/scripts/personas.js',
+            module: Object.freeze({
+                /** The active persona's avatar id (reassigned: read it each time). */
+                active: 'user_avatar',
+                /** (avatarId): switches like a click in SillyTavern's list; emits PERSONA_CHANGED. */
+                select: 'setUserAvatar',
+                /** (state, 'chat'): chat_metadata.persona = the active persona. */
+                setLock: 'setPersonaLockState',
+            }),
+            /** powerUserSettings fields. */
+            descriptions: 'persona_descriptions',
+            defaultPersona: 'default_persona',
+            /** true: SillyTavern locks every picked persona to the open chat (see Notes). */
+            autoLock: 'persona_auto_lock',
+            descriptor: Object.freeze({ description: 'description', title: 'title' }),
+            /**
+             * Slash commands whose callbacks are called directly (SlashCommandParser.commands[name]
+             * .callback(args, '')): SillyTavern's own create / update / delete, without the
+             * parser, so `{{user}}` and quotes in a description stay as typed.
+             */
+            commands: Object.freeze({
+                parser: 'SlashCommandParser',
+                create: 'persona-create',
+                update: 'persona-update',
+                remove: 'persona-delete',
+            }),
+            thumbnailType: 'persona',
+            events: Object.freeze([
+                'PERSONA_CHANGED',
+                'PERSONA_CREATED',
+                'PERSONA_UPDATED',
+                'PERSONA_RENAMED',
+                'PERSONA_DELETED',
+                'CHAT_CHANGED',
+            ]),
         }),
 
         /** selectCharacterById option: false opens the chat without the character editor panel. */

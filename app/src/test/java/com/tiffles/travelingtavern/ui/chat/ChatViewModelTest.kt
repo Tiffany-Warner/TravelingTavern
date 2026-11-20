@@ -3,7 +3,9 @@ package com.tiffles.travelingtavern.ui.chat
 import androidx.lifecycle.SavedStateHandle
 import com.tiffles.travelingtavern.domain.FakeCharacterRepository
 import com.tiffles.travelingtavern.domain.FakeChatSessionRepository
+import com.tiffles.travelingtavern.domain.FakePersonaRepository
 import com.tiffles.travelingtavern.domain.character
+import com.tiffles.travelingtavern.domain.persona
 import com.tiffles.travelingtavern.domain.model.ChatActionResult
 import com.tiffles.travelingtavern.domain.model.MessageAction
 import com.tiffles.travelingtavern.domain.model.OpenChat
@@ -34,6 +36,7 @@ class ChatViewModelTest {
 
     private val repository = FakeCharacterRepository()
     private val chat = FakeChatSessionRepository()
+    private val personas = FakePersonaRepository()
     private lateinit var savedState: SavedStateHandle
     private lateinit var viewModel: ChatViewModel
 
@@ -54,7 +57,7 @@ class ChatViewModelTest {
                 Routes.FullScreen.Chat.ARG_CHAT_FILE to chatFile
             ) + saved
         )
-        viewModel = ChatViewModel(savedState, repository, chat, GetMessageActionsUseCase())
+        viewModel = ChatViewModel(savedState, repository, chat, GetMessageActionsUseCase(), personas)
     }
 
     private fun TestScope.collectState() {
@@ -84,6 +87,20 @@ class ChatViewModelTest {
         assertEquals(listOf("Tide Pods.png"), repository.openedChats)
         assertEquals(listOf<String?>("Tide Pods - 2026-11-19"), repository.requestedChatFiles)
         assertTrue(repository.visibleNow)
+    }
+
+    @Test
+    fun `the chip follows the active persona`() = runTest {
+        openReadyChat()
+        assertNull(ready().persona)
+
+        val mira = persona("1-Mira.png", isActive = true)
+        personas.personas.value = listOf(persona("2-Rowan.png"), mira)
+        assertEquals(mira, ready().persona)
+
+        val rowan = persona("2-Rowan.png", isActive = true)
+        personas.personas.value = listOf(rowan, persona("1-Mira.png"))
+        assertEquals(rowan, ready().persona)
     }
 
     @Test
