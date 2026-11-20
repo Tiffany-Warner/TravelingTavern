@@ -6,6 +6,7 @@ The look is **quiet and simple**: neutral surfaces, one accent color, and the ch
 
 - **Characters are the color.** The UI is neutral so avatars and portraits stand out
 - **One accent color**, used sparingly: the selected tab, primary buttons, unread dots, toggles. Never for decoration
+    - Exception: the user's own message cards in Chat use the accent container (`primaryContainer`) so your messages stand apart (1.7, user decision 2026-11-19)
 - **Few things per screen.** If a screen needs explaining, it has too much on it
 - **Phone-first.** Large touch targets (min 48dp), thumb-reachable actions at the bottom, no hover-only affordances
 - **Tuning lives elsewhere.** SillyTavern settings stay in SillyTavern (Advanced) — the app only shows what a phone user needs
@@ -36,7 +37,7 @@ The look is **quiet and simple**: neutral surfaces, one accent color, and the ch
 - **Bottom navigation bar** with four tabs: **Chats**, **Characters**, **Lorebooks**, **Me** (Me stays last)
 - Never ship a placeholder tab
 - Icons with short labels, labels always shown
-- Bottom bar is hidden on full-screen destinations: Chat, Advanced, Connect, creator flows
+- Bottom bar is hidden on full-screen destinations: Chat, Advanced, Connect, Personas, the persona editor, creator flows
 - Tab state is preserved when switching tabs (scroll position, search text)
 
 ## Common Patterns
