@@ -1,25 +1,12 @@
 # Current Feature
 
-Fix: Stale Page Overwrites
+Stale Page Overwrites — blocked on the session-lease spike
 
 ## Status
 
-Spec final (`fix/stale-page-overwrites`). **Blocked on TravelingTavern-Extension `v0.1.0`**: the save guard (`save-guard.js`) is built in that repo first (its own spec, `ext-0.1-save-guard-spec.md`), then included here as a submodule.
+**Blocked.** The per-save guard was stopped on 2026-11-20 (owner decision); `context/specs/fix-stale-page-overwrites-spec.md` is marked superseded and kept for its source findings. The session-lease spike ("Use here": one active SillyTavern page at a time) is running in TravelingTavern-Extension. No app changes until its results are reviewed.
 
-## Goals
-
-Per `context/specs/fix-stale-page-overwrites-spec.md` (user decision 2026-11-20, very high priority: nothing TravelingTavern runs deletes or overwrites SillyTavern data without a confirmed dialog):
-
-- Every whole-file save (settings, lorebooks, chats, characters) is conditional: sent only if the server's file is still the version the saving copy came from; otherwise blocked and the user told
-- Guard injected at document start from the extension submodule; desktop tabs guarded by the extension (install / update prompt in the app)
-- Freshness: `checkFresh` on return, screen open and persona actions; `checkChat` before sending; at most one automatic reload per 30 s; 1.9 persona re-read removed
-- Reactions: reload, snackbars, unsent chat text restored; tests per spec; version `0.1.20`
-
-## References
-
-- @context/specs/fix-stale-page-overwrites-spec.md
-- @context/specs/phase1-9-personas-spec.md (Notes → Stale page)
-- @context/specs/phase1-7-chat-screen-spec.md (lifecycle, reload on return)
+The decision and background are in that repo's `context/decisions/` (`direction-change.md`, `architecture-assessment.md`).
 
 ## History
 
