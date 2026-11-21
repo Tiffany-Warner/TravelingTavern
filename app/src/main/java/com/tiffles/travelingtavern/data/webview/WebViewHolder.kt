@@ -16,8 +16,8 @@ import com.tiffles.travelingtavern.data.repository.ServerConfigRepositoryImpl
 import com.tiffles.travelingtavern.data.settings.ServerCredentials
 import com.tiffles.travelingtavern.di.ApplicationScope
 import com.tiffles.travelingtavern.domain.model.PageError
-import com.tiffles.travelingtavern.domain.repository.ServerPolicy
 import com.tiffles.travelingtavern.domain.model.PageState
+import com.tiffles.travelingtavern.domain.repository.ServerPolicy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow

@@ -46,6 +46,11 @@ jobs:
       - name: Build
         run: ./gradlew assembleDebug
 
+      # Compiles the leaseTest variant, incl. its Hilt component and single-server binding.
+      # Not packaged: that needs leaseTest.serverUrl from local.properties, which CI doesn't have.
+      - name: Compile leaseTest
+        run: ./gradlew compileLeaseTestKotlin hiltJavaCompileLeaseTest
+
       - name: Unit tests
         run: ./gradlew test
 

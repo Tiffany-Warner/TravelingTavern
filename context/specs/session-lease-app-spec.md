@@ -155,7 +155,7 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 - A dedicated **`leaseTest` build type** (`initWith(debug)`): application id suffix `.leasetest`, its own app name, so it installs beside the real app. Debug and release are unchanged
 - It allows exactly one server: `leaseTest.serverUrl` from `local.properties` (gitignored: `/local.properties` in `.gitignore`), read into `BuildConfig` for `leaseTest` only. A `leaseTest` build fails with "Set leaseTest.serverUrl in local.properties to the test install's URL" when it's missing. Any other server: the app refuses to load it and says why
 - The test install's address never appears in committed code, specs or history
-- Release build: no test-only code paths
+- Release build: binds the allow-all `ServerPolicy` (`AnyServerPolicy`); `SingleServerPolicy` is bound only in `leaseTest` (D7)
 
 ## A10. Tests (links R14)
 
@@ -233,11 +233,12 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 - **D1:** `revealMessage` and `endReveal` go through `BridgeClient.run()` today; slice 5 gives them an exempt path with no lease check, like `setCleanMode` and `setPageTheme`
 - **D2:** A7's Connect is an app `bridge.js` command (`__ttLease` exposes only `useHere` and `onForeground`). It reuses the connect-button ids and `main_api` mapping verified in the extension spec's E15, confirming the selectors match before use; selectors go in `st-selectors.js`
 - **D3:** `0.1.20` / `versionCode` 21 set once in slice 1; `versionCode` goes up again for each later build that is installed
-- **D4:** each slice: commit (asked), push the feature branch unmerged for review, stop. Merge into `dev` only after the re-pin to `v0.2.0`
+- **D4:** each slice: commit (asked), push the feature branch unmerged for review, stop. A draft PR `feature/session-lease` → `dev` runs CI on every slice push; it stays a draft and unmerged until the re-pin to `v0.2.0`
 - **D5 (slice 1):** the bundled copy is copied per variant by `copy<Variant>SessionLease` into a generated assets dir (`variant.sources.assets.addGeneratedSourceDirectory`); `LEASE_VERSION` is read with a regex at configuration time. A missing `extension/session-lease.js` fails every Gradle invocation with the A2 message
 - **D6 (slice 1):** a missing `leaseTest.serverUrl` fails only the packaging of a `leaseTest` APK (`checkLeaseTestServerUrl` before `packageLeaseTest`), so unit tests and lint still run without `local.properties` (CI). `./gradlew build` on a clone without it fails at `assembleLeaseTest`
 - **D7 (slice 1):** single-server rule as a `ServerPolicy` (domain) bound per build type: `src/debug` and `src/release` bind `AnyServerPolicy`, `src/leaseTest` binds `SingleServerPolicy(BuildConfig.LEASE_TEST_SERVER_URL)`. `BuildConfig.LEASE_TEST_SERVER_URL` exists in `leaseTest` only. Checked in `TestConnectionUseCase` (`ConnectionResult.ServerNotAllowed`) and before every load in `WebViewHolder` (`PageError.ServerNotAllowed`, no Retry). `SingleServerPolicy` lives in `main` because AGP 9 runs unit tests for the debug build type only (`android.onlyEnableUnitTestForTheTestedBuildType`); release never binds it
 - **D8 (slice 1):** `leaseTest` app name "TT Lease Test" (`src/leaseTest/res`)
+- **D9 (slice 1 follow-up):** CI compiles the `leaseTest` variant (`compileLeaseTestKotlin hiltJavaCompileLeaseTest`) so its Hilt binding is built; it never packages it (no `leaseTest.serverUrl` in CI)
 
 ## Notes
 
