@@ -3,6 +3,7 @@ package com.tiffles.travelingtavern.data.bridge
 import android.util.Log
 import com.tiffles.travelingtavern.BuildConfig
 import com.tiffles.travelingtavern.domain.model.LeaseStatus
+import com.tiffles.travelingtavern.domain.model.ParkReason
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,7 +15,11 @@ import javax.inject.Singleton
  * every page load) and the app-only states. Fed by [BridgeRepository] and the WebView host.
  * Main thread only for writes; the flows can be read from anywhere.
  *
- * [status] precedence: no document start, then a lease version mismatch, then the page's state.
+ * [status] precedence: no document start (unless continued without protection), then a lease
+ * version mismatch, then a Use here waiting for the page's answer, then the page's state, then
+ * [LeaseStatus.Unprotected]. Unprotected, an extension installed in SillyTavern can still run
+ * its own lease (late, after SillyTavern's first requests): its state then wins, so a parked
+ * page gets the scrim instead of hanging with its requests held.
  */
 @Singleton
 class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
@@ -23,9 +28,12 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
     constructor() : this(BuildConfig.LEASE_VERSION)
 
     private var documentStartSupported = true
+    private var useHereToken = 0
+    private var useHerePending = false
     private val _lastState = MutableStateFlow<BridgeMessage.LeaseState?>(null)
     private val _info = MutableStateFlow<BridgeMessage.LeaseInfo?>(null)
     private val _status = MutableStateFlow<LeaseStatus>(LeaseStatus.NotReported)
+    private val _unprotected = MutableStateFlow(false)
 
     /** The current load's last `leaseState` (pair, origin, `busy`) for the pre-check and release. Null until reported. */
     val lastState: StateFlow<BridgeMessage.LeaseState?> = _lastState.asStateFlow()
@@ -36,6 +44,9 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
     /** What the parked scrim and the pre-check go by. */
     val status: StateFlow<LeaseStatus> = _status.asStateFlow()
 
+    /** Continue without protection was chosen (this process only): the warning banner shows. */
+    val unprotected: StateFlow<Boolean> = _unprotected.asStateFlow()
+
     /**
      * A takeover is reloading the page: the last `leaseState` reason is `claiming` or
      * `reloadPending` (A2), whatever [status] shows. Reset with the page, like [lastState].
@@ -45,6 +56,7 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
 
     fun onLeaseState(message: BridgeMessage.LeaseState) {
         _lastState.value = message
+        useHerePending = false
         publish()
     }
 
@@ -61,6 +73,33 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
         Log.d(TAG, "Page started: lease state reset")
         _lastState.value = null
         _info.value = null
+        useHerePending = false
+        publish()
+    }
+
+    /**
+     * Use here was tapped: a parked page shows claiming at once (A3), until its next
+     * `leaseState` or page load. Returns a token for [onUseHereUnanswered].
+     */
+    fun onUseHere(): Int {
+        useHerePending = true
+        publish()
+        return ++useHereToken
+    }
+
+    /**
+     * The page didn't answer Use here (it ignores a tap it can't act on and then reports
+     * nothing): back to its last state. A token from an earlier tap does nothing.
+     */
+    fun onUseHereUnanswered(token: Int) {
+        if (!useHerePending || token != useHereToken) return
+        useHerePending = false
+        publish()
+    }
+
+    /** Continue without protection (A2): SillyTavern loads without the lease for this process. */
+    fun onContinueWithoutProtection() {
+        _unprotected.value = true
         publish()
     }
 
@@ -73,10 +112,13 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
     private fun publish() {
         val info = _info.value
         val state = _lastState.value
+        val pageStatus = state?.toLeaseStatus()
         _status.value = when {
-            !documentStartSupported -> LeaseStatus.NoDocumentStart
+            !documentStartSupported && !_unprotected.value -> LeaseStatus.NoDocumentStart
             info != null && info.leaseVersion != appLeaseVersion -> LeaseStatus.VersionMismatch
-            state != null -> state.toLeaseStatus()
+            useHerePending && pageStatus is LeaseStatus.Parked -> LeaseStatus.Parked(ParkReason.Claiming)
+            pageStatus != null -> pageStatus
+            _unprotected.value -> LeaseStatus.Unprotected
             else -> LeaseStatus.NotReported
         }
     }

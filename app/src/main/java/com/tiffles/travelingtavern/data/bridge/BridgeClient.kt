@@ -152,6 +152,14 @@ class BridgeClient @Inject constructor(
         holder.webView.evaluateJavascript(BridgeScript.call("setClean", JsonPrimitive(enabled)), null)
     }
 
+    /**
+     * Use here (A3): the page claims the lease and reloads. Never gated by the lease check:
+     * it is how a parked page stops being parked.
+     */
+    suspend fun useHere() = withContext(Dispatchers.Main) {
+        holder.webView.evaluateJavascript(BridgeScript.leaseCall("useHere"), null)
+    }
+
     private suspend fun run(script: String) = withContext(Dispatchers.Main) {
         holder.webView.evaluateJavascript(script, null)
     }

@@ -59,6 +59,9 @@ class WebViewHolder @Inject constructor(
     private var loadedBaseUrl: String? = null
     private var pendingLoad: View.OnLayoutChangeListener? = null
 
+    /** Continue without protection (A2): loads skip the lease for the rest of this process. */
+    private var withoutLease = false
+
     private val chromeClient = TavernWebChromeClient(
         serverBaseUrl = { serverBaseUrl },
         isTakeoverReload = { lease.isTakeoverReload }
@@ -104,6 +107,22 @@ class WebViewHolder @Inject constructor(
 
     fun retry() {
         serverBaseUrl?.let { load(webView, it) }
+    }
+
+    /** Reloads the page, e.g. to finish a takeover (`reloadPending`, A3). */
+    fun reload() {
+        webView.reload()
+    }
+
+    /**
+     * No document-start support and the user chose to continue anyway: loads SillyTavern
+     * without the lease. Process only, so the next launch asks again.
+     */
+    fun continueWithoutLease() {
+        Log.w(TAG, "Continuing without the session lease for this launch")
+        withoutLease = true
+        lease.onContinueWithoutProtection()
+        retry()
     }
 
     fun goBack() {
@@ -175,7 +194,7 @@ class WebViewHolder @Inject constructor(
             tracker.onMainFrameError(PageError.WebViewOutdated)
             return
         }
-        if (!bridge.isDocumentStartSupported) {
+        if (!withoutLease && !bridge.isDocumentStartSupported) {
             Log.w(TAG, "WebView lacks document-start scripts; SillyTavern not loaded")
             onNoDocumentStart()
             return
@@ -187,7 +206,7 @@ class WebViewHolder @Inject constructor(
         view.doOnNonZeroSize {
             // The listener and the lease only take effect on the next navigation, so register them first.
             bridge.registerListener(view, origin = baseUrl)
-            if (!bridge.addLeaseScript(view, origin = baseUrl)) {
+            if (!withoutLease && !bridge.addLeaseScript(view, origin = baseUrl)) {
                 onNoDocumentStart()
                 return@doOnNonZeroSize
             }
@@ -198,7 +217,7 @@ class WebViewHolder @Inject constructor(
 
     /**
      * The lease can't run before SillyTavern's first request, so the page isn't loaded. The
-     * scrim (A3, slice 4) offers updating the WebView or continuing without protection.
+     * scrim (A3) offers updating the WebView or continuing without protection.
      */
     private fun onNoDocumentStart() {
         lease.onDocumentStartUnsupported()

@@ -208,4 +208,93 @@ class LeaseStateStoreTest {
         store.onPageStarted()
         assertFalse(store.isTakeoverReload)
     }
+
+    @Test
+    fun `use here shows claiming at once over a parked page`() {
+        store.onLeaseState(state("parked", "held"))
+
+        store.onUseHere()
+
+        assertEquals(LeaseStatus.Parked(ParkReason.Claiming), store.status.value)
+    }
+
+    @Test
+    fun `the page's next leaseState replaces the optimistic claiming`() {
+        store.onLeaseState(state("parked", "held"))
+        store.onUseHere()
+
+        store.onLeaseState(state("parked", "lostRace"))
+
+        assertEquals(LeaseStatus.Parked(ParkReason.LostRace), store.status.value)
+    }
+
+    @Test
+    fun `use here does nothing to a holder or before the first leaseState`() {
+        store.onUseHere()
+        assertEquals(LeaseStatus.NotReported, store.status.value)
+
+        store.onLeaseState(state("holder"))
+        store.onUseHere()
+        assertEquals(LeaseStatus.Holder(busy = false, connected = true), store.status.value)
+    }
+
+    @Test
+    fun `an unanswered use here falls back to the page's state`() {
+        store.onLeaseState(state("parked", "held"))
+        val token = store.onUseHere()
+
+        store.onUseHereUnanswered(token)
+
+        assertEquals(LeaseStatus.Parked(ParkReason.Held), store.status.value)
+    }
+
+    @Test
+    fun `an earlier tap's timeout leaves a newer tap claiming`() {
+        store.onLeaseState(state("parked", "held"))
+        val first = store.onUseHere()
+        store.onUseHere()
+
+        store.onUseHereUnanswered(first)
+
+        assertEquals(LeaseStatus.Parked(ParkReason.Claiming), store.status.value)
+    }
+
+    @Test
+    fun `a page load ends the optimistic claiming`() {
+        store.onLeaseState(state("parked", "held"))
+        store.onUseHere()
+
+        store.onPageStarted()
+        store.onLeaseState(state("parked", "held"))
+
+        assertEquals(LeaseStatus.Parked(ParkReason.Held), store.status.value)
+    }
+
+    @Test
+    fun `continue without protection is unprotected and survives page loads`() {
+        store.onDocumentStartUnsupported()
+
+        assertFalse(store.unprotected.value)
+
+        store.onContinueWithoutProtection()
+        assertEquals(LeaseStatus.Unprotected, store.status.value)
+        assertTrue(store.unprotected.value)
+
+        store.onPageStarted()
+        assertEquals(LeaseStatus.Unprotected, store.status.value)
+        assertTrue(store.unprotected.value)
+    }
+
+    @Test
+    fun `unprotected, an extension's own lease reporting wins`() {
+        store.onDocumentStartUnsupported()
+        store.onContinueWithoutProtection()
+
+        store.onLeaseState(state("parked", "held"))
+        assertEquals(LeaseStatus.Parked(ParkReason.Held), store.status.value)
+
+        store.onPageStarted()
+        assertEquals(LeaseStatus.Unprotected, store.status.value)
+        assertTrue(store.unprotected.value)
+    }
 }

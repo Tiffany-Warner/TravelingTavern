@@ -2,7 +2,7 @@ package com.tiffles.travelingtavern.domain.model
 
 /**
  * Whether this phone's SillyTavern page may write (session lease). Comes from the page's
- * `leaseState`, plus two states only the app knows ([VersionMismatch], [NoDocumentStart]).
+ * `leaseState`, plus states only the app knows ([VersionMismatch], [NoDocumentStart], [Unprotected]).
  */
 sealed interface LeaseStatus {
 
@@ -20,6 +20,13 @@ sealed interface LeaseStatus {
 
     /** App only: the WebView can't inject scripts at document start, so SillyTavern isn't loaded. */
     data object NoDocumentStart : LeaseStatus
+
+    /**
+     * App only: no document start, the user chose Continue without protection, and no lease
+     * reports from the page. SillyTavern runs without the lease for this app process; the next
+     * launch asks again (A2). An extension's own lease reporting replaces this state.
+     */
+    data object Unprotected : LeaseStatus
 }
 
 /** Why a page is parked (the extension's `leaseState.reason`). */

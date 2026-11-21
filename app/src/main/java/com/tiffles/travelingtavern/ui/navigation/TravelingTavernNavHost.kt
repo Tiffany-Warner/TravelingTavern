@@ -50,6 +50,7 @@ import com.tiffles.travelingtavern.ui.chat.DefaultChatInputBarHeight
 import com.tiffles.travelingtavern.ui.chats.ChatsScreen
 import com.tiffles.travelingtavern.ui.components.SillyTavernWebView
 import com.tiffles.travelingtavern.ui.connect.ConnectScreen
+import com.tiffles.travelingtavern.ui.lease.LeaseGuard
 import com.tiffles.travelingtavern.ui.lorebooks.LorebookDetailScreen
 import com.tiffles.travelingtavern.ui.lorebooks.LorebookEntryScreen
 import com.tiffles.travelingtavern.ui.lorebooks.LorebooksScreen
@@ -95,45 +96,48 @@ fun TravelingTavernNavHost(
     val reselectEvents = remember { TabReselectEvents() }
     var inputBarHeight by remember { mutableStateOf(DefaultChatInputBarHeight) }
 
-    CompositionLocalProvider(LocalTabReselectEvents provides reselectEvents) {
-        Scaffold(
-            modifier = modifier.fillMaxSize(),
-            bottomBar = {
-                if (showBottomBar) {
-                    TravelingTavernBottomBar(
-                        selectedTab = selectedTab,
-                        onTabSelected = { tab ->
-                            if (tab == selectedTab) {
-                                reselectEvents.reselect(tab)
-                            } else {
-                                navController.navigateToTab(tab)
+    // Over the whole Scaffold, tab bar included (A3).
+    LeaseGuard(modifier = modifier) {
+        CompositionLocalProvider(LocalTabReselectEvents provides reselectEvents) {
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                bottomBar = {
+                    if (showBottomBar) {
+                        TravelingTavernBottomBar(
+                            selectedTab = selectedTab,
+                            onTabSelected = { tab ->
+                                if (tab == selectedTab) {
+                                    reselectEvents.reselect(tab)
+                                } else {
+                                    navController.navigateToTab(tab)
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
-            }
-        ) { innerPadding ->
-            // The WebView ignores innerPadding on purpose (see above); it sits inside the
-            // Scaffold so the Scaffold's surface, which swallows touches, stays behind it.
-            Box(modifier = Modifier.fillMaxSize()) {
-                SillyTavernWebView(
-                    revealed = chatShowing,
-                    onOpenServerSettings = openServerSettings,
-                    modifier = Modifier
-                        .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
-                        .padding(top = ChatChromeHeight, bottom = inputBarHeight)
-                )
-                NavHost(
-                    navController = navController,
-                    startDestination = startDestination,
-                    // Consumed so screens that add imePadding() don't count the system bars twice.
-                    modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)
-                ) {
-                    tabGraphs(navController = navController, onOpenServerSettings = openServerSettings)
-                    fullScreenDestinations(
-                        navController = navController,
-                        onInputBarHeightChange = { inputBarHeight = it }
+            ) { innerPadding ->
+                // The WebView ignores innerPadding on purpose (see above); it sits inside the
+                // Scaffold so the Scaffold's surface, which swallows touches, stays behind it.
+                Box(modifier = Modifier.fillMaxSize()) {
+                    SillyTavernWebView(
+                        revealed = chatShowing,
+                        onOpenServerSettings = openServerSettings,
+                        modifier = Modifier
+                            .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
+                            .padding(top = ChatChromeHeight, bottom = inputBarHeight)
                     )
+                    NavHost(
+                        navController = navController,
+                        startDestination = startDestination,
+                        // Consumed so screens that add imePadding() don't count the system bars twice.
+                        modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)
+                    ) {
+                        tabGraphs(navController = navController, onOpenServerSettings = openServerSettings)
+                        fullScreenDestinations(
+                            navController = navController,
+                            onInputBarHeightChange = { inputBarHeight = it }
+                        )
+                    }
                 }
             }
         }

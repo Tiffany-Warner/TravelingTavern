@@ -8,6 +8,7 @@ import com.tiffles.travelingtavern.data.media.PictureEncoder
 import com.tiffles.travelingtavern.data.remote.BasicAuthInterceptor
 import com.tiffles.travelingtavern.data.remote.OkHttpConnectionTester
 import com.tiffles.travelingtavern.data.repository.CharacterRepositoryImpl
+import com.tiffles.travelingtavern.data.repository.LeaseRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.ChatSessionRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.LorebookRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.PersonaRepositoryImpl
@@ -18,6 +19,7 @@ import com.tiffles.travelingtavern.domain.repository.CharacterRepository
 import com.tiffles.travelingtavern.domain.repository.ChatSessionRepository
 import com.tiffles.travelingtavern.domain.repository.ConnectionTester
 import com.tiffles.travelingtavern.domain.repository.HiddenChatsRepository
+import com.tiffles.travelingtavern.domain.repository.LeaseRepository
 import com.tiffles.travelingtavern.domain.repository.LorebookRepository
 import com.tiffles.travelingtavern.domain.repository.PersonaRepository
 import com.tiffles.travelingtavern.domain.repository.ServerConfigRepository
@@ -57,6 +59,9 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindHiddenChatsRepository(impl: HiddenChatsStore): HiddenChatsRepository
+
+    @Binds
+    abstract fun bindLeaseRepository(impl: LeaseRepositoryImpl): LeaseRepository
 
     companion object {
         @Provides

@@ -185,4 +185,28 @@
     <string name="persona_retry">Retry</string>
     <string name="persona_picture_unreadable">Couldn\'t read that picture. Try another one.</string>
     <string name="persona_more_settings">Description position, depth, persona lorebook and connections stay as they are. Change them in Advanced.</string>
+
+    <!-- Session lease: parked state (A3) and the unprotected banner (A2) -->
+    <string name="lease_in_use_title">In use on another device</string>
+    <string name="lease_in_use_line">Use SillyTavern on this phone instead?</string>
+    <string name="lease_claiming_title">Taking over…</string>
+    <string name="lease_claiming_line">Loading your chat on this phone.</string>
+    <string name="lease_waiting_title">Finishing a reply…</string>
+    <string name="lease_waiting_line">Your other device is still writing a reply.</string>
+    <string name="lease_lost_race_title">Another device took over</string>
+    <string name="lease_lost_race_line">It claimed SillyTavern first.</string>
+    <string name="lease_unreadable_title">Can\'t reach SillyTavern</string>
+    <string name="lease_unreadable_line">Nothing is saved from this phone.</string>
+    <string name="lease_update_title">Update needed</string>
+    <string name="lease_update_app_line">Update TravelingTavern to use SillyTavern here.</string>
+    <string name="lease_update_webview_line">Update Android System WebView to use SillyTavern here.</string>
+    <string name="lease_reload_title">Reload needed</string>
+    <string name="lease_reload_line">Reload to finish taking over on this phone.</string>
+    <string name="lease_restart_title">Restart needed</string>
+    <string name="lease_restart_line">Restart TravelingTavern to use SillyTavern here.</string>
+    <string name="lease_use_here">Use here</string>
+    <string name="lease_reload">Reload</string>
+    <string name="lease_update">Update</string>
+    <string name="lease_continue_unprotected">Continue without protection</string>
+    <string name="lease_unprotected_banner">Not protected: data from another device can be overwritten</string>
 </resources>

@@ -181,4 +181,15 @@ class BridgeScriptTest {
             BridgeScript.call("selectPersona", JsonPrimitive("pe1"), JsonPrimitive("1-Mira.png"), JsonPrimitive(true))
         )
     }
+
+    @Test
+    fun `lease calls are guarded by the lease's presence`() {
+        assertEquals("window.__ttLease && window.__ttLease.useHere();", BridgeScript.leaseCall("useHere"))
+        assertEquals("window.__ttLease && window.__ttLease.onForeground();", BridgeScript.leaseCall("onForeground"))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `only the lease's own functions can be called`() {
+        BridgeScript.leaseCall("start")
+    }
 }
