@@ -79,4 +79,4 @@ fun persona(
     description: String = "",
     isActive: Boolean = false,
     isDefault: Boolean = false
-) = Persona(avatarId, name, title, description, "http://100.64.0.2:8000/thumbnail?file=$avatarId", isActive, isDefault)
+) = Persona(avatarId, name, title, description, "http://192.0.2.1:8000/thumbnail?file=$avatarId", isActive, isDefault)

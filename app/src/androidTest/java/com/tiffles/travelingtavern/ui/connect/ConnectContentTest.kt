@@ -50,7 +50,7 @@ class ConnectContentTest {
     @Test
     fun connectCallsBack() {
         var connected = false
-        show(ConnectUiState(url = "100.64.0.2:8000"), onConnect = { connected = true })
+        show(ConnectUiState(url = "192.0.2.1:8000"), onConnect = { connected = true })
 
         composeRule.onNodeWithText(string(R.string.connect_action)).performClick()
         assertTrue(connected)
@@ -58,7 +58,7 @@ class ConnectContentTest {
 
     @Test
     fun connectingShowsTheSpinnerTextInsteadOfTheButton() {
-        show(ConnectUiState(url = "100.64.0.2:8000", status = ConnectStatus.Connecting))
+        show(ConnectUiState(url = "192.0.2.1:8000", status = ConnectStatus.Connecting))
 
         composeRule.onNodeWithText(string(R.string.connect_connecting)).assertIsDisplayed()
         composeRule.onNodeWithText(string(R.string.connect_action)).assertDoesNotExist()
@@ -66,7 +66,7 @@ class ConnectContentTest {
 
     @Test
     fun failureShowsTheErrorAndConnectAgain() {
-        show(ConnectUiState(url = "100.64.0.2:8000", status = ConnectStatus.Failed(ConnectionResult.Unreachable)))
+        show(ConnectUiState(url = "192.0.2.1:8000", status = ConnectStatus.Failed(ConnectionResult.Unreachable)))
 
         composeRule.onNodeWithText(string(R.string.connect_result_unreachable)).assertIsDisplayed()
         composeRule.onNodeWithText(string(R.string.connect_action)).assertIsDisplayed()

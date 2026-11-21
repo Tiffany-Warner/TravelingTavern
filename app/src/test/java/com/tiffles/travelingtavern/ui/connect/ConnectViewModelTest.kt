@@ -52,7 +52,7 @@ class ConnectViewModelTest {
     fun `connect is disabled until there is an address`() {
         assertFalse(viewModel.uiState.value.canConnect)
 
-        viewModel.onUrlChange("100.64.0.2:8000")
+        viewModel.onUrlChange("192.0.2.1:8000")
 
         assertTrue(viewModel.uiState.value.canConnect)
     }
@@ -60,7 +60,7 @@ class ConnectViewModelTest {
     @Test
     fun `success saves the normalized config and emits Saved`() = runTest {
         val events = collectEvents()
-        viewModel.onUrlChange("100.64.0.2:8000/")
+        viewModel.onUrlChange("192.0.2.1:8000/")
         viewModel.onLoginEnabledChange(true)
         viewModel.onUsernameChange("user")
         viewModel.onPasswordChange("pass")
@@ -71,7 +71,7 @@ class ConnectViewModelTest {
         assertEquals(listOf(ConnectEvent.Saved), events)
         coVerify {
             repository.save(
-                ServerConfig(baseUrl = "http://100.64.0.2:8000", username = "user", hasPassword = true),
+                ServerConfig(baseUrl = "http://192.0.2.1:8000", username = "user", hasPassword = true),
                 "pass"
             )
         }
@@ -80,7 +80,7 @@ class ConnectViewModelTest {
     @Test
     fun `shows connecting while the test runs and ignores repeat taps`() = runTest {
         val gate = CompletableDeferred<ConnectionResult>()
-        viewModel.onUrlChange("100.64.0.2:8000")
+        viewModel.onUrlChange("192.0.2.1:8000")
         coEvery { testConnection(any(), any(), any()) } coAnswers { gate.await() }
 
         viewModel.connect()
@@ -88,7 +88,7 @@ class ConnectViewModelTest {
         viewModel.onUrlChange("ignored while connecting")
 
         assertEquals(ConnectStatus.Connecting, viewModel.uiState.value.status)
-        assertEquals("100.64.0.2:8000", viewModel.uiState.value.url)
+        assertEquals("192.0.2.1:8000", viewModel.uiState.value.url)
         coVerify(exactly = 1) { testConnection(any(), any(), any()) }
         gate.complete(ConnectionResult.Unreachable)
         assertEquals(ConnectStatus.Failed(ConnectionResult.Unreachable), viewModel.uiState.value.status)
@@ -97,7 +97,7 @@ class ConnectViewModelTest {
     @Test
     fun `failure shows the error, keeps the inputs and saves nothing`() = runTest {
         val events = collectEvents()
-        viewModel.onUrlChange("100.64.0.2:8000")
+        viewModel.onUrlChange("192.0.2.1:8000")
         viewModel.onLoginEnabledChange(true)
         viewModel.onUsernameChange("user")
         viewModel.onPasswordChange("wrong")
@@ -107,7 +107,7 @@ class ConnectViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals(ConnectStatus.Failed(ConnectionResult.AuthFailed), state.status)
-        assertEquals(listOf("100.64.0.2:8000", "user", "wrong"), listOf(state.url, state.username, state.password))
+        assertEquals(listOf("192.0.2.1:8000", "user", "wrong"), listOf(state.url, state.username, state.password))
         assertTrue(state.loginEnabled && state.canConnect)
         assertTrue(events.isEmpty())
         coVerify(exactly = 0) { repository.save(any(), any()) }
@@ -115,18 +115,18 @@ class ConnectViewModelTest {
 
     @Test
     fun `editing any field clears the error`() = runTest {
-        viewModel.onUrlChange("100.64.0.2:8000")
+        viewModel.onUrlChange("192.0.2.1:8000")
         coEvery { testConnection(any(), any(), any()) } returns ConnectionResult.Unreachable
         viewModel.connect()
 
-        viewModel.onUrlChange("100.64.0.2:8001")
+        viewModel.onUrlChange("192.0.2.1:8001")
 
         assertEquals(ConnectStatus.Idle, viewModel.uiState.value.status)
     }
 
     @Test
     fun `auth required turns on the authentication fields`() = runTest {
-        viewModel.onUrlChange("100.64.0.2:8000")
+        viewModel.onUrlChange("192.0.2.1:8000")
         coEvery { testConnection(any(), null, null) } returns ConnectionResult.AuthRequired
 
         viewModel.connect()
@@ -137,14 +137,14 @@ class ConnectViewModelTest {
 
     @Test
     fun `credentials are only sent when authentication is on`() = runTest {
-        viewModel.onUrlChange("100.64.0.2:8000")
+        viewModel.onUrlChange("192.0.2.1:8000")
         viewModel.onUsernameChange("user")
         viewModel.onPasswordChange("pass")
-        coEvery { testConnection("100.64.0.2:8000", null, null) } returns ConnectionResult.Success
+        coEvery { testConnection("192.0.2.1:8000", null, null) } returns ConnectionResult.Success
 
         viewModel.connect()
 
-        coVerify(exactly = 1) { testConnection("100.64.0.2:8000", null, null) }
-        coVerify { repository.save(ServerConfig("http://100.64.0.2:8000", username = null, hasPassword = false), null) }
+        coVerify(exactly = 1) { testConnection("192.0.2.1:8000", null, null) }
+        coVerify { repository.save(ServerConfig("http://192.0.2.1:8000", username = null, hasPassword = false), null) }
     }
 }
