@@ -293,7 +293,7 @@ private fun ConnectContentEmptyPreview() = previewActions(ConnectUiState())
 @Composable
 private fun ConnectContentErrorPreview() = previewActions(
     ConnectUiState(
-        url = "http://100.64.0.2:8000",
+        url = "http://192.0.2.1:8000",
         loginEnabled = true,
         username = "user",
         password = "pass",

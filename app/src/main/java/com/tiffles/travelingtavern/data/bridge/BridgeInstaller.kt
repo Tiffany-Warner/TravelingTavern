@@ -36,7 +36,7 @@ class BridgeInstaller @Inject constructor(
         get() = WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
 
     /**
-     * Allows messages from [origin] (e.g. `http://100.64.0.2:8000`) and nowhere else. Takes
+     * Allows messages from [origin] (e.g. `http://192.0.2.1:8000`) and nowhere else. Takes
      * effect on the next page load, so call it before loading the server.
      */
     fun registerListener(view: WebView, origin: String) {

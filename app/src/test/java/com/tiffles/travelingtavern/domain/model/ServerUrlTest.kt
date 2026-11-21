@@ -8,7 +8,7 @@ class ServerUrlTest {
 
     @Test
     fun `bare host and port gets http scheme`() {
-        assertEquals("http://100.64.0.2:8000", normalizeServerUrl("100.64.0.2:8000"))
+        assertEquals("http://192.0.2.1:8000", normalizeServerUrl("192.0.2.1:8000"))
     }
 
     @Test
@@ -18,8 +18,8 @@ class ServerUrlTest {
 
     @Test
     fun `trailing slash and path are dropped`() {
-        assertEquals("http://100.64.0.2:8000", normalizeServerUrl("http://100.64.0.2:8000/"))
-        assertEquals("http://100.64.0.2:8000", normalizeServerUrl("http://100.64.0.2:8000/index.html"))
+        assertEquals("http://192.0.2.1:8000", normalizeServerUrl("http://192.0.2.1:8000/"))
+        assertEquals("http://192.0.2.1:8000", normalizeServerUrl("http://192.0.2.1:8000/index.html"))
     }
 
     @Test
@@ -29,7 +29,7 @@ class ServerUrlTest {
 
     @Test
     fun `surrounding whitespace is ignored`() {
-        assertEquals("http://100.64.0.2:8000", normalizeServerUrl("  100.64.0.2:8000  "))
+        assertEquals("http://192.0.2.1:8000", normalizeServerUrl("  192.0.2.1:8000  "))
     }
 
     @Test

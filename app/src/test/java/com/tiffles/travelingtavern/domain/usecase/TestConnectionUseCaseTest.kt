@@ -36,9 +36,9 @@ class TestConnectionUseCaseTest {
 
     @Test
     fun `normalized url and credentials are passed to the tester`() = runTest {
-        coEvery { tester.test("http://100.64.0.2:8000", "user", "pass") } returns ConnectionResult.Success
+        coEvery { tester.test("http://192.0.2.1:8000", "user", "pass") } returns ConnectionResult.Success
 
-        val result = useCase(rawUrl = "100.64.0.2:8000/", username = "user", password = "pass")
+        val result = useCase(rawUrl = "192.0.2.1:8000/", username = "user", password = "pass")
 
         assertEquals(ConnectionResult.Success, result)
     }

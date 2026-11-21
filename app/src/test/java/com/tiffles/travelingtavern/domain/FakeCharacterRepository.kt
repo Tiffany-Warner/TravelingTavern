@@ -68,8 +68,8 @@ class FakeCharacterRepository : CharacterRepository {
 fun character(name: String, id: String = "$name.png") = CharacterSummary(
     id = id,
     name = name,
-    avatarUrl = "http://100.64.0.2:8000/thumbnail?type=avatar&file=$id",
-    portraitUrl = "http://100.64.0.2:8000/characters/$id",
+    avatarUrl = "http://192.0.2.1:8000/thumbnail?type=avatar&file=$id",
+    portraitUrl = "http://192.0.2.1:8000/characters/$id",
     lastChatAt = null
 )
 
