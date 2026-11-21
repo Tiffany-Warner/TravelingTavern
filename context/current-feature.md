@@ -4,9 +4,17 @@ Session Lease — `0.1.20` (spec done)
 
 ## Status
 
-**Spec done; waiting for the extension.** `context/specs/session-lease-app-spec.md` is reviewed (replaces the superseded `fix-stale-page-overwrites-spec.md`). Next: implementing `0.1.20` once TravelingTavern-Extension `v0.2.0` is tagged, since the app bundles its `session-lease.js` through a submodule pinned to that tag.
+**Spec done; waiting for the extension's release candidate.** `context/specs/session-lease-app-spec.md` is reviewed (replaces the superseded `fix-stale-page-overwrites-spec.md`).
 
 The decision, the spike's evidence and the requirement map are in that repo's `context/decisions/` (`direction-change.md`, `architecture-assessment.md`, `session-lease-spike.md`); the shared contract is its `context/specs/ext-0.2-session-lease-spec.md`.
+
+## Order
+
+1. [ ] TravelingTavern-Extension builds the lease in slices and tags **`v0.2.0-rc.1`** on its `dev`
+2. [ ] Feature branch here: submodule pinned to `v0.2.0-rc.1`; `0.1.20` implemented; app spec checklist (A10) and the extension's E14 checklist pass with the `leaseTest` build on the test install
+3. [ ] The extension releases `v0.2.0` to its `main`
+4. [ ] Re-pin the submodule to `v0.2.0`, re-run the build and unit tests, then merge
+5. [ ] After the release: privacy check of `spike/session-lease`, tag `archive/spike-session-lease`, push the tag, delete the branch (ask first)
 
 ## History
 
