@@ -21,7 +21,7 @@ The decision, the spike's evidence and the requirement map are in that repo's `c
 ### 2026-11-21 — Wine logo
 - Launcher icon (and the Connect screen's `AppLogo`, drawn from the same layers) now uses `docs/brand/travelingtavern_logo_wine.svg`: wine-red background, cream tavern with the door cut out and its knob; monochrome layer for themed icons is the same shapes in one color
 - Same 1024 canvas and 18dp inset as the old logo, so it fits the safe zone; the old purple `travelingtavern_logo.svg` is deleted (nothing else referenced it)
-- Verified in the emulator's app drawer (API 37); not verified: themed icons, Pixel 8. `versionCode` 27 (installed builds reached 26 on the session lease branch)
+- Verified on emulators: app drawer (API 37) and themed icon on the home screen (API 35); not verified: Pixel 8. `versionCode` 27 (installed builds reached 26 on the session lease branch)
 
 ### 2026-11-20 — Phase 1.9 Personas — `0.1.19`
 - Chip "Chatting as {name}" below the chat's message box; full-screen Personas (Active / Default badges, ⋯ dropdown: Edit, Set / Remove default, Delete via the chat's delete dialog, now `ConfirmDeleteDialog`); editor with picture, name, title, description + token count. Picking in a chat locks it to that chat
