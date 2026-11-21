@@ -176,10 +176,8 @@ class WebViewHolder @Inject constructor(
             return
         }
         if (!bridge.isDocumentStartSupported) {
-            // No page-load fallback: the lease must exist before SillyTavern's first request.
-            // The parked state (A3) shows "Update Android System WebView" for this status.
             Log.w(TAG, "WebView lacks document-start scripts; SillyTavern not loaded")
-            lease.onDocumentStartUnsupported()
+            onNoDocumentStart()
             return
         }
         if (!serverPolicy.allows(baseUrl)) {
@@ -189,10 +187,21 @@ class WebViewHolder @Inject constructor(
         view.doOnNonZeroSize {
             // The listener and the lease only take effect on the next navigation, so register them first.
             bridge.registerListener(view, origin = baseUrl)
-            bridge.addLeaseScript(view, origin = baseUrl)
+            if (!bridge.addLeaseScript(view, origin = baseUrl)) {
+                onNoDocumentStart()
+                return@doOnNonZeroSize
+            }
             view.loadUrl(baseUrl)
             startWatchdog()
         }
+    }
+
+    /**
+     * The lease can't run before SillyTavern's first request, so the page isn't loaded. The
+     * scrim (A3, slice 4) offers updating the WebView or continuing without protection.
+     */
+    private fun onNoDocumentStart() {
+        lease.onDocumentStartUnsupported()
     }
 
     /** Gives up on a load the server never answers, instead of waiting ~2 min for the WebView. */

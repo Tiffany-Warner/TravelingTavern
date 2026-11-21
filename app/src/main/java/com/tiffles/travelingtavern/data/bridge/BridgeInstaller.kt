@@ -67,18 +67,24 @@ class BridgeInstaller @Inject constructor(
      * start of every page from [origin], replacing the rule for an earlier origin. Like the
      * listener, it applies from the next navigation, so call it before loading the server.
      * The script itself skips frames and SillyTavern's login page (E11).
+     *
+     * @return false when the lease couldn't be added: the page must not load as if it were protected.
      */
-    fun addLeaseScript(view: WebView, origin: String) {
+    fun addLeaseScript(view: WebView, origin: String): Boolean {
         // Checked inline, not through isDocumentStartSupported, so lint's RequiresFeature sees it.
-        if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) || origin == leaseOrigin) return
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return false
+        if (origin == leaseOrigin) return true
         leaseScript?.remove()
         leaseScript = null
         leaseOrigin = null
-        try {
+        return try {
             leaseScript = WebViewCompat.addDocumentStartJavaScript(view, readAsset(LEASE_ASSET), setOf(origin))
             leaseOrigin = origin
-        } catch (e: IllegalArgumentException) {
-            Log.e(TAG, "Server origin was rejected as a document-start rule", e)
+            true
+        } catch (e: RuntimeException) {
+            // Any failure (a rejected origin rule, a WebView that refuses it) leaves the page without the lease.
+            Log.w(TAG, "Couldn't add the session lease at document start", e)
+            false
         }
     }
 

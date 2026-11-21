@@ -119,7 +119,7 @@ class ConnectViewModelTest {
         coEvery { testConnection(any(), any(), any()) } returns ConnectionResult.Unreachable
         viewModel.connect()
 
-        viewModel.onUrlChange("192.0.2.1:8001")
+        viewModel.onUrlChange("192.0.2.1:8080")
 
         assertEquals(ConnectStatus.Idle, viewModel.uiState.value.status)
     }

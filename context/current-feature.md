@@ -11,12 +11,18 @@ The decision, the spike's evidence and the requirement map are in that repo's `c
 ## Order
 
 1. [x] TravelingTavern-Extension builds the lease in slices and tags **`v0.2.0-rc.1`** on its `dev`
-2. [ ] Feature branch here: submodule pinned to `v0.2.0-rc.1`; `0.1.20` implemented; app spec checklist (A10) and the extension's E14 checklist pass with the `leaseTest` build on the test install
-3. [ ] The extension releases `v0.2.0` to its `main`
-4. [ ] Re-pin the submodule to `v0.2.0`, re-run the build and unit tests, then merge
-5. [ ] After the release: privacy check of `spike/session-lease`, tag `archive/spike-session-lease`, push the tag, delete the branch (ask first)
+2. [ ] Extension fixes the SillyTavern context hook bug and tags `v0.2.0-rc.2`; submodule re-pinned before slice 8
+3. [ ] Feature branch here: submodule pinned to `v0.2.0-rc.1`; `0.1.20` implemented; app spec checklist (A10) and the extension's E14 checklist pass with the `leaseTest` build on the test install
+4. [ ] The extension releases `v0.2.0` to its `main`
+5. [ ] Re-pin the submodule to `v0.2.0`, re-run the build and unit tests, then merge
+6. [ ] After the release: privacy check of `spike/session-lease`, tag `archive/spike-session-lease`, push the tag, delete the branch (ask first)
 
 ## History
+
+### 2026-11-21 — Decision: continue without protection
+- No document-start support (or `addDocumentStartJavaScript` throws) no longer blocks completely: the scrim (slice 4) offers Update (Play Store page for Android System WebView) and Continue without protection
+- Continue loads SillyTavern without the lease for this launch only, with a persistent "Not protected: data from another device can be overwritten" banner; asks again on next launch (user decision). Spec A2, A3, D13, D14
+- Slice 3 follow-up: a throwing `addDocumentStartJavaScript` now counts as no support (no `loadUrl`, WARN log)
 
 ### 2026-11-20 — Phase 1.9 Personas — `0.1.19`
 - Chip "Chatting as {name}" below the chat's message box; full-screen Personas (Active / Default badges, ⋯ dropdown: Edit, Set / Remove default, Delete via the chat's delete dialog, now `ConfirmDeleteDialog`); editor with picture, name, title, description + token count. Picking in a chat locks it to that chat
