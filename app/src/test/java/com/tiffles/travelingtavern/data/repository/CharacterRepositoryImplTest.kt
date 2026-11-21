@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.LifecycleOwner
 import com.tiffles.travelingtavern.data.bridge.BridgeClient
 import com.tiffles.travelingtavern.data.bridge.BridgeRepository
+import com.tiffles.travelingtavern.data.bridge.LeaseStateStore
 import com.tiffles.travelingtavern.data.lifecycle.AppForegroundTracker
 import com.tiffles.travelingtavern.data.webview.WebViewHolder
 import com.tiffles.travelingtavern.domain.model.ChatRef
@@ -34,7 +35,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class CharacterRepositoryImplTest {
 
-    private val bridge = BridgeRepository()
+    private val bridge = BridgeRepository(LeaseStateStore())
     private val client: BridgeClient = mockk(relaxed = true)
     private val foreground = AppForegroundTracker()
     private val owner: LifecycleOwner = mockk(relaxed = true)

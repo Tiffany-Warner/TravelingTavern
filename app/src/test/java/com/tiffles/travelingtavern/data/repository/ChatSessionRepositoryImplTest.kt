@@ -3,6 +3,7 @@ package com.tiffles.travelingtavern.data.repository
 import android.util.Log
 import com.tiffles.travelingtavern.data.bridge.BridgeClient
 import com.tiffles.travelingtavern.data.bridge.BridgeRepository
+import com.tiffles.travelingtavern.data.bridge.LeaseStateStore
 import com.tiffles.travelingtavern.domain.model.ChatActionResult
 import com.tiffles.travelingtavern.domain.model.MessageAction
 import com.tiffles.travelingtavern.domain.tappedMessage
@@ -24,7 +25,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatSessionRepositoryImplTest {
 
-    private val bridge = BridgeRepository()
+    private val bridge = BridgeRepository(LeaseStateStore())
     private val client: BridgeClient = mockk(relaxed = true)
     private val repository = ChatSessionRepositoryImpl(bridge, client)
 

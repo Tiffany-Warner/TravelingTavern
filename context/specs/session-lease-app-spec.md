@@ -218,7 +218,7 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 **Slices** (one commit each on `feature/session-lease`, pushed for review, unmerged until the re-pin to `v0.2.0`):
 
 1. [x] Build plumbing: A2 bundled copy, A9
-2. [ ] Lease messages and state (E11 → A3/A4 inputs)
+2. [x] Lease messages and state (E11 → A3/A4 inputs)
 3. [ ] Document-start injection (A2)
 4. [ ] Native parked scrim (A3)
 5. [ ] Kotlin pre-check (A4)
@@ -239,9 +239,13 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 - **D7 (slice 1):** single-server rule as a `ServerPolicy` (domain) bound per build type: `src/debug` and `src/release` bind `AnyServerPolicy`, `src/leaseTest` binds `SingleServerPolicy(BuildConfig.LEASE_TEST_SERVER_URL)`. `BuildConfig.LEASE_TEST_SERVER_URL` exists in `leaseTest` only. Checked in `TestConnectionUseCase` (`ConnectionResult.ServerNotAllowed`) and before every load in `WebViewHolder` (`PageError.ServerNotAllowed`, no Retry). `SingleServerPolicy` lives in `main` because AGP 9 runs unit tests for the debug build type only (`android.onlyEnableUnitTestForTheTestedBuildType`); release never binds it
 - **D8 (slice 1):** `leaseTest` app name "TT Lease Test" (`src/leaseTest/res`)
 - **D9 (slice 1 follow-up):** CI compiles the `leaseTest` variant (`compileLeaseTestKotlin hiltJavaCompileLeaseTest`) so its Hilt binding is built; it never packages it (no `leaseTest.serverUrl` in CI)
+- **D10 (slice 2):** `BridgeMessage.LeaseState`, `LeaseInfo` and `LeaseNotice` keep E11's fields as sent: `state`, `reason` and `kind` are raw strings, so unknown values always parse. Every E11 field is required (nullable ones must be present, as `session-lease.js` always sends them); a missing field or a wrong type drops the message (logged as malformed), keeping the last state. kotlinx accepts quoted numbers (`"3"` for `epoch`); harmless, the page never sends them
+- **D11 (slice 2):** domain `LeaseStatus` (`NotReported`, `Holder(busy, connected)`, `Parked(ParkReason)`, app-only `VersionMismatch` and `NoDocumentStart`) is what A3 and A4 go by; `LeaseMapper` types the page's state. **Fails closed:** any `state` other than `holder` counts as parked, an unknown state or reason becomes `ParkReason.Unknown(value)` (slice 4 picks its scrim text). A holder's `reason` is ignored
+- **D12 (slice 2):** `LeaseStateStore` (`@Singleton`) holds `status`, plus the data-layer `lastState` (pair, `origin`, `busy` for A4–A6) and `info` (A8) as `StateFlow`s. Fed by `BridgeRepository` (now injected with it); `leaseState` and `leaseInfo` reset on every page start. Precedence: `NoDocumentStart` (set by slice 3, survives page loads) > `VersionMismatch` (`leaseInfo.leaseVersion` ≠ the app's `BuildConfig.LEASE_VERSION`, even before the first `leaseState`) > the page's state > `NotReported`. `leaseNotice` passes through `BridgeRepository.messages` only; slice 8 consumes it and ignores unknown kinds
 
 ## Notes
 
+- **Slice 2 (2026-11-21):** message shapes checked against `session-lease.js` at `v0.2.0-rc.1`: `report()` sends `state`, `reason`, `pageId`, `epoch`, `busy`, `connected`; `install` adds `origin` for `leaseState` only; `buildLeaseInfo` always sends all five `leaseInfo` fields (nulls included); `makePost` wraps each in `{ v: 1, type }`. Unit tests only; nothing reaches the page until slice 3 injects the lease
 - **Slice 1 (2026-11-21):** submodule at `v0.2.0-rc.1` (`a244fe3`): `manifest.json` `0.0.1`, `LEASE_VERSION = 1`. In rc.1 the extension spec has 15 sections (E15 = verified in SillyTavern's source); Tests are still E14. Verified: `web/session-lease.js` in debug, release and `leaseTest` APKs, identical to the submodule's file; both build failure messages; `leaseTest` installs beside the real app on an emulator (API 37), refuses another server on Connect and connects to the test install. The `WebViewHolder` refusal path (a saved non-allowed server) isn't reachable on a fresh `leaseTest` install and was not exercised
 
 ## Not Changed

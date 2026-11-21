@@ -117,6 +117,41 @@ sealed interface BridgeMessage {
     @Serializable
     data class Error(val message: String) : BridgeMessage
 
+    /**
+     * The session lease's state for this page load (extension spec E11), sent by
+     * `session-lease.js` once the start decision is made and on every change. Every field is
+     * required. [state] (`holder` / `parked`) and [reason] are kept as sent, so unknown values
+     * survive parsing; [toLeaseStatus] types them. [epoch] is null if this load never held the lease.
+     */
+    @Serializable
+    data class LeaseState(
+        val state: String,
+        val reason: String?,
+        val pageId: String,
+        val epoch: Long?,
+        val busy: Boolean,
+        val connected: Boolean,
+        val origin: String
+    ) : BridgeMessage
+
+    /**
+     * Lease versions for this page load (E11): the running copy's [leaseVersion] and the
+     * installed desktop extension's, null when none is installed. [stVersion] is null if
+     * SillyTavern's version couldn't be read.
+     */
+    @Serializable
+    data class LeaseInfo(
+        val leaseVersion: Int,
+        val extensionVersion: String?,
+        val extensionLeaseVersion: Int?,
+        val stVersion: String?,
+        val untestedServer: Boolean
+    ) : BridgeMessage
+
+    /** A one-off lease event (E11): [kind] `replyNotStarted` or `notConnected`, kept as sent. */
+    @Serializable
+    data class LeaseNotice(val kind: String) : BridgeMessage
+
     /** A type this app version doesn't know (e.g. from a newer bridge script). Ignored. */
     data class Unknown(val type: String) : BridgeMessage
 }

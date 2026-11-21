@@ -3,6 +3,7 @@ package com.tiffles.travelingtavern.data.repository
 import android.util.Log
 import com.tiffles.travelingtavern.data.bridge.BridgeClient
 import com.tiffles.travelingtavern.data.bridge.BridgeRepository
+import com.tiffles.travelingtavern.data.bridge.LeaseStateStore
 import com.tiffles.travelingtavern.data.bridge.PersonaInput
 import com.tiffles.travelingtavern.data.media.PictureEncoder
 import com.tiffles.travelingtavern.data.webview.WebViewHolder
@@ -29,7 +30,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class PersonaRepositoryImplTest {
 
-    private val bridge = BridgeRepository()
+    private val bridge = BridgeRepository(LeaseStateStore())
     private val client: BridgeClient = mockk(relaxed = true)
     private val encodedPictures = mutableMapOf("content://ok" to "data:image/jpeg;base64,AA==")
     private val repository = PersonaRepositoryImpl(

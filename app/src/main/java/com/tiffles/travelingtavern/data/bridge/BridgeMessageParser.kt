@@ -45,6 +45,9 @@ object BridgeMessageParser {
             "chatResult" -> decode(obj, BridgeMessage.ChatResult.serializer())
             "impersonateReady" -> decode(obj, BridgeMessage.ImpersonateReady.serializer())
             "error" -> decode(obj, BridgeMessage.Error.serializer())
+            "leaseState" -> decode(obj, BridgeMessage.LeaseState.serializer())
+            "leaseInfo" -> decode(obj, BridgeMessage.LeaseInfo.serializer())
+            "leaseNotice" -> decode(obj, BridgeMessage.LeaseNotice.serializer())
             else -> BridgeMessage.Unknown(type)
         }
     }
