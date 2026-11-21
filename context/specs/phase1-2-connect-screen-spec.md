@@ -31,7 +31,7 @@ Let the user point the app at their SillyTavern server, optionally log in, and t
 Updated 2026-11-19 (user request): one Connect button instead of Test & Save.
 
 - App logo centered near the top (72dp: the launcher icon's layers in a rounded square), then title and subtitle ("Enter the address of your SillyTavern server." — no tailnet wording: any reachable http(s) server works, Tailscale is just the usual setup)
-- One address field: IP, hostname or full URL, optional port; placeholder `100.64.0.2:8000`. A bare host gets `http://`
+- One address field: IP, hostname or full URL, optional port; placeholder: a Tailscale example address (`connect_url_placeholder`, the user-facing exception in `ai-guidelines.md`). A bare host gets `http://`
 - "Server requires authentication" toggle (off by default) revealing username and password fields
 - One full-width **Connect** button (disabled while the address is empty). The keyboard's Done on the last field also connects
 - Connecting: the button is replaced by a centered spinner with "Connecting…" directly below it; fields are disabled

@@ -208,7 +208,7 @@ class BridgeMessageParserTest {
     fun `personas with badges, and defaults for missing fields`() {
         val raw = """
             {"v":1,"type":"personas","items":[
-              {"avatarId":"1-Mira.png","name":"Mira","title":"Bard","description":"Sings.","pictureUrl":"http://100.64.0.2:8000/thumbnail?type=persona&file=1-Mira.png","isActive":true,"isDefault":true},
+              {"avatarId":"1-Mira.png","name":"Mira","title":"Bard","description":"Sings.","pictureUrl":"http://192.0.2.1:8000/thumbnail?type=persona&file=1-Mira.png","isActive":true,"isDefault":true},
               {"avatarId":"user-default.png"}
             ]}
         """.trimIndent()
@@ -216,7 +216,7 @@ class BridgeMessageParserTest {
         val items = (parse(raw) as BridgeMessage.Personas).items
 
         assertEquals(
-            PersonaDto("1-Mira.png", "Mira", "Bard", "Sings.", "http://100.64.0.2:8000/thumbnail?type=persona&file=1-Mira.png", true, true),
+            PersonaDto("1-Mira.png", "Mira", "Bard", "Sings.", "http://192.0.2.1:8000/thumbnail?type=persona&file=1-Mira.png", true, true),
             items[0]
         )
         assertEquals(PersonaDto("user-default.png"), items[1])

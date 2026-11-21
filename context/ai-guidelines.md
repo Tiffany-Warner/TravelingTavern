@@ -31,7 +31,8 @@
 ## Private data (public repo)
 Nothing identifying my network/devices/accounts in code, tests, specs, history, commits or PRs: no real IPs, machine-tied ports, Tailscale machine/tailnet names, hostnames, usernames, emails, passwords, tokens, keys.
 - History: describe setup ("SillyTavern 1.19.0 over Tailscale", "Pixel 8")
-- Placeholders: `100.64.0.2:8000`, `desktop.tail1234.ts.net`, `user`/`pass`
+- Placeholders: `192.0.2.1:8000` (documentation-only range `192.0.2.x`), `desktop.tail1234.ts.net`, `user`/`pass`
+- Only exception: user-facing Tailscale examples (`100.64.x.x`) in `README.md`, `docs/tailscale-setup.md` and the `connect_url_placeholder` string. Everywhere else (tests, fakes, androidTest, comments, previews, specs) use `192.0.2.x`
 - Check diff before every commit. Already committed? Stop and tell me (it's in Git history).
 
 ## Commits
