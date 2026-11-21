@@ -26,7 +26,7 @@ Replaces `fix-stale-page-overwrites-spec.md` (superseded). The lease itself, its
 
 **Document start, required**
 
-- `BridgeInstaller` adds `session-lease.js` with `WebViewCompat.addDocumentStartJavaScript` for the saved server's origin only, before the first load **(verify on the emulator and the Pixel 8)**. The lease then exists before ST's first request, and every request waits for the start decision (E6). This answers R33: first requests are held at document start by the injection itself
+- `BridgeInstaller` adds `session-lease.js` with `WebViewCompat.addDocumentStartJavaScript` for the saved server's origin only, before the first load (verified: Notes, slice 3). The lease then exists before ST's first request, and every request waits for the start decision (E6). This answers R33: first requests are held at document start by the injection itself
 - **No document-start support** (`WebViewFeature.DOCUMENT_START_SCRIPT` missing) → the app doesn't load SillyTavern. It shows the native parked state "Update Android System WebView" (A3) with no Use here. No page-load fallback
 - `bridge.js` and the clean theme are still injected at `onPageFinished`, as today
 - **Login page:** the injected copy doesn't install on SillyTavern's login page (E11: URL pathname ending in `/login`), so logging in works before the lease can read its files; the lease starts with the next page load after login
@@ -37,7 +37,7 @@ Replaces `fix-stale-page-overwrites-spec.md` (superseded). The lease itself, its
 **Current code, never cached** (R26, safety)
 
 - The bundled copy is injected from the APK's assets, never from the HTTP cache
-- `leaseInfo.leaseVersion` ≠ `BuildConfig.LEASE_VERSION` → the page runs lease code other than the app's own: the app shows the parked state "Restart TravelingTavern" (A3) and refuses bridge commands (A4) **(verify whether this can happen with document-start injection from assets; keep the check either way)**
+- `leaseInfo.leaseVersion` ≠ `BuildConfig.LEASE_VERSION` → the page runs lease code other than the app's own: the app shows the parked state "Restart TravelingTavern" (A3) and refuses bridge commands (A4). With document-start injection from assets it shouldn't happen (Notes, slice 3); the check stays as a safety net
 - After an extension install or update from the app (A8), the app calls `WebView.clearCache(true)` before reloading, so the page loads the new extension files and `leaseInfo` reports the new version. **Only the cache:** never cookies (the ST session) or web storage (`sessionStorage`, which holds the page id, and ST's `localStorage`)
 
 ## A3. Native Parked State (R28, R29, R38)
@@ -201,10 +201,10 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 
 ## Investigate First
 
-- Document-start script support (emulator, Pixel 8)
+- Document-start script support (emulator, Pixel 8): answered, Notes slice 3
 - The freeze cause; whether the renderer keeps running under a `shortService`, and whether `setRendererPriorityPolicy` is needed
 - `shortService` start rules, time limit and `onTimeout` on API 34–36; the service with the notification permission denied
-- Whether a lease version mismatch can happen with document-start injection from assets
+- Whether a lease version mismatch can happen with document-start injection from assets: answered, Notes slice 3
 
 ## Docs to Update
 
@@ -219,7 +219,7 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 
 1. [x] Build plumbing: A2 bundled copy, A9
 2. [x] Lease messages and state (E11 → A3/A4 inputs)
-3. [ ] Document-start injection (A2)
+3. [x] Document-start injection (A2)
 4. [ ] Native parked scrim (A3)
 5. [ ] Kotlin pre-check (A4)
 6. [ ] Foreground and background release (A5)
@@ -241,10 +241,19 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 - **D9 (slice 1 follow-up):** CI compiles the `leaseTest` variant (`compileLeaseTestKotlin hiltJavaCompileLeaseTest`) so its Hilt binding is built; it never packages it (no `leaseTest.serverUrl` in CI)
 - **D10 (slice 2):** `BridgeMessage.LeaseState`, `LeaseInfo` and `LeaseNotice` keep E11's fields as sent: `state`, `reason` and `kind` are raw strings, so unknown values always parse. Every E11 field is required (nullable ones must be present, as `session-lease.js` always sends them); a missing field or a wrong type drops the message (logged as malformed), keeping the last state. kotlinx accepts quoted numbers (`"3"` for `epoch`); harmless, the page never sends them
 - **D11 (slice 2):** domain `LeaseStatus` (`NotReported`, `Holder(busy, connected)`, `Parked(ParkReason)`, app-only `VersionMismatch` and `NoDocumentStart`) is what A3 and A4 go by; `LeaseMapper` types the page's state. **Fails closed:** any `state` other than `holder` counts as parked, an unknown state or reason becomes `ParkReason.Unknown(value)` (slice 4 picks its scrim text). A holder's `reason` is ignored
-- **D12 (slice 2):** `LeaseStateStore` (`@Singleton`) holds `status`, plus the data-layer `lastState` (pair, `origin`, `busy` for A4–A6) and `info` (A8) as `StateFlow`s. Fed by `BridgeRepository` (now injected with it); `leaseState` and `leaseInfo` reset on every page start. Precedence: `NoDocumentStart` (set by slice 3, survives page loads) > `VersionMismatch` (`leaseInfo.leaseVersion` ≠ the app's `BuildConfig.LEASE_VERSION`, even before the first `leaseState`) > the page's state > `NotReported`. `leaseNotice` passes through `BridgeRepository.messages` only; slice 8 consumes it and ignores unknown kinds
+- **D12 (slice 2):** `LeaseStateStore` (`@Singleton`) holds `status`, plus the data-layer `lastState` (pair, `origin`, `busy` for A4–A6) and `info` (A8) as `StateFlow`s. Fed by `BridgeRepository` (now injected with it); `leaseState` and `leaseInfo` reset on every page start. Precedence: `NoDocumentStart` (set by slice 3, survives page loads) > `VersionMismatch` (`leaseInfo.leaseVersion` ≠ the app's `BuildConfig.LEASE_VERSION`, even before the first `leaseState`) > the page's state > `NotReported`. `leaseNotice` passes through `BridgeRepository.messages` only; slice 8 consumes it and ignores unknown kinds. **A late `leaseState` from the previous page** can land after the reset (the page re-sends only on change, so the store would then hold the old page's state for the new load). The Kotlin pre-check isn't the only guard: the new page's own lease still holds its requests until its start decision (E6), and its first `leaseState` replaces the stale one
+- **D13 (slice 3):** `BridgeInstaller.addLeaseScript` adds the lease with `addDocumentStartJavaScript` for the same origin rule as the `TravelingTavern` listener, both right before `loadUrl` (each applies from the next navigation); a changed origin removes the old `ScriptHandler` first. The script's own guards (main frame, not `/login`, once per page) do the rest. The injected copy is read from the APK's assets once per origin change
+- **D14 (slice 3):** no `DOCUMENT_START_SCRIPT` → `WebViewHolder` never loads the server and sets `LeaseStatus.NoDocumentStart` (WARN log). The page state stays `Loading` underneath; slice 4's scrim shows "Update Android System WebView" over it. `WEB_MESSAGE_LISTENER` missing is checked first and still shows `PageError.WebViewOutdated`
+- **D15 (slice 3):** `onJsBeforeUnload` confirms only when `LeaseStateStore.isTakeoverReload` (the last `leaseState`'s `reason` is `claiming` or `reloadPending`, read from the raw state so a version mismatch doesn't hide it); otherwise `super`, i.e. the WebView's own "Confirm Navigation" dialog. A lease version mismatch now logs a WARN with both numbers
 
 ## Notes
 
+- **Slice 3 (2026-11-21):** with the `leaseTest` build on an emulator and the Pixel 8 (both API 37, WebView 157) against the test install (SillyTavern 1.19.1, extension `0.0.1` / `LEASE_VERSION` 1 installed), checked through the WebView's DevTools:
+    - **Document start works.** `window.__ttLease.source` is `'app'`, version 1, `fetch` wrapped. The lease's own `/csrf-token`, `/version` and both lease-file reads went out at about 110–380 ms, before ST's scripts; while parked, no `/api/` request went out at all; as holder, the start decision (incl. its lease write) finished before ST's first `/api/` request (about 1 s vs 3.6 s)
+    - **Version mismatch can't happen in practice.** The page runs the APK's asset, and `BuildConfig.LEASE_VERSION` is read from the same submodule file in the same build; a new APK is a new process and a new WebView, so no older script survives. With the extension installed, ST loaded its `index.js`, `window.__ttExtension` was announced (a second `leaseInfo`) and the page kept the app's copy (`source: 'app'`, no `__ttLeaseSource`). The listener and the script share one origin rule, so a page that can message the app always got the bundled copy first. The check stays (A2)
+    - **Page start before the first `leaseState`:** on every load (first launch, takeover reload, holder reload) `Page started: lease state reset` came 0.5–6 s before that load's first `leaseState`; no late `leaseState` from the previous page arrived after a reset. Same on the Pixel 8 (first load parked, then a takeover reload: reset, `holder` 1.3 s later); there, too, `source: 'app'`, the lease's reads at about 185 ms and no `/api/` request while parked
+    - **`onJsBeforeUnload` (emulator):** with a page `beforeunload` that always asks (added through DevTools, after a user gesture), Use here while parked → `claiming` → the app confirmed it ("Leaving the page for a takeover reload") and the page reloaded as holder with no dialog; the same handler on a holder's reload showed the WebView's "Confirm Navigation" dialog (default kept). ST's own edit-in-progress prompt wasn't reproduced
+    - Not reproducible: a WebView without document-start support (both devices on WebView 157). Extension bug: after the takeover reload the lease logged "SillyTavern context not found: no reopen, no reconnect" in the app's page. Until extension `v0.2.0-rc.2` fixes it, `connected`, the chat reopen and `active` from the phone don't work, and the app features that rely on them wait for rc.2. The submodule is re-pinned to `v0.2.0-rc.2` before slice 8 (notices, A7)
 - **Slice 2 (2026-11-21):** message shapes checked against `session-lease.js` at `v0.2.0-rc.1`: `report()` sends `state`, `reason`, `pageId`, `epoch`, `busy`, `connected`; `install` adds `origin` for `leaseState` only; `buildLeaseInfo` always sends all five `leaseInfo` fields (nulls included); `makePost` wraps each in `{ v: 1, type }`. Unit tests only; nothing reaches the page until slice 3 injects the lease
 - **Slice 1 (2026-11-21):** submodule at `v0.2.0-rc.1` (`a244fe3`): `manifest.json` `0.0.1`, `LEASE_VERSION = 1`. In rc.1 the extension spec has 15 sections (E15 = verified in SillyTavern's source); Tests are still E14. Verified: `web/session-lease.js` in debug, release and `leaseTest` APKs, identical to the submodule's file; both build failure messages; `leaseTest` installs beside the real app on an emulator (API 37), refuses another server on Connect and connects to the test install. The `WebViewHolder` refusal path (a saved non-allowed server) isn't reachable on a fresh `leaseTest` install and was not exercised
 

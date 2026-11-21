@@ -21,6 +21,8 @@ package com.tiffles.travelingtavern.data.webview
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
+import android.webkit.JsResult
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -32,9 +34,13 @@ import android.webkit.WebView
  *
  * Unlike the Aegis original, mic/camera is only granted to the saved server's own origin
  * and only for what the user approved.
+ *
+ * [isTakeoverReload]: a session-lease takeover is reloading the page (A2), so SillyTavern's
+ * "Leave site?" is answered with leave; the edit it would keep is stale.
  */
 class TavernWebChromeClient(
-    private val serverBaseUrl: () -> String?
+    private val serverBaseUrl: () -> String?,
+    private val isTakeoverReload: () -> Boolean
 ) : WebChromeClient() {
 
     var host: WebViewHost? = null
@@ -60,6 +66,13 @@ class TavernWebChromeClient(
     fun onFileChooserResult(resultCode: Int, data: Intent?) {
         filePathCallback?.onReceiveValue(FileChooserParams.parseResult(resultCode, data))
         filePathCallback = null
+    }
+
+    override fun onJsBeforeUnload(view: WebView, url: String, message: String, result: JsResult): Boolean {
+        if (!isTakeoverReload()) return super.onJsBeforeUnload(view, url, message, result)
+        Log.d(TAG, "Leaving the page for a takeover reload")
+        result.confirm()
+        return true
     }
 
     override fun onPermissionRequest(request: PermissionRequest) {
@@ -97,5 +110,9 @@ class TavernWebChromeClient(
         PermissionRequest.RESOURCE_AUDIO_CAPTURE -> Manifest.permission.RECORD_AUDIO
         PermissionRequest.RESOURCE_VIDEO_CAPTURE -> Manifest.permission.CAMERA
         else -> null
+    }
+
+    private companion object {
+        const val TAG = "TavernWebChromeClient"
     }
 }

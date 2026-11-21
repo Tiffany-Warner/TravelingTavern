@@ -6,12 +6,14 @@ import android.content.Context
 import android.content.Intent
 import android.content.MutableContextWrapper
 import android.graphics.Color
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebView
 import com.tiffles.travelingtavern.BuildConfig
 import com.tiffles.travelingtavern.data.bridge.BridgeInstaller
+import com.tiffles.travelingtavern.data.bridge.LeaseStateStore
 import com.tiffles.travelingtavern.data.repository.ServerConfigRepositoryImpl
 import com.tiffles.travelingtavern.data.settings.ServerCredentials
 import com.tiffles.travelingtavern.di.ApplicationScope
@@ -40,6 +42,7 @@ class WebViewHolder @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val repository: ServerConfigRepositoryImpl,
     private val bridge: BridgeInstaller,
+    private val lease: LeaseStateStore,
     private val serverPolicy: ServerPolicy,
     @ApplicationScope private val scope: CoroutineScope
 ) {
@@ -56,7 +59,10 @@ class WebViewHolder @Inject constructor(
     private var loadedBaseUrl: String? = null
     private var pendingLoad: View.OnLayoutChangeListener? = null
 
-    private val chromeClient = TavernWebChromeClient(serverBaseUrl = { serverBaseUrl })
+    private val chromeClient = TavernWebChromeClient(
+        serverBaseUrl = { serverBaseUrl },
+        isTakeoverReload = { lease.isTakeoverReload }
+    )
     private val webViewClient = TavernWebViewClient(
         tracker = tracker,
         serverBaseUrl = { serverBaseUrl },
@@ -169,13 +175,21 @@ class WebViewHolder @Inject constructor(
             tracker.onMainFrameError(PageError.WebViewOutdated)
             return
         }
+        if (!bridge.isDocumentStartSupported) {
+            // No page-load fallback: the lease must exist before SillyTavern's first request.
+            // The parked state (A3) shows "Update Android System WebView" for this status.
+            Log.w(TAG, "WebView lacks document-start scripts; SillyTavern not loaded")
+            lease.onDocumentStartUnsupported()
+            return
+        }
         if (!serverPolicy.allows(baseUrl)) {
             tracker.onMainFrameError(PageError.ServerNotAllowed)
             return
         }
         view.doOnNonZeroSize {
-            // The listener only takes effect on the next navigation, so register it first.
+            // The listener and the lease only take effect on the next navigation, so register them first.
             bridge.registerListener(view, origin = baseUrl)
+            bridge.addLeaseScript(view, origin = baseUrl)
             view.loadUrl(baseUrl)
             startWatchdog()
         }
@@ -189,6 +203,10 @@ class WebViewHolder @Inject constructor(
             webView.stopLoading()
             tracker.onMainFrameError(PageError.Unreachable)
         }
+    }
+
+    private companion object {
+        const val TAG = "WebViewHolder"
     }
 
     /**

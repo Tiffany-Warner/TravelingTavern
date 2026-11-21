@@ -28,7 +28,7 @@ class TestConnectionUseCaseTest {
     fun `a server this build doesn't allow is refused without hitting the network`() = runTest {
         allowed = false
 
-        val result = useCase(rawUrl = "100.64.0.3:8000", username = null, password = null)
+        val result = useCase(rawUrl = "192.0.2.2:8000", username = null, password = null)
 
         assertEquals(ConnectionResult.ServerNotAllowed, result)
         coVerify(exactly = 0) { tester.test(any(), any(), any()) }

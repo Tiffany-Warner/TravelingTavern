@@ -1,5 +1,6 @@
 package com.tiffles.travelingtavern.data.bridge
 
+import android.util.Log
 import com.tiffles.travelingtavern.BuildConfig
 import com.tiffles.travelingtavern.domain.model.LeaseStatus
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,18 +36,29 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
     /** What the parked scrim and the pre-check go by. */
     val status: StateFlow<LeaseStatus> = _status.asStateFlow()
 
+    /**
+     * A takeover is reloading the page: the last `leaseState` reason is `claiming` or
+     * `reloadPending` (A2), whatever [status] shows. Reset with the page, like [lastState].
+     */
+    val isTakeoverReload: Boolean
+        get() = _lastState.value?.reason in TAKEOVER_REASONS
+
     fun onLeaseState(message: BridgeMessage.LeaseState) {
         _lastState.value = message
         publish()
     }
 
     fun onLeaseInfo(message: BridgeMessage.LeaseInfo) {
+        if (message.leaseVersion != appLeaseVersion) {
+            Log.w(TAG, "Page runs lease version ${message.leaseVersion}, the app bundles $appLeaseVersion")
+        }
         _info.value = message
         publish()
     }
 
     /** A new page load: nothing the previous one reported still holds. */
     fun onPageStarted() {
+        Log.d(TAG, "Page started: lease state reset")
         _lastState.value = null
         _info.value = null
         publish()
@@ -67,5 +79,10 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
             state != null -> state.toLeaseStatus()
             else -> LeaseStatus.NotReported
         }
+    }
+
+    private companion object {
+        const val TAG = "LeaseStateStore"
+        val TAKEOVER_REASONS = setOf("claiming", "reloadPending")
     }
 }

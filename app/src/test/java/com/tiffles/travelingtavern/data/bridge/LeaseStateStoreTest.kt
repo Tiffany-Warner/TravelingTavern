@@ -1,18 +1,34 @@
 package com.tiffles.travelingtavern.data.bridge
 
+import android.util.Log
 import com.tiffles.travelingtavern.domain.model.LeaseStatus
 import com.tiffles.travelingtavern.domain.model.ParkReason
-import android.util.Log
 import io.mockk.every
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 class LeaseStateStoreTest {
 
     private val store = LeaseStateStore(appLeaseVersion = 1)
+
+    @Before
+    fun mockLog() {
+        mockkStatic(Log::class)
+        every { Log.d(any(), any()) } returns 0
+        every { Log.w(any(), any<String>()) } returns 0
+    }
+
+    @After
+    fun unmockLog() {
+        unmockkStatic(Log::class)
+    }
 
     private fun state(state: String, reason: String? = null, busy: Boolean = false, connected: Boolean = true) =
         BridgeMessage.LeaseState(
@@ -150,8 +166,6 @@ class LeaseStateStoreTest {
 
     @Test
     fun `bridge repository feeds the store and resets it on a page load`() {
-        mockkStatic(Log::class)
-        every { Log.d(any(), any()) } returns 0
         val repository = BridgeRepository(store)
         repository.onRawMessage(
             """{"v":1,"type":"leaseState","state":"parked","reason":"lostRace","pageId":"t1.l1","epoch":null,""" +
@@ -167,6 +181,31 @@ class LeaseStateStoreTest {
 
         repository.onPageStarted()
         assertEquals(LeaseStatus.NotReported, store.status.value)
-        unmockkStatic(Log::class)
+    }
+
+    @Test
+    fun `a takeover reload is claiming or reloadPending, even under a version mismatch`() {
+        assertFalse(store.isTakeoverReload)
+
+        store.onLeaseState(state("parked", "claiming"))
+        assertTrue(store.isTakeoverReload)
+
+        store.onLeaseState(state("parked", "reloadPending"))
+        store.onLeaseInfo(info(2))
+        assertTrue(store.isTakeoverReload)
+    }
+
+    @Test
+    fun `no takeover reload for other states or after a page load`() {
+        listOf("held", "lost", "waitingForReply", "lostRace", "unreadable").forEach { reason ->
+            store.onLeaseState(state("parked", reason))
+            assertFalse(reason, store.isTakeoverReload)
+        }
+        store.onLeaseState(state("holder"))
+        assertFalse(store.isTakeoverReload)
+
+        store.onLeaseState(state("parked", "claiming"))
+        store.onPageStarted()
+        assertFalse(store.isTakeoverReload)
     }
 }
