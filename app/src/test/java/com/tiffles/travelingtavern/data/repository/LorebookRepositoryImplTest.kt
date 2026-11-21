@@ -45,7 +45,11 @@ class LorebookRepositoryImplTest {
         unmockkStatic(Log::class)
     }
 
-    private fun answer(json: String) = bridge.onRawMessage(json)
+    /** Delivers [json]; true, as a sent command returns. */
+    private fun answer(json: String): Boolean {
+        bridge.onRawMessage(json)
+        return true
+    }
 
     private fun failureOf(result: Result<*>) = (result.exceptionOrNull() as LorebookException).failure
 

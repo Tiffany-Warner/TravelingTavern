@@ -97,10 +97,11 @@ fun TravelingTavernNavHost(
     var inputBarHeight by remember { mutableStateOf(DefaultChatInputBarHeight) }
 
     // Over the whole Scaffold, tab bar included (A3).
-    LeaseGuard(modifier = modifier) {
+    LeaseGuard(modifier = modifier) { leaseSnackbarHost ->
         CompositionLocalProvider(LocalTabReselectEvents provides reselectEvents) {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
+                snackbarHost = leaseSnackbarHost,
                 bottomBar = {
                     if (showBottomBar) {
                         TravelingTavernBottomBar(

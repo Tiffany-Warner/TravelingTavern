@@ -4,6 +4,7 @@ import android.util.Log
 import com.tiffles.travelingtavern.data.bridge.BridgeClient
 import com.tiffles.travelingtavern.data.bridge.BridgeMessage
 import com.tiffles.travelingtavern.data.bridge.BridgeRepository
+import com.tiffles.travelingtavern.data.bridge.sendAndAwait
 import com.tiffles.travelingtavern.data.bridge.PersonaInput
 import com.tiffles.travelingtavern.data.bridge.toDomain
 import com.tiffles.travelingtavern.data.media.PictureEncoder
@@ -16,7 +17,6 @@ import com.tiffles.travelingtavern.domain.repository.PersonaFailure
 import com.tiffles.travelingtavern.domain.repository.PersonaRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
@@ -44,9 +44,7 @@ class PersonaRepositoryImpl @Inject constructor(
     override suspend fun refresh() {
         withTimeoutOrNull(REFRESH_TIMEOUT_MS) {
             bridge.isReady.first { it }
-            bridge.messages
-                .onSubscription { client.requestPersonas(refreshPictures = true) }
-                .first { it is BridgeMessage.Personas || it is BridgeMessage.Error }
+            bridge.messages.sendAndAwait({ client.requestPersonas(refreshPictures = true) }) { it is BridgeMessage.Personas || it is BridgeMessage.Error }
         }
     }
 
@@ -93,14 +91,12 @@ class PersonaRepositoryImpl @Inject constructor(
     /** Sends a tagged request (once the page is ready) and returns its answer, or null on timeout. */
     private suspend fun ask(
         timeoutMs: Long = ACTION_TIMEOUT_MS,
-        send: suspend (requestId: String) -> Unit
+        send: suspend (requestId: String) -> Boolean
     ): BridgeMessage? {
         val requestId = "pe${nextRequestId.incrementAndGet()}"
         val answer = withTimeoutOrNull(timeoutMs) {
             bridge.isReady.first { it }
-            bridge.messages
-                .onSubscription { send(requestId) }
-                .first { it.requestId() == requestId }
+            bridge.messages.sendAndAwait({ send(requestId) }) { it.requestId() == requestId }
         }
         if (answer == null) Log.w(TAG, "No answer to a persona request within $timeoutMs ms")
         return answer

@@ -16,8 +16,8 @@ import javax.inject.Singleton
  * Main thread only for writes; the flows can be read from anywhere.
  *
  * [status] precedence: no document start (unless continued without protection), then a lease
- * version mismatch, then a Use here waiting for the page's answer, then the page's state, then
- * [LeaseStatus.Unprotected]. Unprotected, an extension installed in SillyTavern can still run
+ * version mismatch, then a Use here waiting for the page's answer, then a failed pre-check (A4),
+ * then the page's state, then [LeaseStatus.Unprotected]. Unprotected, an extension installed in SillyTavern can still run
  * its own lease (late, after SillyTavern's first requests): its state then wins, so a parked
  * page gets the scrim instead of hanging with its requests held.
  */
@@ -30,6 +30,7 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
     private var documentStartSupported = true
     private var useHereToken = 0
     private var useHerePending = false
+    private var preCheckPark: ParkReason? = null
     private val _lastState = MutableStateFlow<BridgeMessage.LeaseState?>(null)
     private val _info = MutableStateFlow<BridgeMessage.LeaseInfo?>(null)
     private val _status = MutableStateFlow<LeaseStatus>(LeaseStatus.NotReported)
@@ -57,6 +58,7 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
     fun onLeaseState(message: BridgeMessage.LeaseState) {
         _lastState.value = message
         useHerePending = false
+        preCheckPark = null
         publish()
     }
 
@@ -74,6 +76,7 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
         _lastState.value = null
         _info.value = null
         useHerePending = false
+        preCheckPark = null
         publish()
     }
 
@@ -89,11 +92,23 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
 
     /**
      * The page didn't answer Use here (it ignores a tap it can't act on and then reports
-     * nothing): back to its last state. A token from an earlier tap does nothing.
+     * nothing): back to its last state, also dropping a failed pre-check's parked state (a
+     * holder page that never reports again would otherwise stay covered). A token from an
+     * earlier tap does nothing.
      */
     fun onUseHereUnanswered(token: Int) {
         if (!useHerePending || token != useHereToken) return
         useHerePending = false
+        preCheckPark = null
+        publish()
+    }
+
+    /**
+     * The Kotlin pre-check (A4) found the lease's pair changed or the file unreadable: show
+     * parked with [reason] at once, until the page's next `leaseState` (or a page load).
+     */
+    fun onPreCheckFailed(reason: ParkReason) {
+        preCheckPark = reason
         publish()
     }
 
@@ -112,7 +127,7 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
     private fun publish() {
         val info = _info.value
         val state = _lastState.value
-        val pageStatus = state?.toLeaseStatus()
+        val pageStatus = preCheckPark?.let(LeaseStatus::Parked) ?: state?.toLeaseStatus()
         _status.value = when {
             !documentStartSupported && !_unprotected.value -> LeaseStatus.NoDocumentStart
             info != null && info.leaseVersion != appLeaseVersion -> LeaseStatus.VersionMismatch

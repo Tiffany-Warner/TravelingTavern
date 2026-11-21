@@ -2,12 +2,16 @@ package com.tiffles.travelingtavern.ui.lease
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasProgressBarRangeInfo
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
@@ -23,6 +27,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tiffles.travelingtavern.R
 import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -41,28 +47,35 @@ class LeaseGuardContentTest {
     private var update = 0
     private var continueUnprotected = 0
     private var tabTaps = 0
+    private val snackbarHostState = SnackbarHostState()
+    private lateinit var scope: CoroutineScope
 
-    /** A stand-in app shell: a "tab bar" button and a text field, under the guard. */
+    /** A stand-in app shell: a "tab bar" button, a text field and the guard's snackbar host. */
     private fun show(initial: LeaseGuardUiState): (LeaseGuardUiState) -> Unit {
         var uiState by mutableStateOf(initial)
         composeRule.setContent {
+            scope = rememberCoroutineScope()
             TravelingTavernTheme {
                 LeaseGuardContent(
                     uiState = uiState,
                     onUseHere = { useHere++ },
                     onReload = { reload++ },
                     onUpdateWebView = { update++ },
-                    onContinueWithoutProtection = { continueUnprotected++ }
-                ) {
+                    onContinueWithoutProtection = { continueUnprotected++ },
+                    snackbarHostState = snackbarHostState
+                ) { snackbarHost ->
                     Column {
                         TextField(value = "", onValueChange = {}, modifier = Modifier.testTag(FIELD))
                         Button(onClick = { tabTaps++ }) { Text(TAB) }
+                        snackbarHost()
                     }
                 }
             }
         }
         return { uiState = it }
     }
+
+    private val loadingBar = hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)
 
     @Test
     fun noScrimLeavesTheAppUsable() {
@@ -180,6 +193,37 @@ class LeaseGuardContentTest {
         composeRule.onNodeWithText(TAB).performClick()
 
         assertEquals(1, tabTaps)
+    }
+
+    // -- A4 / D25: only a user-started command's wait sets `waiting`
+
+    @Test
+    fun userStartedWaitShowsTheLoadingBarOverAUsableApp() {
+        show(LeaseGuardUiState(waiting = true))
+
+        composeRule.onNode(loadingBar).assertIsDisplayed()
+        composeRule.onNodeWithText(TAB).performClick()
+
+        assertEquals(1, tabTaps)
+    }
+
+    @Test
+    fun noUserStartedWaitShowsNoLoadingBar() {
+        val update = show(LeaseGuardUiState(waiting = true))
+
+        update(LeaseGuardUiState(waiting = false))
+
+        composeRule.onNode(loadingBar).assertDoesNotExist()
+    }
+
+    @Test
+    fun stillLoadingMessageShowsThroughTheShellsSnackbarHost() {
+        show(LeaseGuardUiState())
+        val message = string(R.string.lease_still_loading)
+
+        composeRule.runOnIdle { scope.launch { snackbarHostState.showSnackbar(message) } }
+
+        composeRule.onNodeWithText(message).assertIsDisplayed()
     }
 
     private companion object {

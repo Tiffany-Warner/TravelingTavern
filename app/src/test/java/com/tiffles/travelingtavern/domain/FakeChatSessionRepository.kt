@@ -33,8 +33,12 @@ class FakeChatSessionRepository : ChatSessionRepository {
         return actionResult
     }
 
-    override suspend fun send(text: String) {
-        sent += text
+    /** False: [send] is refused (the session lease), as if nothing reached the page. */
+    var sendAccepted = true
+
+    override suspend fun send(text: String): Boolean {
+        if (sendAccepted) sent += text
+        return sendAccepted
     }
 
     override suspend fun impersonate() {

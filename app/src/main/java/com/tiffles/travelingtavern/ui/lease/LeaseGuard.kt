@@ -12,15 +12,22 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -30,22 +37,30 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.tiffles.travelingtavern.R
 import com.tiffles.travelingtavern.ui.lease.components.LeaseScrim
 import com.tiffles.travelingtavern.ui.lease.components.UnprotectedBanner
 import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
 
 /**
  * Wraps the whole app shell (the `Scaffold`, tab bar included) with the session lease's
- * parked scrim (A3) and the "Not protected" banner (A2).
+ * parked scrim (A3) and the "Not protected" banner (A2). [content] gets the lease's snackbar
+ * host for its `Scaffold` (the pre-check's "still loading" message, A4).
  */
 @Composable
 fun LeaseGuard(
     modifier: Modifier = Modifier,
     viewModel: LeaseGuardViewModel = hiltViewModel(),
-    content: @Composable () -> Unit
+    content: @Composable (snackbarHost: @Composable () -> Unit) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel) {
+        viewModel.stillLoading.collect {
+            snackbarHostState.showSnackbar(context.getString(R.string.lease_still_loading))
+        }
+    }
     LeaseGuardContent(
         uiState = uiState,
         onUseHere = viewModel::useHere,
@@ -53,14 +68,16 @@ fun LeaseGuard(
         onUpdateWebView = { context.openWebViewStorePage() },
         onContinueWithoutProtection = viewModel::continueWithoutProtection,
         modifier = modifier,
+        snackbarHostState = snackbarHostState,
         content = content
     )
 }
 
 /**
- * Stateless: [content] below, the banner above it while unprotected, the scrim over all of
- * it while parked. When the scrim appears it hides the keyboard and clears text focus, and
- * [content] leaves the accessibility tree, so nothing behind it can be typed into or reached.
+ * Stateless: [content] below, the banner above it while unprotected, a loading bar over its top
+ * while a user-started command waits (A4, D25), the scrim over all of it while parked. When the
+ * scrim appears it hides the keyboard and clears text focus, and [content] leaves the
+ * accessibility tree, so nothing behind it can be typed into or reached.
  */
 @Composable
 fun LeaseGuardContent(
@@ -70,7 +87,8 @@ fun LeaseGuardContent(
     onUpdateWebView: () -> Unit,
     onContinueWithoutProtection: () -> Unit,
     modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+    content: @Composable (snackbarHost: @Composable () -> Unit) -> Unit
 ) {
     val scrim = uiState.scrim
     CoverEffect(covered = scrim != null)
@@ -84,7 +102,15 @@ fun LeaseGuardContent(
             if (uiState.unprotected) UnprotectedBanner(insets = topInsets)
             // The banner already pads for the status bar; the shell below mustn't count it again.
             val contentModifier = if (uiState.unprotected) Modifier.consumeWindowInsets(topInsets) else Modifier
-            Box(modifier = contentModifier.weight(1f)) { content() }
+            Box(modifier = contentModifier.weight(1f)) {
+                content { SnackbarHost(hostState = snackbarHostState) }
+                if (uiState.waiting) {
+                    // Below the status bar (the shell is edge to edge); right under the banner when it shows.
+                    LinearProgressIndicator(
+                        modifier = Modifier.align(Alignment.TopCenter).windowInsetsPadding(topInsets).fillMaxWidth()
+                    )
+                }
+            }
         }
         if (scrim != null) {
             LeaseScrim(

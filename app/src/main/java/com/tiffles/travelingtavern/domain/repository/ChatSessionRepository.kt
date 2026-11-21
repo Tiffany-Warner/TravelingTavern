@@ -27,8 +27,8 @@ interface ChatSessionRepository {
     /** Runs [action] on [message], unless it changed meanwhile ([ChatActionResult.Stale]). */
     suspend fun runAction(message: TappedMessage, action: MessageAction): ChatActionResult
 
-    /** Sends [text] through SillyTavern's own send. */
-    suspend fun send(text: String)
+    /** Sends [text] through SillyTavern's own send. False: refused (the session lease), nothing sent. */
+    suspend fun send(text: String): Boolean
 
     suspend fun impersonate()
 

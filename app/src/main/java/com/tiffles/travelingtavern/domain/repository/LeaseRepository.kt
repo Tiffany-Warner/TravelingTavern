@@ -1,6 +1,7 @@
 package com.tiffles.travelingtavern.domain.repository
 
 import com.tiffles.travelingtavern.domain.model.LeaseStatus
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /** The session lease as the parked scrim sees it, and the scrim's actions (A3). */
@@ -11,6 +12,12 @@ interface LeaseRepository {
 
     /** Running without the app's lease (Continue without protection): the warning banner shows. */
     val unprotected: StateFlow<Boolean>
+
+    /** A command is waiting for the page's first lease report (A4): show a loading state. */
+    val commandWaiting: StateFlow<Boolean>
+
+    /** A command was refused because SillyTavern never reported its lease state in time (A4). */
+    val stillLoading: Flow<Unit>
 
     /** Claims the lease for this phone (`__ttLease.useHere()`); [status] shows claiming at once. */
     suspend fun useHere()

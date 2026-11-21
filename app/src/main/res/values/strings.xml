@@ -208,5 +208,6 @@
     <string name="lease_reload">Reload</string>
     <string name="lease_update">Update</string>
     <string name="lease_continue_unprotected">Continue without protection</string>
+    <string name="lease_still_loading">SillyTavern is still loading, try again in a moment.</string>
     <string name="lease_unprotected_banner">Not protected: data from another device can be overwritten</string>
 </resources>

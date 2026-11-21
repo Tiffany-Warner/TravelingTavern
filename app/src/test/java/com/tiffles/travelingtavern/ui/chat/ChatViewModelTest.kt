@@ -312,6 +312,18 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `a send refused by the session lease puts the text back`() = runTest {
+        openReadyChat()
+        chat.sendAccepted = false
+
+        viewModel.onInputChange("Good morning!")
+        viewModel.onSend()
+
+        assertEquals(emptyList<String>(), chat.sent)
+        assertEquals("Good morning!", viewModel.input)
+    }
+
+    @Test
     fun `while generating Send is disabled and Stop stops`() = runTest {
         openReadyChat()
         viewModel.onInputChange("Wait")

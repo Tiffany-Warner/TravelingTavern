@@ -187,7 +187,10 @@ class ChatViewModel @Inject constructor(
         val text = input
         if (text.isBlank() || generating.value) return
         input = ""
-        viewModelScope.launch { chat.send(text) }
+        viewModelScope.launch {
+            // Refused by the session lease: nothing was sent, so the text comes back.
+            if (!chat.send(text) && input.isEmpty()) input = text
+        }
     }
 
     fun onWriteForMe() {

@@ -53,7 +53,11 @@ class PersonaRepositoryImplTest {
         unmockkStatic(Log::class)
     }
 
-    private fun answer(json: String) = bridge.onRawMessage(json)
+    /** Delivers [json]; true, as a sent command returns. */
+    private fun answer(json: String): Boolean {
+        bridge.onRawMessage(json)
+        return true
+    }
 
     private fun ok(requestId: String, extra: String = "") =
         answer("""{"v":1,"type":"personaResult","requestId":"$requestId","ok":true$extra}""")

@@ -6,6 +6,7 @@ import com.tiffles.travelingtavern.domain.model.LeaseStatus
 import com.tiffles.travelingtavern.domain.model.ParkReason
 import com.tiffles.travelingtavern.domain.repository.LeaseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -26,10 +27,14 @@ enum class ScrimState {
     UpdateWebView
 }
 
-/** [scrim] null: nothing covers the app. [unprotected]: the "Not protected" banner shows, scrim or not. */
+/**
+ * [scrim] null: nothing covers the app. [unprotected]: the "Not protected" banner shows, scrim or
+ * not. [waiting]: a command waits for SillyTavern's first lease report (loading bar, A4).
+ */
 data class LeaseGuardUiState(
     val scrim: ScrimState? = null,
-    val unprotected: Boolean = false
+    val unprotected: Boolean = false,
+    val waiting: Boolean = false
 )
 
 /** Drives the parked scrim and the "Not protected" banner over the whole app shell. */
@@ -39,11 +44,18 @@ class LeaseGuardViewModel @Inject constructor(
 ) : ViewModel() {
 
     val uiState: StateFlow<LeaseGuardUiState> =
-        combine(repository.status, repository.unprotected, ::leaseGuardUiState).stateIn(
+        combine(repository.status, repository.unprotected, repository.commandWaiting, ::leaseGuardUiState).stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
-            initialValue = leaseGuardUiState(repository.status.value, repository.unprotected.value)
+            initialValue = leaseGuardUiState(
+                repository.status.value,
+                repository.unprotected.value,
+                repository.commandWaiting.value
+            )
         )
+
+    /** One-shot: show "SillyTavern is still loading, try again in a moment." */
+    val stillLoading: Flow<Unit> = repository.stillLoading
 
     fun useHere() {
         viewModelScope.launch { repository.useHere() }
@@ -62,8 +74,8 @@ class LeaseGuardViewModel @Inject constructor(
     }
 }
 
-internal fun leaseGuardUiState(status: LeaseStatus, unprotected: Boolean) =
-    LeaseGuardUiState(scrim = status.toScrimState(), unprotected = unprotected)
+internal fun leaseGuardUiState(status: LeaseStatus, unprotected: Boolean, waiting: Boolean) =
+    LeaseGuardUiState(scrim = status.toScrimState(), unprotected = unprotected, waiting = waiting)
 
 /** Holder, not yet reported and unprotected: no scrim (A3). */
 internal fun LeaseStatus.toScrimState(): ScrimState? = when (this) {

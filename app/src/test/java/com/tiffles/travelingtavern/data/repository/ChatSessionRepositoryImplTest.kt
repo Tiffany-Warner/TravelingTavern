@@ -46,6 +46,7 @@ class ChatSessionRepositoryImplTest {
         coEvery { client.messageAction(any(), any(), any(), any()) } coAnswers {
             bridge.onRawMessage("""{"v":1,"type":"chatResult","requestId":"other","ok":false,"error":"failed"}""")
             bridge.onRawMessage("""{"v":1,"type":"chatResult","requestId":"${firstArg<String>()}",$fields}""")
+            true
         }
     }
 
@@ -80,6 +81,7 @@ class ChatSessionRepositoryImplTest {
     fun `restart asks SillyTavern to delete the current chat`() = runTest {
         coEvery { client.newChat(any(), true) } coAnswers {
             bridge.onRawMessage("""{"v":1,"type":"chatResult","requestId":"${firstArg<String>()}","ok":true}""")
+            true
         }
 
         assertEquals(ChatActionResult.Done(), repository.startNewChat(deleteCurrent = true))

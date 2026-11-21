@@ -297,4 +297,37 @@ class LeaseStateStoreTest {
         assertEquals(LeaseStatus.Unprotected, store.status.value)
         assertTrue(store.unprotected.value)
     }
+
+    @Test
+    fun `a failed pre-check parks at once, until the page's next leaseState`() {
+        store.onLeaseState(state("holder"))
+
+        store.onPreCheckFailed(ParkReason.Unreadable)
+        assertEquals(LeaseStatus.Parked(ParkReason.Unreadable), store.status.value)
+
+        store.onLeaseState(state("holder"))
+        assertEquals(LeaseStatus.Holder(busy = false, connected = true), store.status.value)
+    }
+
+    @Test
+    fun `a failed pre-check ends with the page load`() {
+        store.onLeaseState(state("holder"))
+        store.onPreCheckFailed(ParkReason.Lost)
+
+        store.onPageStarted()
+
+        assertEquals(LeaseStatus.NotReported, store.status.value)
+    }
+
+    @Test
+    fun `Use here over a failed pre-check claims, and an unanswered tap falls back to the page's state`() {
+        store.onLeaseState(state("holder"))
+        store.onPreCheckFailed(ParkReason.Unreadable)
+
+        val token = store.onUseHere()
+        assertEquals(LeaseStatus.Parked(ParkReason.Claiming), store.status.value)
+
+        store.onUseHereUnanswered(token)
+        assertEquals(LeaseStatus.Holder(busy = false, connected = true), store.status.value)
+    }
 }

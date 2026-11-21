@@ -1,6 +1,7 @@
 package com.tiffles.travelingtavern.data.repository
 
 import com.tiffles.travelingtavern.data.bridge.BridgeClient
+import com.tiffles.travelingtavern.data.bridge.LeaseGate
 import com.tiffles.travelingtavern.data.bridge.LeaseStateStore
 import com.tiffles.travelingtavern.data.webview.WebViewHolder
 import com.tiffles.travelingtavern.di.ApplicationScope
@@ -9,6 +10,7 @@ import com.tiffles.travelingtavern.domain.repository.LeaseRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -21,12 +23,17 @@ class LeaseRepositoryImpl @Inject constructor(
     private val store: LeaseStateStore,
     private val client: BridgeClient,
     private val holder: WebViewHolder,
+    gate: LeaseGate,
     @ApplicationScope private val scope: CoroutineScope
 ) : LeaseRepository {
 
     override val status: StateFlow<LeaseStatus> = store.status
 
     override val unprotected: StateFlow<Boolean> = store.unprotected
+
+    override val commandWaiting: StateFlow<Boolean> = gate.waiting
+
+    override val stillLoading: Flow<Unit> = gate.stillLoading
 
     override suspend fun useHere() {
         val token = withContext(Dispatchers.Main) { store.onUseHere() }
