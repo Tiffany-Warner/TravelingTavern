@@ -57,9 +57,22 @@ class LeaseFileParserTest {
             lease(claimedAt = "null"),
             lease(busy = "\"false\""),
             lease(active = "\"chat\""),
+            lease(active = "{}"),
+            lease(active = """{"avatar":"a.png"}"""),
+            lease(active = """{"chatFile":"c"}"""),
+            lease(active = """{"chatFile":"","avatar":"a.png"}"""),
+            lease(active = """{"chatFile":"c","avatar":""}"""),
+            lease(active = """{"chatFile":"c","groupId":7}"""),
             """{"format":1,"holder":"t1.l1","epoch":3,"claimedAt":"x","busy":false}"""
         )
         bad.forEach { assertEquals(it, LeaseFileRead.Unreadable, LeaseFileParser.parse(200, it)) }
+    }
+
+    @Test
+    fun `active names a character chat or a group chat, as parseActive allows`() {
+        listOf("""{"avatar":"a.png","chatFile":"c"}""", """{"groupId":"g1","chatFile":"c"}""").forEach {
+            assertEquals(it, LeaseFileRead.Found("t1.l1", 3), LeaseFileParser.parse(200, lease(active = it)))
+        }
     }
 
     @Test

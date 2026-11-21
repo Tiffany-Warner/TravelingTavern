@@ -2,6 +2,7 @@ package com.tiffles.travelingtavern.data.bridge
 
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -27,7 +28,8 @@ sealed interface LeaseFileRead {
 /**
  * Parses the lease file the way `session-lease.js` does (`parseLease`, E2): a JSON object with
  * a known `format`, a non-empty `holder`, an integer `epoch` ≥ 1, a string `claimedAt`, a
- * boolean `busy` and an `active` that is an object or null. Unknown fields are ignored.
+ * boolean `busy` and an `active` that is null or names a chat (`parseActive`: a non-empty
+ * `chatFile` plus a non-empty `groupId` or `avatar`). Unknown fields are ignored.
  */
 object LeaseFileParser {
 
@@ -54,8 +56,15 @@ object LeaseFileParser {
         val valid = holder != null && epoch != null && epoch >= 1 &&
             lease.primitive("claimedAt")?.isString == true &&
             lease.primitive("busy")?.takeUnless { it.isString }?.booleanOrNull != null &&
-            lease["active"].let { it is JsonObject || it is JsonNull }
+            isActive(lease["active"])
         return if (valid) LeaseFileRead.Found(holder, epoch) else LeaseFileRead.Unreadable
+    }
+
+    /** `parseActive`: null, or an object with a `chatFile` and a `groupId` or `avatar`. */
+    private fun isActive(value: JsonElement?): Boolean = when (value) {
+        JsonNull -> true
+        is JsonObject -> value.text("chatFile") != null && (value.text("groupId") != null || value.text("avatar") != null)
+        else -> false
     }
 
     private fun JsonObject.primitive(key: String): JsonPrimitive? =
