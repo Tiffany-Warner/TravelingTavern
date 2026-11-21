@@ -1,6 +1,6 @@
 # TravelingTavern `0.1.20` — Session Lease (App)
 
-> **Draft, in review.** Fixes from the owner's first review applied. Items marked **(verify)** must be confirmed before they're built on.
+> **Reviewed** (2026-11-20). Items marked **(verify)** must be confirmed before they're built on.
 
 Replaces `fix-stale-page-overwrites-spec.md` (superseded). The lease itself, its files, messages, hooks and version numbers are defined **once** in TravelingTavern-Extension's `context/specs/ext-0.2-session-lease-spec.md` (cited as **E1–E14**); this spec references them and never restates them. Requirements: that repo's `context/decisions/session-lease-spike.md` (cited as **R…**).
 
@@ -69,7 +69,7 @@ Replaces `fix-stale-page-overwrites-spec.md` (superseded). The lease itself, its
 - **Parked → refused up front** (R39), never left waiting on a held request. The command isn't run; the scrim is already showing
 - **Pair changed or unreadable** → the app shows the parked state at once (`lost` / `unreadable`), refuses the command, and calls `window.__ttLease.onForeground()` so the page parks too
 - **Lease version mismatch** (A2) → refused
-- **Before the page's first `leaseState`:** the command waits for it, bounded at **5 s**, with a loading state on the screen that started it. When it arrives, the normal check above runs. No report within 5 s → the command is refused and the app shows the `unreadable` parked state. A command is never run when the page would hold it
+- **Before the page's first `leaseState`:** the command waits for it, bounded at **5 s**, with a loading state on the screen that started it. When it arrives, the normal check above runs. No report within 5 s → the command is refused and a short message says "SillyTavern is still loading, try again in a moment." (no parked screen: that appears only when the page reports parked or unreadable). A command is never run when the page would hold it
 
 **Exempt: only commands that touch nothing but the page's DOM or CSS** (R27):
 
@@ -161,7 +161,7 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 - Release: only from a holder; body (`format`, pair) and headers; deferred while `busy`; 3 attempts 100–200 ms apart, then no more
 - CSRF: fetched with cookies, reused, fetched again after `403`, never in logs
 - Foreground: `onForeground()` called on return
-- Before the first `leaseState`: a command waits (loading state), then runs the normal check when it arrives; no report within 5 s → refused, `unreadable` parked state; never run while the page would hold it
+- Before the first `leaseState`: a command waits (loading state), then runs the normal check when it arrives; no report within 5 s → refused with the "still loading" message and no parked screen; never run while the page would hold it
 - Reply service: started when `busy` turns `true` in the foreground, stopped when it ends; timeout in foreground vs background; API 31–33 → interrupt
 - Interrupt order: `stopGeneration`, then the bounded wait for `busy: false`, then the release; the release still goes out when the wait runs out; on a timeout, all of it before the service stops, within the allowed time
 - Persona re-read: done while `extensionLeaseVersion` is null, skipped once an extension is reported
