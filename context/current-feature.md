@@ -1,16 +1,16 @@
 # Current Feature
 
-Session Lease — `0.1.20` (spec done)
+Session Lease — `0.1.20` (in progress, branch `feature/session-lease`)
 
 ## Status
 
-**Spec done; waiting for the extension's release candidate.** `context/specs/session-lease-app-spec.md` is reviewed (replaces the superseded `fix-stale-page-overwrites-spec.md`).
+**Implementing in slices** (see the spec's Implementation section). `context/specs/session-lease-app-spec.md` is reviewed (replaces the superseded `fix-stale-page-overwrites-spec.md`). Extension `v0.2.0-rc.1` is tagged and pinned. Slice 1 (build plumbing, `leaseTest`) done.
 
-The decision, the spike's evidence and the requirement map are in that repo's `context/decisions/` (`direction-change.md`, `architecture-assessment.md`, `session-lease-spike.md`); the shared contract is its `context/specs/ext-0.2-session-lease-spec.md`.
+The decision, the spike's evidence and the requirement map are in that repo's `context/decisions/` (`session-lease-spike.md`, which now holds the direction change and the architecture assessment); the shared contract is its `context/specs/ext-0.2-session-lease-spec.md`.
 
 ## Order
 
-1. [ ] TravelingTavern-Extension builds the lease in slices and tags **`v0.2.0-rc.1`** on its `dev`
+1. [x] TravelingTavern-Extension builds the lease in slices and tags **`v0.2.0-rc.1`** on its `dev`
 2. [ ] Feature branch here: submodule pinned to `v0.2.0-rc.1`; `0.1.20` implemented; app spec checklist (A10) and the extension's E14 checklist pass with the `leaseTest` build on the test install
 3. [ ] The extension releases `v0.2.0` to its `main`
 4. [ ] Re-pin the submodule to `v0.2.0`, re-run the build and unit tests, then merge

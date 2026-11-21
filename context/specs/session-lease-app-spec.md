@@ -2,7 +2,7 @@
 
 > **Reviewed** (2026-11-20). Items marked **(verify)** must be confirmed before they're built on.
 
-Replaces `fix-stale-page-overwrites-spec.md` (superseded). The lease itself, its files, messages, hooks and version numbers are defined **once** in TravelingTavern-Extension's `context/specs/ext-0.2-session-lease-spec.md` (cited as **E1–E14**); this spec references them and never restates them. Requirements: that repo's `context/decisions/session-lease-spike.md` (cited as **R…**).
+Replaces `fix-stale-page-overwrites-spec.md` (superseded). The lease itself, its files, messages, hooks and version numbers are defined **once** in TravelingTavern-Extension's `context/specs/ext-0.2-session-lease-spec.md` (cited as **E1–E15**); this spec references them and never restates them. Requirements: that repo's `context/decisions/session-lease-spike.md` (cited as **R…**).
 
 **Requirements this spec owns:** R25, R26, R27, R28, R29, R33, R37, R38, R39, R43, R44. **Links:** R14 (testing, E14), R15 (desktop release, E5), R40 (one instance per page, E11), R42 (CSRF, E11).
 
@@ -212,6 +212,36 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 - `context/project-schema.md`: the lease as a Phase 1 item and a "Built Toward the Final Phase" rule; the 1.8 consequence (done in this branch)
 - `context/specs/phase1-9-personas-spec.md`: re-read removed
 - `context/current-feature.md` history
+
+## Implementation
+
+**Slices** (one commit each on `feature/session-lease`, pushed for review, unmerged until the re-pin to `v0.2.0`):
+
+1. [x] Build plumbing: A2 bundled copy, A9
+2. [ ] Lease messages and state (E11 → A3/A4 inputs)
+3. [ ] Document-start injection (A2)
+4. [ ] Native parked scrim (A3)
+5. [ ] Kotlin pre-check (A4)
+6. [ ] Foreground and background release (A5)
+7. [ ] Reply in the background (A6)
+8. [ ] Notices (A7)
+9. [ ] Extension install and update; conditional persona re-read (A8, Changes)
+10. [ ] Manual and E14 checklists on the test install; docs
+
+**Decisions** (running list)
+
+- **D1:** `revealMessage` and `endReveal` go through `BridgeClient.run()` today; slice 5 gives them an exempt path with no lease check, like `setCleanMode` and `setPageTheme`
+- **D2:** A7's Connect is an app `bridge.js` command (`__ttLease` exposes only `useHere` and `onForeground`). It reuses the connect-button ids and `main_api` mapping verified in the extension spec's E15, confirming the selectors match before use; selectors go in `st-selectors.js`
+- **D3:** `0.1.20` / `versionCode` 21 set once in slice 1; `versionCode` goes up again for each later build that is installed
+- **D4:** each slice: commit (asked), push the feature branch unmerged for review, stop. Merge into `dev` only after the re-pin to `v0.2.0`
+- **D5 (slice 1):** the bundled copy is copied per variant by `copy<Variant>SessionLease` into a generated assets dir (`variant.sources.assets.addGeneratedSourceDirectory`); `LEASE_VERSION` is read with a regex at configuration time. A missing `extension/session-lease.js` fails every Gradle invocation with the A2 message
+- **D6 (slice 1):** a missing `leaseTest.serverUrl` fails only the packaging of a `leaseTest` APK (`checkLeaseTestServerUrl` before `packageLeaseTest`), so unit tests and lint still run without `local.properties` (CI). `./gradlew build` on a clone without it fails at `assembleLeaseTest`
+- **D7 (slice 1):** single-server rule as a `ServerPolicy` (domain) bound per build type: `src/debug` and `src/release` bind `AnyServerPolicy`, `src/leaseTest` binds `SingleServerPolicy(BuildConfig.LEASE_TEST_SERVER_URL)`. `BuildConfig.LEASE_TEST_SERVER_URL` exists in `leaseTest` only. Checked in `TestConnectionUseCase` (`ConnectionResult.ServerNotAllowed`) and before every load in `WebViewHolder` (`PageError.ServerNotAllowed`, no Retry). `SingleServerPolicy` lives in `main` because AGP 9 runs unit tests for the debug build type only (`android.onlyEnableUnitTestForTheTestedBuildType`); release never binds it
+- **D8 (slice 1):** `leaseTest` app name "TT Lease Test" (`src/leaseTest/res`)
+
+## Notes
+
+- **Slice 1 (2026-11-21):** submodule at `v0.2.0-rc.1` (`a244fe3`): `manifest.json` `0.0.1`, `LEASE_VERSION = 1`. In rc.1 the extension spec has 15 sections (E15 = verified in SillyTavern's source); Tests are still E14. Verified: `web/session-lease.js` in debug, release and `leaseTest` APKs, identical to the submodule's file; both build failure messages; `leaseTest` installs beside the real app on an emulator (API 37), refuses another server on Connect and connects to the test install. The `WebViewHolder` refusal path (a saved non-allowed server) isn't reachable on a fresh `leaseTest` install and was not exercised
 
 ## Not Changed
 

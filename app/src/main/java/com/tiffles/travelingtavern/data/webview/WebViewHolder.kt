@@ -16,6 +16,7 @@ import com.tiffles.travelingtavern.data.repository.ServerConfigRepositoryImpl
 import com.tiffles.travelingtavern.data.settings.ServerCredentials
 import com.tiffles.travelingtavern.di.ApplicationScope
 import com.tiffles.travelingtavern.domain.model.PageError
+import com.tiffles.travelingtavern.domain.repository.ServerPolicy
 import com.tiffles.travelingtavern.domain.model.PageState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -39,6 +40,7 @@ class WebViewHolder @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val repository: ServerConfigRepositoryImpl,
     private val bridge: BridgeInstaller,
+    private val serverPolicy: ServerPolicy,
     @ApplicationScope private val scope: CoroutineScope
 ) {
     // The WebView holds this wrapper, not an Activity, so no Activity can leak through it.
@@ -165,6 +167,10 @@ class WebViewHolder @Inject constructor(
         tracker.onPageStarted()
         if (!bridge.isSupported) {
             tracker.onMainFrameError(PageError.WebViewOutdated)
+            return
+        }
+        if (!serverPolicy.allows(baseUrl)) {
+            tracker.onMainFrameError(PageError.ServerNotAllowed)
             return
         }
         view.doOnNonZeroSize {

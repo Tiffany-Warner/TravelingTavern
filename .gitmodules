@@ -1,0 +1,3 @@
+[submodule "extension"]
+	path = extension
+	url = https://github.com/Tiffany-Warner/TravelingTavern-Extension.git

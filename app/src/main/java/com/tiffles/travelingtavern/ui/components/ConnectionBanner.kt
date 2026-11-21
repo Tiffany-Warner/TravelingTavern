@@ -63,7 +63,7 @@ private fun BannerAction(error: PageError, onRetry: () -> Unit, onOpenServerSett
         is PageError.HttpError -> TextButton(onClick = onRetry) {
             Text(stringResource(R.string.webview_retry))
         }
-        PageError.AuthFailed -> TextButton(onClick = onOpenServerSettings) {
+        PageError.AuthFailed, PageError.ServerNotAllowed -> TextButton(onClick = onOpenServerSettings) {
             Text(stringResource(R.string.webview_server_settings))
         }
         // Only a WebView update from the Play Store helps; nothing in the app can.
@@ -77,6 +77,7 @@ private fun PageError.bannerText(): String = when (this) {
     PageError.AuthFailed -> stringResource(R.string.banner_auth_failed)
     is PageError.HttpError -> stringResource(R.string.webview_error_http, code)
     PageError.WebViewOutdated -> stringResource(R.string.webview_error_outdated)
+    PageError.ServerNotAllowed -> stringResource(R.string.server_not_allowed)
 }
 
 @Preview(name = "Unreachable · light", showBackground = true)

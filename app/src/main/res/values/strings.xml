@@ -21,6 +21,7 @@
     <string name="connect_result_auth_failed">Username or password is wrong</string>
     <string name="connect_result_not_sillytavern">That address answered, but it doesn\'t look like SillyTavern</string>
     <string name="connect_result_invalid_url">That doesn\'t look like a valid address</string>
+    <string name="server_not_allowed">This test build only connects to its test install. Use the address set for it.</string>
     <string name="webview_error_auth_failed">Your server didn\'t accept the saved login</string>
     <string name="webview_error_http">Your server answered with an error (%1$d)</string>
     <string name="webview_error_outdated">Your Android System WebView is too old. Update it in the Play Store.</string>
