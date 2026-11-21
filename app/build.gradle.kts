@@ -17,7 +17,7 @@ android {
         minSdk = 31
         targetSdk = 36
         // See "Versioning" in CLAUDE.md
-        versionCode = 20
+        versionCode = 27
         versionName = "0.1.19"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
