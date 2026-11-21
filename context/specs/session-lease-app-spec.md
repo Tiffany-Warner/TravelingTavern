@@ -30,7 +30,7 @@ Replaces `fix-stale-page-overwrites-spec.md` (superseded). The lease itself, its
 - **No document-start support** (`WebViewFeature.DOCUMENT_START_SCRIPT` missing) → the app doesn't load SillyTavern. It shows the native parked state "Update Android System WebView" (A3) with no Use here. No page-load fallback
 - `bridge.js` and the clean theme are still injected at `onPageFinished`, as today
 - **Login page:** the injected copy doesn't install on SillyTavern's login page (E11: URL pathname ending in `/login`), so logging in works before the lease can read its files; the lease starts with the next page load after login
-- **Takeover reloads:** a page that parked while a message was being edited makes ST's `beforeunload` ask "Leave site?" on the reload (E13). The app answers `WebChromeClient.onJsBeforeUnload` with confirm **only while a takeover reload is in progress** (the last `leaseState` reason is `claiming`); otherwise it keeps the default behavior. Discarding the edit is correct: it is stale
+- **Takeover reloads:** a page that parked while a message was being edited makes ST's `beforeunload` ask "Leave site?" on the reload (E13). The app answers `WebChromeClient.onJsBeforeUnload` with confirm **only while a takeover reload is in progress** (the last `leaseState` reason is `claiming` or `reloadPending`); otherwise it keeps the default behavior. Discarding the edit is correct: it is stale
 
 **One instance per page** (R40, E11): the bundled copy is always first; an installed extension stands down and only announces itself, so `leaseInfo` reports its version (A8).
 
@@ -56,6 +56,7 @@ Replaces `fix-stale-page-overwrites-spec.md` (superseded). The lease itself, its
 | `lostRace` | Another device took over | It claimed SillyTavern first. | **Use here** |
 | `unreadable` | Can't reach SillyTavern | Nothing is saved from this phone. | **Use here** |
 | `unknownFormat` | Update needed | Update TravelingTavern to use SillyTavern here. (The app's copy is the outdated side, E2) | none |
+| `reloadPending` (E7) | Reload needed | Reload to finish taking over on this phone. | **Reload**: `WebView.reload()` |
 | app: lease version mismatch (A2) | Restart needed | Restart TravelingTavern to use SillyTavern here. | none |
 | app: no document-start support (A2) | Update needed | Update Android System WebView to use SillyTavern here. | none |
 
