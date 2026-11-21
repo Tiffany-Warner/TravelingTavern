@@ -1,6 +1,6 @@
 # TravelingTavern `0.1.20` — Session Lease (App)
 
-> **Draft for review.** All sections written; awaiting the owner's review. Items marked **(verify)** must be confirmed before they're built on.
+> **Draft, in review.** Fixes from the owner's first review applied. Items marked **(verify)** must be confirmed before they're built on.
 
 Replaces `fix-stale-page-overwrites-spec.md` (superseded). The lease itself, its files, messages, hooks and version numbers are defined **once** in TravelingTavern-Extension's `context/specs/ext-0.2-session-lease-spec.md` (cited as **E1–E14**); this spec references them and never restates them. Requirements: that repo's `context/decisions/session-lease-spike.md` (cited as **R…**).
 
@@ -14,7 +14,7 @@ Replaces `fix-stale-page-overwrites-spec.md` (superseded). The lease itself, its
 
 **What the app owns:** injecting the bundled lease at document start, the native parked state, the Kotlin pre-check before bridge commands, foreground and background behavior (incl. the release written from Kotlin), the reply foreground service, the no-connection banner, extension install and update, and the `leaseTest` build.
 
-The phone is protected with or without the desktop extension; desktop tabs are protected only when the extension is installed (E13), which the app offers to do (A8).
+**Protection between devices needs the extension on every desktop browser used with SillyTavern.** A desktop tab without it doesn't take part in the lease (E13): it can save over the phone's changes, and the phone, as holder, can save its copy over changes that tab made, because nothing tells either side the other exists. The app offers to install the extension (A8) and, until one is reported, keeps its own re-read of persona settings (Changes to Existing Features).
 
 ## A2. Injection (R26, R33; links R40)
 
@@ -59,7 +59,7 @@ The phone is protected with or without the desktop extension; desktop tabs are p
 
 - Follows `ui-guidelines.md`: neutral surface, one amber primary button, 48 dp touch targets, no decoration
 - **Use here** calls `window.__ttLease.useHere()` (E11) and shows `claiming` at once
-- Holder, or the page hasn't reported yet (loading): no scrim
+- Holder: no scrim. Before the page's first `leaseState`: no scrim; a command started then shows a loading state (A4)
 
 ## A4. Kotlin Lease Check (R27, R39)
 
@@ -69,7 +69,7 @@ The phone is protected with or without the desktop extension; desktop tabs are p
 - **Parked → refused up front** (R39), never left waiting on a held request. The command isn't run; the scrim is already showing
 - **Pair changed or unreadable** → the app shows the parked state at once (`lost` / `unreadable`), refuses the command, and calls `window.__ttLease.onForeground()` so the page parks too
 - **Lease version mismatch** (A2) → refused
-- **Page hasn't reported yet:** allowed; the page's own wrapper holds anything sent before its start decision (E6)
+- **Before the page's first `leaseState`:** the command waits for it, bounded at **5 s**, with a loading state on the screen that started it. When it arrives, the normal check above runs. No report within 5 s → the command is refused and the app shows the `unreadable` parked state. A command is never run when the page would hold it
 
 **Exempt: only commands that touch nothing but the page's DOM or CSS** (R27):
 
@@ -101,12 +101,18 @@ Native screens keep the page's last data while parked, under the scrim; nothing 
 - Started **when a reply starts** (`leaseState.busy` turns `true`), while the app is still in the foreground (starting a foreground service from the background is restricted), and stopped when the reply ends (`busy` → `false`) **(verify)**
 - It keeps the app's process out of the cached state, so Android doesn't freeze the WebView's renderer while the reply finishes. **Confirm the cause first:** the spike saw the renderer frozen (`isFrozen=true`) but couldn't confirm it with a heartbeat. Also confirm the renderer stays running under the service, and whether `WebView.setRendererPriorityPolicy` must be set for that **(verify)**
 - When the reply ends in the background: stop the service, write the release (A5)
-- **Time limit** (about 3 minutes for `shortService`, **(verify)**): `onTimeout` with the app in the foreground → stop the service, nothing else (a foreground WebView isn't frozen). In the background → interrupt (below)
+- **Time limit** (about 3 minutes for `shortService`, **(verify)**): `onTimeout` with the app in the foreground → stop the service, nothing else (a foreground WebView isn't frozen). In the background → interrupt (below) **before** stopping the service, then stop it. After `onTimeout` the service must stop itself promptly: Android allows only a short grace period before it treats the app as not responding **(verify the time Android allows)**, so the interrupt's bounded wait must fit inside it
 - Manifest: the service with `foregroundServiceType="shortService"`; `FOREGROUND_SERVICE` permission **(verify no type-specific permission is needed)**
 
 **Android 12–13 (API 31–33): no foreground service.** Going to the background during a reply → interrupt (below). No other foreground-service type is used.
 
-**Interrupt:** stop the reply (`stopGeneration`), write the release (A5), and on return show "Your reply was interrupted when TravelingTavern went to the background." on the Chat screen. A takeover never waits out the 60 s `busy` limit for a reply that can't finish.
+**Interrupt**, in this order:
+
+1. Stop the reply (`stopGeneration`)
+2. Wait, bounded, for `leaseState.busy` to turn `false`, so ST's save of the partial reply lands first **(verify that ST's chat save is sent by then; the bound fits the timeout grace period above)**
+3. Write the release (A5)
+
+On return the Chat screen shows "Your reply was interrupted when TravelingTavern went to the background." A takeover never waits out the 60 s `busy` limit for a reply that can't finish.
 
 **Notification** (required for a foreground service)
 
@@ -127,7 +133,7 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 
 | `leaseInfo` | Prompt |
 |---|---|
-| `extensionLeaseVersion` null (no extension) | One-time dialog after connecting, "Protect changes made on this phone": a SillyTavern tab left open on a computer can overwrite changes made here; install the TravelingTavern extension to prevent it. **Install** / Not now. Plus a Settings row "Desktop protection: Not installed" |
+| `extensionLeaseVersion` null (no extension) | One-time dialog after connecting, "Keep your devices from overwriting each other": without the TravelingTavern extension, a SillyTavern tab on your computer can overwrite changes made on this phone, and this phone can overwrite changes made in that tab. Install it on every browser you use with SillyTavern. **Install** / Not now. Plus a Settings row "Desktop protection: Not installed" |
 | `extensionLeaseVersion < leaseVersion` | Settings row "Update available" + **Update** |
 | `extensionLeaseVersion > leaseVersion` | Settings row "Update TravelingTavern": the app's copy is older than the extension; link to the app's release |
 | `untestedServer` | Settings row "Not tested with SillyTavern {stVersion} yet." |
@@ -155,7 +161,10 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 - Release: only from a holder; body (`format`, pair) and headers; deferred while `busy`; 3 attempts 100–200 ms apart, then no more
 - CSRF: fetched with cookies, reused, fetched again after `403`, never in logs
 - Foreground: `onForeground()` called on return
+- Before the first `leaseState`: a command waits (loading state), then runs the normal check when it arrives; no report within 5 s → refused, `unreadable` parked state; never run while the page would hold it
 - Reply service: started when `busy` turns `true` in the foreground, stopped when it ends; timeout in foreground vs background; API 31–33 → interrupt
+- Interrupt order: `stopGeneration`, then the bounded wait for `busy: false`, then the release; the release still goes out when the wait runs out; on a timeout, all of it before the service stops, within the allowed time
+- Persona re-read: done while `extensionLeaseVersion` is null, skipped once an extension is reported
 - A8 prompts for each version case; install without `branch`; `409` → installed; `clearCache(true)` only
 - `leaseTest`: missing `leaseTest.serverUrl` fails the build; another server refused
 
@@ -172,7 +181,8 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 - [ ] Killed app → desktop shows Use here
 - [ ] Takeover while generating, desktop → app and app → desktop
 - [ ] Reply in the background on Android 14+: completes under the service; notification "Finishing your reply…" shown; runs with the notification permission denied
-- [ ] Reply in the background on Android 12–13 (emulator): interrupted, released, message on return
+- [ ] Reply in the background on Android 12–13 (emulator): interrupted, partial reply saved before the release, message on return
+- [ ] Commands right after a page load wait for the first `leaseState` instead of being held
 - [ ] No model connection after a takeover: banner until connected; Connect presses ST's connect again; still not connected → API Connections message
 - [ ] Extension install and update from the app; prompts for older, newer and missing extension
 - [ ] WebView without document-start support (if reproducible): "Update Android System WebView"
@@ -180,8 +190,8 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 
 ## Changes to Existing Features
 
-- **Remove the 1.9 persona re-read** (on opening Personas, on app return, before each persona action). It worked around a stale settings copy in the page; with the lease, a page that writes always loaded while holding the lease, so its copy can't be stale. `phase1-9-personas-spec.md` is updated to match
-- **Consequence for Phase 1.8 (recorded only):** the old spec blocked 1.8 (full SillyTavern UI behind Advanced) until presets, Quick Replies, themes, groups and full character edits were guarded one by one. The lease covers every save, so that blocker is gone. Starting 1.8 is a separate decision
+- **The 1.9 persona re-read becomes conditional** (on opening Personas, on app return, before each persona action). It works around a stale settings copy in the page. With the extension on the desktop, every page that writes loaded while holding the lease, so the phone's copy can't be stale: the re-read is skipped. **While `leaseInfo` reports no extension** (`extensionLeaseVersion` null), a desktop tab outside the lease can still change settings, so the re-read stays. `phase1-9-personas-spec.md` is updated to match
+- **Consequence for Phase 1.8 (recorded only):** the old spec blocked 1.8 (full SillyTavern UI behind Advanced) until presets, Quick Replies, themes, groups and full character edits were guarded one by one. The lease covers every save from pages running the lease, so that blocker is gone. Starting 1.8 is a separate decision
 
 ## Investigate First
 
