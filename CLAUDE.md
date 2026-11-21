@@ -58,6 +58,7 @@ Injected web assets (JS bridge script, clean-theme CSS) live in `app/src/main/as
 
 ## Related Repos
 
+- **[TravelingTavern-Extension](https://github.com/Tiffany-Warner/TravelingTavern-Extension)** — the session lease (one active SillyTavern page per user) for every SillyTavern page. Source of `session-lease.js`, which this app bundles through a git submodule at `extension/` (pinned to a tag; clone with `git clone --recurse-submodules`, or run `git submodule update --init`) and injects at document start. The lease's files, messages and versions are defined in that repo's `context/specs/ext-0.2-session-lease-spec.md`; the app side is `context/specs/session-lease-app-spec.md` here
 - **TravelingTavern-Bridge** — SillyTavern server plugin on the desktop (push events, media, reminders, card writes). In Phase 8 it also drives a headless SillyTavern page that generates proactive messages and reminders in the main chat, running this repo's `bridge.js`
 
 Changes needed on the desktop side go in that repo, not here. EchoText and EchoText-Proactive are not used (see `context/project-schema.md` → One Conversation).

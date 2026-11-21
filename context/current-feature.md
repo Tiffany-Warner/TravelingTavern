@@ -1,12 +1,12 @@
 # Current Feature
 
-Stale Page Overwrites — blocked on the session-lease spike
+Session Lease — `0.1.20` (spec done)
 
 ## Status
 
-**Blocked.** The per-save guard was stopped on 2026-11-20 (owner decision); `context/specs/fix-stale-page-overwrites-spec.md` is marked superseded and kept for its source findings. The session-lease spike ("Use here": one active SillyTavern page at a time) is running in TravelingTavern-Extension. No app changes until its results are reviewed.
+**Spec done; waiting for the extension.** `context/specs/session-lease-app-spec.md` is reviewed (replaces the superseded `fix-stale-page-overwrites-spec.md`). Next: implementing `0.1.20` once TravelingTavern-Extension `v0.2.0` is tagged, since the app bundles its `session-lease.js` through a submodule pinned to that tag.
 
-The decision and background are in that repo's `context/decisions/` (`direction-change.md`, `architecture-assessment.md`).
+The decision, the spike's evidence and the requirement map are in that repo's `context/decisions/` (`direction-change.md`, `architecture-assessment.md`, `session-lease-spike.md`); the shared contract is its `context/specs/ext-0.2-session-lease-spec.md`.
 
 ## History
 
