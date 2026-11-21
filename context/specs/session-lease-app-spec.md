@@ -29,6 +29,8 @@ Replaces `fix-stale-page-overwrites-spec.md` (superseded). The lease itself, its
 - `BridgeInstaller` adds `session-lease.js` with `WebViewCompat.addDocumentStartJavaScript` for the saved server's origin only, before the first load **(verify on the emulator and the Pixel 8)**. The lease then exists before ST's first request, and every request waits for the start decision (E6). This answers R33: first requests are held at document start by the injection itself
 - **No document-start support** (`WebViewFeature.DOCUMENT_START_SCRIPT` missing) → the app doesn't load SillyTavern. It shows the native parked state "Update Android System WebView" (A3) with no Use here. No page-load fallback
 - `bridge.js` and the clean theme are still injected at `onPageFinished`, as today
+- **Login page:** the injected copy doesn't install on SillyTavern's login page (E11: URL pathname ending in `/login`), so logging in works before the lease can read its files; the lease starts with the next page load after login
+- **Takeover reloads:** a page that parked while a message was being edited makes ST's `beforeunload` ask "Leave site?" on the reload (E13). The app answers `WebChromeClient.onJsBeforeUnload` with confirm **only while a takeover reload is in progress** (the last `leaseState` reason is `claiming`); otherwise it keeps the default behavior. Discarding the edit is correct: it is stale
 
 **One instance per page** (R40, E11): the bundled copy is always first; an installed extension stands down and only announces itself, so `leaseInfo` reports its version (A8).
 
