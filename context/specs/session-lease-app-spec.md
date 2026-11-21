@@ -20,7 +20,7 @@ Replaces `fix-stale-page-overwrites-spec.md` (superseded). The lease itself, its
 
 **Bundled copy**
 
-- Submodule `TravelingTavern-Extension` at `extension/`, pinned to tag `v0.2.0`. A Gradle `Copy` task puts `extension/session-lease.js` into a generated assets dir added to `main` (served as `web/session-lease.js`); no committed copy. Missing file → the build fails with "session-lease.js not found. Run: git submodule update --init"
+- Submodule `TravelingTavern-Extension` at `extension/`, pinned to tag `v0.2.0`. While `0.1.20` is built and tested, it pins the release candidate `v0.2.0-rc.1` (tagged on the extension's `dev`); it is re-pinned to `v0.2.0` before this feature merges. Never an untagged commit. A Gradle `Copy` task puts `extension/session-lease.js` into a generated assets dir added to `main` (served as `web/session-lease.js`); no committed copy. Missing file → the build fails with "session-lease.js not found. Run: git submodule update --init"
 - A Gradle task reads `LEASE_VERSION` from the submodule's `session-lease.js` into `BuildConfig.LEASE_VERSION`
 - CI (`.github/workflows/android-ci.yml`) checks out with `submodules: true`
 
@@ -121,10 +121,12 @@ On return the Chat screen shows "Your reply was interrupted when TravelingTavern
 - **It appears briefly during every reply, even with the app in the foreground,** because the service must start while the app is visible (choice above). Expected, not a bug
 - With the notification permission denied (Android 13+), the notification is hidden; the service must still run **(verify on Android 14+)**. The app doesn't ask for the permission for this
 
-## A7. No Model Connection After a Takeover (R37)
+## A7. No Model Connection After a Takeover; Notices (R37)
 
-- The holder's `leaseState.connected` is `false` after a takeover reload (E10, after the page's own connect attempt) → a **banner on the Chat screen**: "Not connected to a model", shown until `connected` turns `true`
+- `leaseNotice` `notConnected` (E11: the holder is still not connected after a takeover reload and the page's own connect attempt, E10) → a **banner on the Chat screen**: "Not connected to a model", shown until `connected` turns `true`
 - **Action: Connect.** Asks the page to press ST's connect button for the selected API again (the same mechanism as E10). Still not connected → the banner says "Connect to a model in SillyTavern's API Connections."
+- **`leaseNotice` `replyNotStarted`** (E3, E8: the page couldn't write `busy: true`, so the reply wasn't sent) → a snackbar on the Chat screen: "Couldn't reach SillyTavern to start the reply. Try again." The chat's Send / Stop state follows ST's own generation end, as for a Stop
+- Unknown `leaseNotice` kinds are ignored
 - The app has no native model-connection screen yet (Me and Advanced are placeholders). Revisit when Phase 1.8 adds one
 
 ## A8. Extension Install and Update
@@ -156,7 +158,7 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 
 **Unit (Kotlin, JUnit + MockK):**
 
-- Parsing `leaseState` and `leaseInfo`: every field, unknown `reason`, unknown fields ignored, malformed messages
+- Parsing `leaseState`, `leaseInfo` and `leaseNotice`: every field, unknown `reason`, unknown fields ignored, malformed messages
 - Pre-check: pair comparison; 2 s reuse; refused while parked; pair changed or unreadable → parked state and `onForeground()`; version mismatch refused; exempt commands; `setAppState` checked
 - Release: only from a holder; body (`format`, pair) and headers; deferred while `busy`; 3 attempts 100–200 ms apart, then no more
 - CSRF: fetched with cookies, reused, fetched again after `403`, never in logs
@@ -183,6 +185,7 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 - [ ] Reply in the background on Android 14+: completes under the service; notification "Finishing your reply…" shown; runs with the notification permission denied
 - [ ] Reply in the background on Android 12–13 (emulator): interrupted, partial reply saved before the release, message on return
 - [ ] Commands right after a page load wait for the first `leaseState` instead of being held
+- [ ] Reply that can't start (`replyNotStarted`): snackbar shown, nothing sent
 - [ ] No model connection after a takeover: banner until connected; Connect presses ST's connect again; still not connected → API Connections message
 - [ ] Extension install and update from the app; prompts for older, newer and missing extension
 - [ ] WebView without document-start support (if reproducible): "Update Android System WebView"
