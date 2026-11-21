@@ -44,6 +44,7 @@ Proactive messages and reminders come last, but every phase before them keeps to
 - **Lifecycle events reach the page:** the app going to the background and back (`ProcessLifecycleOwner`, not Activity events, which also fire on rotation) and chat switches go to `bridge.js`. In Phase 8 the same state becomes the heartbeat that tells the Bridge which chat the app has open
 - **A deep link to a chat** (character + chat) exists before Phase 8, so a notification tap only has to use it
 - **Times come from SillyTavern's `send_date`**, never from app-side tracking. The Bridge's scheduler reads the same field
+- **One active page per SillyTavern user.** A session lease (TravelingTavern-Extension's `session-lease.js`, bundled in the app) lets only one page write; every other page is parked until the user taps Use here. The Phase 8 headless page must hold the lease too (decided with Phase 8)
 - **Login stays simple:** whatever auth the Connect screen supports must also work for a desktop browser page, since the headless page signs in the same way
 
 ---
@@ -63,7 +64,8 @@ Proactive messages and reminders come last, but every phase before them keeps to
 - [x] 1.6c Chats tab hide and delete — long press a chat to hide it (app only) or delete it in SillyTavern; ⋮ → Show hidden chats
 - [x] 1.7b Voice input — on-device speech-to-text mic in the main chat. **Replaced (2026-11-19):** voice typing comes from the keyboard's own mic; 1.7 removes the in-app mic
 - [x] 1.7 Chat screen — story chat: message cards, tap for SillyTavern's message actions, native input bar; reload on resume, lifecycle events, deep link to a chat
-- [ ] 1.8 Me tab & Advanced — personas row (with 1.9), appearance, server, full SillyTavern UI behind Advanced, open-source licenses
+- [ ] 1.8 Me tab & Advanced — personas row (with 1.9), appearance, server, full SillyTavern UI behind Advanced, open-source licenses. (The session lease removes the old per-file-guard blocker for the full SillyTavern UI; starting 1.8 is a separate decision)
+- [ ] Session lease (`0.1.20`) — one active SillyTavern page per user: bundled lease at document start, native parked state with Use here, reply foreground service, extension install / update (`context/specs/session-lease-app-spec.md`)
 - [x] 1.9 Personas — a chip in the chat's input bar shows the active persona; tapping it opens a full-screen persona list to switch (picking in a chat locks it to that chat), create, edit and delete personas, and set the default
 
 ---
