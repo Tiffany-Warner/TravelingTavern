@@ -501,6 +501,11 @@
     /** When this page last changed persona settings itself (its save to the server may still be pending). */
     let lastPersonaWriteAt = 0;
     const PERSONA_SYNC_SETTLE_MS = S.api.settingsSaveDelayMs * 5;
+    /**
+     * Set by the app (`setExtensionReported`) once this load's `leaseInfo` reports the desktop
+     * extension. Starts false on every page load: not reported yet counts as no extension.
+     */
+    let extensionReported = false;
 
     function replaceContents(target, source) {
         Object.keys(target).forEach(function (key) { delete target[key]; });
@@ -513,8 +518,11 @@
      * page's copy, so a stale page would erase personas made elsewhere (the desktop) the next
      * time it saves. Skipped right after this page's own persona change, until its debounced
      * save has reached the server. Best effort: on failure the page keeps its copy.
+     * Off once the app says the lease's `leaseInfo` reported the desktop extension
+     * ([extensionReported]): every page that writes then loaded holding the lease.
      */
     async function syncPersonaSettings(ctx) {
+        if (extensionReported) return;
         if (Date.now() - lastPersonaWriteAt < PERSONA_SYNC_SETTLE_MS) return;
         try {
             const response = await fetch(S.api.settings, {
@@ -1485,6 +1493,11 @@
         /** A reply finished in the background (A6): `chatSaved` follows once SillyTavern saved it. */
         watchChatSave: function () {
             watchChatSave();
+        },
+
+        /** The desktop extension is reported for this load: the persona re-read stops (only `true` turns it off). */
+        setExtensionReported: function (reported) {
+            if (reported === true) extensionReported = true;
         },
 
         /** Start new chat ([deleteCurrent] false) or Restart chat (true), answered with `chatResult`. */

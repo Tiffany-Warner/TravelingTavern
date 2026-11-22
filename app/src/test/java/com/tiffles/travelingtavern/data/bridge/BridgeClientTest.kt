@@ -143,4 +143,14 @@ class BridgeClientTest {
         coVerify(exactly = 0) { gate.check(any()) }
         assertTrue(scriptsRun().size == 2)
     }
+
+    @Test
+    fun `setExtensionReported is not gated and sends true`() = runTest {
+        coEvery { gate.check(any()) } returns LeaseCheck.Refused
+
+        assertTrue(client.setExtensionReported())
+
+        coVerify(exactly = 0) { gate.check(any()) }
+        assertTrue(scriptsRun().single().contains("__ttBridge.setExtensionReported(true)"))
+    }
 }

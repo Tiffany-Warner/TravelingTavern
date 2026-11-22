@@ -5,12 +5,14 @@ import com.tiffles.travelingtavern.BuildConfig
 import com.tiffles.travelingtavern.domain.model.LeaseStatus
 import com.tiffles.travelingtavern.domain.model.ModelBanner
 import com.tiffles.travelingtavern.domain.model.ParkReason
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -51,6 +53,9 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
 
     /** The current load's last `leaseInfo` (extension prompts). Null until reported. */
     val info: StateFlow<BridgeMessage.LeaseInfo?> = _info.asStateFlow()
+
+    /** The current load's `leaseInfo` reports a desktop extension. False until reported (unknown counts as none). */
+    val extensionReported: Flow<Boolean> = _info.map { it?.extensionLeaseVersion != null }
 
     /** What the parked scrim and the pre-check go by. */
     val status: StateFlow<LeaseStatus> = _status.asStateFlow()

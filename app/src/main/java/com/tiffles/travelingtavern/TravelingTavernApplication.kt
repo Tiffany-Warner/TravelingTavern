@@ -7,6 +7,7 @@ import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import com.tiffles.travelingtavern.data.bridge.LeaseLifecycle
+import com.tiffles.travelingtavern.data.bridge.PersonaSyncSwitch
 import com.tiffles.travelingtavern.data.lifecycle.AppForegroundTracker
 import dagger.Lazy
 import dagger.hilt.android.HiltAndroidApp
@@ -27,10 +28,15 @@ class TravelingTavernApplication : Application(), SingletonImageLoader.Factory {
     @Inject
     lateinit var leaseLifecycle: LeaseLifecycle
 
+    /** Turns the page's persona re-read off once `leaseInfo` reports the desktop extension. */
+    @Inject
+    lateinit var personaSyncSwitch: PersonaSyncSwitch
+
     override fun onCreate() {
         super.onCreate()
         foregroundTracker.start()
         leaseLifecycle.start()
+        personaSyncSwitch.start()
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =
