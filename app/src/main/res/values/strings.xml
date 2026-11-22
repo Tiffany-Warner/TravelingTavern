@@ -222,4 +222,5 @@
     <string name="chat_connect">Connect</string>
     <string name="chat_connecting">Connecting…</string>
     <string name="chat_reply_not_started">Couldn\'t reach SillyTavern to start the reply. Try again.</string>
+    <string name="chat_reply_not_started_saved">Couldn\'t reach SillyTavern to start the reply. Your message was saved.</string>
 </resources>

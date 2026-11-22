@@ -88,6 +88,24 @@ class ChatSessionRepositoryImplTest {
     }
 
     @Test
+    fun `regenerate reply matches its own answer, stale when the last message isn't the user's`() = runTest {
+        coEvery { client.regenerateReply(any()) } coAnswers {
+            bridge.onRawMessage("""{"v":1,"type":"chatResult","requestId":"other","ok":true}""")
+            bridge.onRawMessage("""{"v":1,"type":"chatResult","requestId":"${firstArg<String>()}","ok":false,"error":"stale"}""")
+            true
+        }
+
+        assertEquals(ChatActionResult.Stale, repository.regenerateReply())
+    }
+
+    @Test
+    fun `regenerate reply refused by the pre-check fails at once`() = runTest {
+        coEvery { client.regenerateReply(any()) } returns false
+
+        assertEquals(ChatActionResult.Failed, repository.regenerateReply())
+    }
+
+    @Test
     fun `generation state follows the page and resets on a reload`() = runTest {
         bridge.onRawMessage("""{"v":1,"type":"generationState","running":true}""")
         assertTrue(bridge.generating.value)

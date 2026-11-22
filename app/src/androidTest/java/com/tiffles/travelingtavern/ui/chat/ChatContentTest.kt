@@ -1,6 +1,11 @@
 package com.tiffles.travelingtavern.ui.chat
 
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -222,5 +227,40 @@ class ChatContentTest {
         show(ChatUiState.Ready(bob, modelBanner = ModelBanner(connecting = true)))
 
         composeRule.onNodeWithText(string(R.string.chat_connecting)).assertIsNotEnabled()
+    }
+
+    // -- A reply that couldn't start (A7)
+
+    private val snackbars = SnackbarHostState()
+    private var snackbarResult: SnackbarResult? = null
+
+    private fun showReplyNotStarted(notice: ReplyNotStartedNotice) {
+        composeRule.setContent {
+            TravelingTavernTheme {
+                val context = LocalContext.current
+                ChatContent(uiState = ChatUiState.Ready(bob), input = "", actions = actions, snackbarHostState = snackbars)
+                LaunchedEffect(Unit) { snackbarResult = snackbars.showReplyNotStarted(context, notice) }
+            }
+        }
+    }
+
+    @Test
+    fun replyNotStartedAfterASendSaysSavedAndRegenerateCanBeTapped() {
+        showReplyNotStarted(ReplyNotStartedNotice.MessageSaved("Good morning!"))
+
+        composeRule.onNodeWithText(string(R.string.chat_reply_not_started_saved)).assertIsDisplayed()
+        assertEquals(SnackbarDuration.Long, snackbars.currentSnackbarData?.visuals?.duration)
+        composeRule.onNodeWithText(string(R.string.chat_action_regenerate)).performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(SnackbarResult.ActionPerformed, snackbarResult)
+    }
+
+    @Test
+    fun replyNotStartedAfterAnotherStartSaysTryAgainWithoutRegenerate() {
+        showReplyNotStarted(ReplyNotStartedNotice.TryAgain)
+
+        composeRule.onNodeWithText(string(R.string.chat_reply_not_started)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.chat_action_regenerate)).assertDoesNotExist()
     }
 }

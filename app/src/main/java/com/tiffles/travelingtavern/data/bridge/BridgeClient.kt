@@ -78,6 +78,9 @@ class BridgeClient @Inject constructor(
             )
         )
 
+    /** SillyTavern's regenerate for the user's message last in the chat (A7), answered by `chatResult` tagged [requestId]. */
+    suspend fun regenerateReply(requestId: String) = run(BridgeScript.call("regenerateReply", JsonPrimitive(requestId)))
+
     /** Sends [text] through SillyTavern's own send. */
     suspend fun sendMessage(text: String) = run(BridgeScript.call("sendMessage", JsonPrimitive(text)))
 

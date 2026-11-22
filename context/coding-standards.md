@@ -25,6 +25,7 @@
 - `bridge.js` must work in any ST page: without `TravelingTavern` port it still hooks events and runs commands; only `post()` no-ops (final phase runs it headless on desktop, see `project-schema.md` → Built Toward the Final Phase)
 - Chats keyed by ST's avatar file + chat file name; times from `send_date`. No app chat IDs or copies
 - Anything affecting generation is saved in ST, never WebView-session-only. Exception: Phase 2 texting/story style, stored per chat in app (see `project-schema.md`)
+- Code never makes generation calls to the connected model on the user's behalf: every generation starts from a user tap; no automatic retries or regenerates (user rule, 2026-11-22)
 
 ## WebView
 - Exactly one instance, owned by `@Singleton` `data/webview/WebViewHolder`

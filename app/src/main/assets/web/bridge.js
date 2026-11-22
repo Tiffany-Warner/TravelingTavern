@@ -1366,6 +1366,31 @@
         },
 
         /**
+         * Regenerate on the "couldn't start the reply" snackbar (A7): SillyTavern's own regenerate,
+         * only while the chat's last message is the user's (else `stale`). With a user message last,
+         * SillyTavern's regenerate neither deletes it nor adds it again; with a character's message
+         * last it would delete that message, hence the check. Answers `chatResult` tagged [requestId].
+         */
+        regenerateReply: function (requestId) {
+            const ctx = context();
+            const messages = ctx ? chatOf(ctx) : [];
+            const last = messages[messages.length - 1];
+            if (!last || !last[S.message.isUser]) {
+                postChatResult(requestId, false, 'stale');
+            } else if (generating) {
+                postChatResult(requestId, false, 'busy');
+            } else {
+                try {
+                    clickElement(C.options.regenerate);
+                    postChatResult(requestId, true);
+                } catch (e) {
+                    postError('Regenerate failed: ' + e);
+                    postChatResult(requestId, false, 'failed');
+                }
+            }
+        },
+
+        /**
          * Runs [action] on message [messageId] if it still has [sendDate] (else `stale`), and
          * answers with a `chatResult` tagged [requestId]. Only copy runs during a generation.
          */

@@ -375,15 +375,196 @@ class ChatViewModelTest {
         assertEquals(1, lease.connectCalls)
     }
 
+    // -- A reply that couldn't start (A7, D34)
+
+    /** A notice arrives while the screen is collecting; returns what it showed (and tells the ViewModel, as the screen does). */
+    private fun TestScope.noticeShown(): ReplyNotStartedNotice {
+        val seen = mutableListOf<ReplyNotStartedNotice>()
+        val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.replyNotStarted.collect { seen += it } }
+        lease.replyNotStarted.tryEmit(Unit)
+        job.cancel()
+        return seen.single().also { viewModel.onReplyNotStartedShown(it) }
+    }
+
+    /** A send whose reply couldn't start: SillyTavern shows Stop briefly, the notice arrives, Stop goes. */
+    private fun TestScope.sendThatCouldNotStart(text: String = "Good morning!"): ReplyNotStartedNotice {
+        viewModel.onInputChange(text)
+        viewModel.onSend()
+        chat.generating.value = true
+        val notice = noticeShown()
+        chat.generating.value = false
+        return notice
+    }
+
     @Test
-    fun `replyNotStarted passes through without replay`() = runTest {
+    fun `after a send that couldn't start, the text comes back and the snackbar offers Regenerate`() = runTest {
         openReadyChat()
-        lease.replyNotStarted.tryEmit(Unit)
-        val seen = mutableListOf<Unit>()
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.replyNotStarted.collect { seen += it } }
+
+        assertEquals(ReplyNotStartedNotice.MessageSaved("Good morning!"), sendThatCouldNotStart())
+        assertEquals("Good morning!", viewModel.input)
+    }
+
+    @Test
+    fun `the text never goes over new typing`() = runTest {
+        openReadyChat()
+        viewModel.onInputChange("Good morning!")
+        viewModel.onSend()
+        viewModel.onInputChange("Something else")
+
+        assertEquals(ReplyNotStartedNotice.MessageSaved("Good morning!"), noticeShown())
+        assertEquals("Something else", viewModel.input)
+    }
+
+    @Test
+    fun `a notice while the screen isn't collecting is dropped and the text stays out`() = runTest {
+        openReadyChat()
+        viewModel.onInputChange("Good morning!")
+        viewModel.onSend()
 
         lease.replyNotStarted.tryEmit(Unit)
 
-        assertEquals(1, seen.size)
+        assertEquals("", viewModel.input)
+        assertEquals(ReplyNotStartedNotice.MessageSaved(text = null), noticeShown())
+    }
+
+    @Test
+    fun `after the reply came, a later notice says Try again and leaves the field alone`() = runTest {
+        openReadyChat()
+        viewModel.onInputChange("Good morning!")
+        viewModel.onSend()
+        chat.generating.value = true
+        chat.generating.value = false
+
+        assertEquals(ReplyNotStartedNotice.TryAgain, noticeShown())
+        assertEquals("", viewModel.input)
+    }
+
+    @Test
+    fun `a notice outside any generation doesn't keep a later send alive`() = runTest {
+        openReadyChat()
+        assertEquals(ReplyNotStartedNotice.TryAgain, noticeShown())
+        viewModel.onInputChange("Good morning!")
+        viewModel.onSend()
+        chat.generating.value = true
+        chat.generating.value = false
+
+        assertEquals(ReplyNotStartedNotice.TryAgain, noticeShown())
+        assertEquals("", viewModel.input)
+    }
+
+    @Test
+    fun `Regenerate asks SillyTavern once and clears the put-back text`() = runTest {
+        openReadyChat()
+        sendThatCouldNotStart()
+
+        viewModel.onRegenerateReply()
+
+        assertEquals(1, chat.regenerateReplyCalls)
+        assertEquals(listOf("Good morning!"), chat.sent)
+        assertEquals("", viewModel.input)
+    }
+
+    @Test
+    fun `Regenerate keeps text the user changed`() = runTest {
+        openReadyChat()
+        sendThatCouldNotStart()
+        viewModel.onInputChange("Good morning! Edited")
+
+        viewModel.onRegenerateReply()
+
+        assertEquals("Good morning! Edited", viewModel.input)
+    }
+
+    @Test
+    fun `a Regenerate that couldn't start again still offers Regenerate, without text`() = runTest {
+        openReadyChat()
+        sendThatCouldNotStart()
+        viewModel.onRegenerateReply()
+
+        assertEquals(ReplyNotStartedNotice.MessageSaved(text = null), noticeShown())
+        assertEquals("", viewModel.input)
+    }
+
+    @Test
+    fun `Regenerate when the last message isn't the user's says so and re-reads the chat`() = runTest {
+        openReadyChat()
+        val events = collectEvents()
+        sendThatCouldNotStart()
+        chat.regenerateReplyResult = ChatActionResult.Stale
+
+        viewModel.onRegenerateReply()
+
+        assertEquals(listOf<ChatEvent>(ChatEvent.MessageChanged), events)
+        assertEquals(1, chat.reloadCalls)
+        assertEquals("Good morning!", viewModel.input)
+        assertEquals(ReplyNotStartedNotice.TryAgain, noticeShown())
+    }
+
+    @Test
+    fun `Regenerate refused or busy says it didn't work and keeps the text`() = runTest {
+        openReadyChat()
+        val events = collectEvents()
+        sendThatCouldNotStart()
+        chat.regenerateReplyResult = ChatActionResult.Failed
+
+        viewModel.onRegenerateReply()
+
+        assertEquals(listOf<ChatEvent>(ChatEvent.ActionFailed), events)
+        assertEquals("Good morning!", viewModel.input)
+    }
+
+    @Test
+    fun `Regenerate does nothing while generating`() = runTest {
+        openReadyChat()
+        chat.generating.value = true
+
+        viewModel.onRegenerateReply()
+
+        assertEquals(0, chat.regenerateReplyCalls)
+    }
+
+    @Test
+    fun `after Write for me or a message action the notice says Try again, without Regenerate`() = runTest {
+        openReadyChat()
+        viewModel.onInputChange("Good morning!")
+        viewModel.onSend()
+        viewModel.onWriteForMe()
+        assertEquals(ReplyNotStartedNotice.TryAgain, noticeShown())
+
+        viewModel.onInputChange("Hi")
+        viewModel.onSend()
+        chat.messageTaps.emit(tappedMessage())
+        viewModel.onMessageAction(MessageAction.Continue)
+        assertEquals(ReplyNotStartedNotice.TryAgain, noticeShown())
+        assertEquals("", viewModel.input)
+    }
+
+    @Test
+    fun `a notice without any send from this screen says Try again`() = runTest {
+        openReadyChat()
+
+        assertEquals(ReplyNotStartedNotice.TryAgain, noticeShown())
+        assertEquals("", viewModel.input)
+    }
+
+    @Test
+    fun `a refused send leaves nothing to put back later`() = runTest {
+        openReadyChat()
+        chat.sendAccepted = false
+        viewModel.onInputChange("Good morning!")
+        viewModel.onSend()
+
+        assertEquals(ReplyNotStartedNotice.TryAgain, noticeShown())
+    }
+
+    @Test
+    fun `switching chats forgets the send`() = runTest {
+        openReadyChat(chatFile = "Tide Pods - 1")
+        viewModel.onInputChange("Good morning!")
+        viewModel.onSend()
+
+        chat.chatChanges.emit(OpenChat("Tide Pods.png", "Tide Pods - 2"))
+
+        assertEquals(ReplyNotStartedNotice.TryAgain, noticeShown())
     }
 }

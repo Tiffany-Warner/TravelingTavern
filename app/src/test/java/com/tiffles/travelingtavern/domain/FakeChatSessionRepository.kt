@@ -41,6 +41,16 @@ class FakeChatSessionRepository : ChatSessionRepository {
         return sendAccepted
     }
 
+    var regenerateReplyCalls = 0
+
+    /** What [regenerateReply] answers. */
+    var regenerateReplyResult: ChatActionResult = ChatActionResult.Done()
+
+    override suspend fun regenerateReply(): ChatActionResult {
+        regenerateReplyCalls++
+        return regenerateReplyResult
+    }
+
     override suspend fun impersonate() {
         impersonateCalls++
     }

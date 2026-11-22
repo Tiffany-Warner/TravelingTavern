@@ -1,6 +1,7 @@
 package com.tiffles.travelingtavern.ui.chat
 
 import android.content.ClipData
+import android.content.Context
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
@@ -21,8 +22,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -160,8 +163,10 @@ private fun ChatEventsEffect(viewModel: ChatViewModel, snackbarHostState: Snackb
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            viewModel.replyNotStarted.collect {
-                snackbarHostState.showSnackbar(context.getString(R.string.chat_reply_not_started))
+            viewModel.replyNotStarted.collect { notice ->
+                viewModel.onReplyNotStartedShown(notice)
+                val result = snackbarHostState.showReplyNotStarted(context, notice)
+                if (result == SnackbarResult.ActionPerformed) viewModel.onRegenerateReply()
             }
         }
     }
@@ -177,6 +182,22 @@ private fun ChatEventsEffect(viewModel: ChatViewModel, snackbarHostState: Snackb
             }
         }
     }
+}
+
+/**
+ * The "couldn't start the reply" snackbar (A7). After a send it says the message was saved and
+ * offers Regenerate, shown long enough to tap.
+ */
+internal suspend fun SnackbarHostState.showReplyNotStarted(
+    context: Context,
+    notice: ReplyNotStartedNotice
+): SnackbarResult = when (notice) {
+    is ReplyNotStartedNotice.MessageSaved -> showSnackbar(
+        message = context.getString(R.string.chat_reply_not_started_saved),
+        actionLabel = context.getString(R.string.chat_action_regenerate),
+        duration = SnackbarDuration.Long
+    )
+    ReplyNotStartedNotice.TryAgain -> showSnackbar(context.getString(R.string.chat_reply_not_started))
 }
 
 @Composable

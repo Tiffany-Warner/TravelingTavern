@@ -35,7 +35,7 @@ android {
         minSdk = 31
         targetSdk = 36
         // See "Versioning" in CLAUDE.md
-        versionCode = 36
+        versionCode = 38
         versionName = "0.1.20"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

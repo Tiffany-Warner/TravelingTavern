@@ -90,8 +90,9 @@ class BridgeClientTest {
         client.selectPersona("r2", "p.png", lockToChat = false)
         client.requestCharacters(fromServer = true)
         client.connectModel("r3")
+        client.regenerateReply("r4")
 
-        coVerify(exactly = 5) { gate.check(CommandOrigin.User) }
+        coVerify(exactly = 6) { gate.check(CommandOrigin.User) }
         coVerify(exactly = 0) { gate.check(CommandOrigin.App) }
     }
 

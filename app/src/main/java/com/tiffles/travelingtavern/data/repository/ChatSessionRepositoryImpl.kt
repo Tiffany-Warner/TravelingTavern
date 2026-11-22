@@ -42,6 +42,9 @@ class ChatSessionRepositoryImpl @Inject constructor(
 
     override suspend fun send(text: String): Boolean = client.sendMessage(text)
 
+    override suspend fun regenerateReply(): ChatActionResult =
+        request(ACTION_TIMEOUT_MS) { requestId -> client.regenerateReply(requestId) }
+
     override suspend fun impersonate() {
         client.impersonate()
     }

@@ -30,6 +30,12 @@ interface ChatSessionRepository {
     /** Sends [text] through SillyTavern's own send. False: refused (the session lease), nothing sent. */
     suspend fun send(text: String): Boolean
 
+    /**
+     * A reply to the user's message that's last in the chat, with SillyTavern's own regenerate
+     * (nothing deleted or added again). [ChatActionResult.Stale] when the last message isn't the user's.
+     */
+    suspend fun regenerateReply(): ChatActionResult
+
     suspend fun impersonate()
 
     suspend fun stop()
