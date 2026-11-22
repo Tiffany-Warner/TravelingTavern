@@ -1,22 +1,20 @@
-# Phase 1.8 — Settings & Advanced
+# Phase 1.8 — Me & Advanced
 
 ## Overview
 
-A native Settings screen with the few things a phone user needs, and an Advanced entry that shows the full, unstyled SillyTavern UI for everything else (presets, lorebooks, extensions). Tuning stays on the desktop or behind Advanced.
+The native **Me** tab with the few things a phone user needs, and an Advanced entry that shows the full, unstyled SillyTavern UI for everything else (presets, lorebooks, extensions). Tuning stays on the desktop or behind Advanced.
 
 ## Requirements
 
-### Settings (`ui/settings/SettingsScreen.kt`)
+### Me (`ui/me/MeScreen.kt`)
 
 - **Personas**
-    - "Personas" → the 1.9 Personas screen (the same list the chat's chip opens; the Chat screen isn't showing, so picking doesn't lock any chat) (`phase1-9-personas-spec.md`); no separate persona UI here. If 1.8 ships before 1.9, this row comes with 1.9
+    - "Personas" → the 1.9 Personas screen (the same list the chat's chip opens; the Chat screen isn't showing, so picking doesn't lock any chat) (`phase1-9-personas-spec.md`); no separate persona UI here
 - **Server**
     - Shows the current server URL and whether a login is saved
     - "Change server" → Connect
 - **Advanced**
     - "Open full SillyTavern" → Advanced screen
-- **Notifications**
-    - Notify me toggle, shown disabled with "Coming soon" (wired up in Phase 8, the final phase)
 - **About**
     - App version
     - Open-source licenses → screen listing each third-party notice, including the Aegis wrapper's ISC license in full
@@ -30,13 +28,15 @@ A native Settings screen with the few things a phone user needs, and an Advanced
 
 ### ViewModels
 
-- `SettingsViewModel` — observes `ServerConfig`; exposes `UiState(serverUrl, hasLogin, appVersion)`
+- `MeViewModel` — observes `ServerConfig`; exposes `UiState(serverUrl, hasLogin, appVersion)`
 - `AdvancedViewModel` — calls `setClean(false)` on enter and `setClean(true)` on exit
 
 ## Notes
 
-- Keep Settings short. Anything SillyTavern already has a setting for stays in SillyTavern (reachable through Advanced)
+- Keep Me short. Anything SillyTavern already has a setting for stays in SillyTavern (reachable through Advanced)
 - Licenses screen can be a simple hand-maintained list for now
+- **Advanced and the session lease (checked 2026-11-21):** Advanced shows the same shared WebView page, so it is under the lease like every other screen: while this phone holds the lease its changes save to SillyTavern, and while parked the scrim covers it and nothing saves. The first-visit banner ("Changes here save to your SillyTavern, same as on desktop") still fits and needs no lease wording; the scrim explains the parked case
+- **1.0.0 scope (user decision, 2026-11-21):** no "Notify me — Coming soon" row: it returns with Phase 8, wired up. No Appearance section: it's a later nice-to-have (`project-schema.md` → Later). "Settings" is renamed **Me** everywhere, matching the tab (`ui/me/MeScreen.kt` already exists as the placeholder)
 
 ## References
 

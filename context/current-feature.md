@@ -19,6 +19,12 @@ The decision, the spike's evidence and the requirement map are in that repo's `c
 
 ## History
 
+### 2026-11-21 — Docs: 1.0.0 MVP scope
+- Phase 1 complete = `1.0.0`, released as a signed APK on a GitHub Release. 1.8 renamed Me & Advanced (`ui/me/MeScreen.kt`); no Notify me row (returns with Phase 8); Appearance moved to a new Later list (roadmap, Screen Map, dynamic color line)
+- New 1.10 Create a character (simple), `0.1.22`: + on Characters opens one screen (picture, name, description, first message), saved with SillyTavern's own `/char-create` callback, then the chat opens; Import later; Phase 3 grows the screen
+- Findings in the 1.10 spec Notes (SillyTavern 1.19.1): a taken name makes a second card with a numbered file name; `sanitize-filename` strips `? : / …` from the name itself
+- No code, no bump
+
 ### 2026-11-21 — Wine logo
 - Launcher icon (and the Connect screen's `AppLogo`, drawn from the same layers) now uses `docs/brand/travelingtavern_logo_wine.svg`: wine-red background, cream tavern with the door cut out and its knob; monochrome layer for themed icons is the same shapes in one color
 - Same 1024 canvas and 18dp inset as the old logo, so it fits the safe zone; the old purple `travelingtavern_logo.svg` is deleted (nothing else referenced it)
