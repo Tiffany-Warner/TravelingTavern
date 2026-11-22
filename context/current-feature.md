@@ -4,7 +4,7 @@ Session Lease — `0.1.20` (in progress, branch `feature/session-lease`)
 
 ## Status
 
-**Implementing in slices** (see the spec's Implementation section). `context/specs/session-lease-app-spec.md` is reviewed (replaces the superseded `fix-stale-page-overwrites-spec.md`). Extension `v0.2.0-rc.3` is tagged and pinned (re-pinned from rc.1 before slice 8). Slices 1–9 done (build plumbing and `leaseTest`; lease messages and state; document-start injection; native parked scrim; Kotlin pre-check; foreground and background release; reply in the background; notices; extension install and update with the conditional persona re-read). Next: slice 10, the manual and E14 checklists on the test install, and docs.
+**Slices 1–10 done; waiting on extension v0.2.0 (Order steps 4–5).** `context/specs/session-lease-app-spec.md` is reviewed (replaces the superseded `fix-stale-page-overwrites-spec.md`). Extension `v0.2.0-rc.3` is pinned. Slice 10 found an extension gap (E8: a takeover right after a reply that ends in the background loses that reply), so A10's "takeover while generating" stays open until the extension fixes it in a new rc and the submodule is re-pinned; the one-tap install item waits for `v0.2.0` on `main`.
 
 The decision, the spike's evidence and the requirement map are in that repo's `context/decisions/` (`session-lease-spike.md`, which now holds the direction change and the architecture assessment); the shared contract is its `context/specs/ext-0.2-session-lease-spec.md`.
 
@@ -12,12 +12,19 @@ The decision, the spike's evidence and the requirement map are in that repo's `c
 
 1. [x] TravelingTavern-Extension builds the lease in slices and tags **`v0.2.0-rc.1`** on its `dev`
 2. [x] Extension fixes the SillyTavern context hook bug (`v0.2.0-rc.2`) and makes `onForeground()` always report (`v0.2.0-rc.3`); submodule re-pinned to rc.3 (`17004d5`) before slice 8; "unreadable read, then recovers" and the takeover reload re-tested (spec Notes, slice 8)
-3. [ ] Feature branch here: submodule pinned to `v0.2.0-rc.3` (was rc.1 through slice 7); `0.1.20` implemented; app spec checklist (A10) and the extension's E14 checklist pass with the `leaseTest` build on the test install
+3. [ ] Feature branch here: submodule pinned to `v0.2.0-rc.3` (was rc.1 through slice 7); `0.1.20` implemented; app spec checklist (A10) and the extension's E14 checklist pass with the `leaseTest` build on the test install. Slice 10 ran them: all passed except "takeover while generating" with the phone's reply ending in the background (extension E8 fix, new rc, re-pin, re-test) and the install item (step 5); document start without support isn't reproducible
 4. [ ] The extension releases `v0.2.0` to its `main`
 5. [ ] Re-pin the submodule to `v0.2.0`, re-run the build and unit tests, check the app's one-tap extension install succeeds against `main` (slice 9 checked the request and the failure paths only, since `main` had no release), then merge
 6. [ ] After the release: privacy check of `spike/session-lease`, tag `archive/spike-session-lease`, push the tag, delete the branch (ask first)
 
 ## History
+
+### 2026-11-22 — Session lease — `0.1.20` (not merged yet)
+- Cause: SillyTavern pages save whole files from their own copy, so a stale page erased newer data. Now one active page per user (TravelingTavern-Extension's lease, bundled through a submodule, injected at document start)
+- Parked: native scrim with Use here. Kotlin checks the lease before bridge commands and releases in the background; replies run on under a `shortService` (45 s deadline, then interrupt). Notices, one-tap extension install / update, persona re-read only without the extension
+- Slice 10 fixes: the scrim sits in its own window so it covers open sheets (D42); the interrupted-reply message no longer vanishes a frame after it appears (D43)
+- Gotchas: SillyTavern saves after `busy: false`, so releases wait for `chatSaved` (D30); the extension's claim doesn't yet (E8, open); a desktop tab that didn't know it lost the lease writes a stale marker on reload (E13)
+- Verified on emulators (API 33, 35, 37) against SillyTavern 1.19.1 with a real desktop Chrome tab; not verified: takeover while a phone reply ends in the background (fails until the E8 fix), one-tap install from `main`, a WebView without document-start support, API 34 / 36, Pixel 8 for slices 4–10. `versionCode` 44
 
 ### 2026-11-21 — Docs: 1.0.0 MVP scope
 - Phase 1 complete = `1.0.0`, released as a signed APK on a GitHub Release. 1.8 renamed Me & Advanced (`ui/me/MeScreen.kt`); no Notify me row (returns with Phase 8); Appearance moved to a new Later list (roadmap, Screen Map, dynamic color line)

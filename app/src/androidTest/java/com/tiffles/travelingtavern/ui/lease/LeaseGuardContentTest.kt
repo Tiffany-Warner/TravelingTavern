@@ -23,6 +23,9 @@ import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onFirst
 import androidx.activity.compose.BackHandler
 import androidx.test.espresso.Espresso
+import androidx.test.espresso.action.ViewActions
+import androidx.test.espresso.matcher.RootMatchers
+import androidx.test.espresso.matcher.ViewMatchers
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.platform.testTag
@@ -117,7 +120,9 @@ class LeaseGuardContentTest {
     fun backUnderTheScrimReachesTheAppAndKeepsTheScrim() {
         show(LeaseGuardUiState(scrim = ScrimState.InUse))
 
-        Espresso.pressBack()
+        composeRule.waitForIdle()
+        // Into the scrim's window, which has the focus (the app's own window doesn't).
+        Espresso.onView(ViewMatchers.isRoot()).inRoot(RootMatchers.isDialog()).perform(ViewActions.pressBack())
         composeRule.waitForIdle()
 
         // D16: Back navigates under the scrim (the scrim's window hands it to the app, D42).

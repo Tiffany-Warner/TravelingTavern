@@ -69,6 +69,7 @@ import com.tiffles.travelingtavern.ui.components.ConfirmDeleteSheet
 import com.tiffles.travelingtavern.ui.components.WebViewBackHandler
 import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
 import kotlin.math.roundToInt
 
 /**
@@ -151,16 +152,19 @@ fun ChatScreen(
 private fun ChatEventsEffect(viewModel: ChatViewModel, snackbarHostState: SnackbarHostState) {
     val clipboard = LocalClipboard.current
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     // Collected only while the screen is visible, so an interrupt in the background shows on return.
-    val replyInterrupted by viewModel.replyInterrupted.collectAsStateWithLifecycle()
-    LaunchedEffect(replyInterrupted) {
-        if (replyInterrupted) {
-            viewModel.onReplyInterruptedShown()
-            snackbarHostState.showSnackbar(context.getString(R.string.chat_reply_interrupted))
+    // Not keyed on the flag: clearing it would restart the effect and cancel the snackbar it shows.
+    // Cleared once shown, so leaving again mid-snackbar shows it on the next return.
+    LaunchedEffect(viewModel, lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.replyInterrupted.filter { it }.collect {
+                snackbarHostState.showSnackbar(context.getString(R.string.chat_reply_interrupted))
+                viewModel.onReplyInterruptedShown()
+            }
         }
     }
     // Only while this screen is on view (STARTED): a notice arriving anywhere else is dropped (A7).
-    val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             viewModel.replyNotStarted.collect { notice ->
