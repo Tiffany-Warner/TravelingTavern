@@ -18,7 +18,11 @@ import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.isDialog
+import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.onFirst
+import androidx.activity.compose.BackHandler
+import androidx.test.espresso.Espresso
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.platform.testTag
@@ -47,6 +51,7 @@ class LeaseGuardContentTest {
     private var update = 0
     private var continueUnprotected = 0
     private var tabTaps = 0
+    private var backPresses = 0
     private val snackbarHostState = SnackbarHostState()
     private lateinit var scope: CoroutineScope
 
@@ -64,6 +69,7 @@ class LeaseGuardContentTest {
                     onContinueWithoutProtection = { continueUnprotected++ },
                     snackbarHostState = snackbarHostState
                 ) { snackbarHost ->
+                    BackHandler { backPresses++ }
                     Column {
                         TextField(value = "", onValueChange = {}, modifier = Modifier.testTag(FIELD))
                         Button(onClick = { tabTaps++ }) { Text(TAB) }
@@ -91,9 +97,13 @@ class LeaseGuardContentTest {
     fun scrimCoversTheShellAndSwallowsTaps() {
         show(LeaseGuardUiState(scrim = ScrimState.InUse))
 
-        // The tab button is out of the accessibility tree; tap everywhere it could be.
+        // The scrim is a window of its own (D42), above any sheet or dialog the app has open.
+        composeRule.onNode(isDialog()).assertExists()
+        // The tab button is out of the accessibility tree; tap everywhere it could be in the app's
+        // own window (the first root; the dialog's semantics sit below its own root, so isDialog()
+        // can't tell the roots apart), which the test reaches past the scrim's window.
         composeRule.onNodeWithText(TAB).assertDoesNotExist()
-        composeRule.onRoot().performTouchInput {
+        composeRule.onAllNodes(isRoot()).onFirst().performTouchInput {
             click(topLeft)
             click(center)
             click(bottomCenter)
@@ -101,6 +111,18 @@ class LeaseGuardContentTest {
         }
 
         assertEquals(0, tabTaps)
+    }
+
+    @Test
+    fun backUnderTheScrimReachesTheAppAndKeepsTheScrim() {
+        show(LeaseGuardUiState(scrim = ScrimState.InUse))
+
+        Espresso.pressBack()
+        composeRule.waitForIdle()
+
+        // D16: Back navigates under the scrim (the scrim's window hands it to the app, D42).
+        assertEquals(1, backPresses)
+        composeRule.onNodeWithText(string(R.string.lease_use_here)).assertIsDisplayed()
     }
 
     @Test

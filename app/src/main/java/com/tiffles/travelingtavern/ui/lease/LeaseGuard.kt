@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.util.Log
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -32,9 +34,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.net.toUri
+import androidx.core.view.WindowCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tiffles.travelingtavern.R
@@ -75,9 +82,10 @@ fun LeaseGuard(
 
 /**
  * Stateless: [content] below, the banner above it while unprotected, a loading bar over its top
- * while a user-started command waits (A4, D25), the scrim over all of it while parked. When the
- * scrim appears it hides the keyboard and clears text focus, and [content] leaves the
- * accessibility tree, so nothing behind it can be typed into or reached.
+ * while a user-started command waits (A4, D25), the scrim over all of it while parked, in a
+ * window of its own so it also covers open sheets and dialogs (D42). When the scrim appears it
+ * hides the keyboard and clears text focus, and [content] leaves the accessibility tree, so
+ * nothing behind it can be typed into or reached.
  */
 @Composable
 fun LeaseGuardContent(
@@ -113,13 +121,56 @@ fun LeaseGuardContent(
             }
         }
         if (scrim != null) {
-            LeaseScrim(
-                state = scrim,
-                onUseHere = onUseHere,
-                onReload = onReload,
-                onUpdateWebView = onUpdateWebView,
-                onContinueWithoutProtection = onContinueWithoutProtection
-            )
+            // Swallows touches in the app's own window (also before the scrim's window is shown).
+            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {}
+            ScrimWindow {
+                LeaseScrim(
+                    state = scrim,
+                    onUseHere = onUseHere,
+                    onReload = onReload,
+                    onUpdateWebView = onUpdateWebView,
+                    onContinueWithoutProtection = onContinueWithoutProtection
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The scrim in a full-screen window of its own (D42). Sheets, dialogs and menus are windows above
+ * the app's, so a scrim drawn in the app's window stayed under one that was open when the page
+ * parked (found on the device: the New lorebook sheet stayed usable, keyboard up). A window added
+ * now stacks above them and takes the focus, so the keyboard goes too. Back still navigates under
+ * the scrim (D16): it is handed to the app's own back handling.
+ */
+@Composable
+private fun ScrimWindow(content: @Composable () -> Unit) {
+    val appBack = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+    Dialog(
+        onDismissRequest = { appBack?.onBackPressed() },
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        CoverEffect(covered = true)
+        SystemBarIconsEffect()
+        content()
+    }
+}
+
+/** The scrim's window doesn't inherit the app's light / dark status and navigation bar icons. */
+@Composable
+private fun SystemBarIconsEffect() {
+    val view = LocalView.current
+    val lightBars = !isSystemInDarkTheme()
+    LaunchedEffect(view, lightBars) {
+        val window = (view.parent as? DialogWindowProvider)?.window ?: return@LaunchedEffect
+        WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = lightBars
+            isAppearanceLightNavigationBars = lightBars
         }
     }
 }
