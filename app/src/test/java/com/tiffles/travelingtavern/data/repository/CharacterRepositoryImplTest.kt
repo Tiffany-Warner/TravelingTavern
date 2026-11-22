@@ -186,16 +186,6 @@ class CharacterRepositoryImplTest {
     }
 
     @Test
-    fun `the page hears when the app goes to the background and back`() = runTest(UnconfinedTestDispatcher()) {
-        repository()
-        foreground.onStart(owner)
-        foreground.onStop(owner)
-
-        coVerify { client.setAppState(true) }
-        coVerify { client.setAppState(false) }
-    }
-
-    @Test
     fun `returning while Chat shows re-reads the open chat and the Chats list, as app-started`() = runTest(UnconfinedTestDispatcher()) {
         val repository = repository()
         repository.setChatVisible(true)

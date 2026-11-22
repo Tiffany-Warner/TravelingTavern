@@ -40,7 +40,6 @@ class CharacterRepositoryImpl @Inject constructor(
     @Volatile private var chatStale = false
 
     init {
-        scope.launch { foreground.isForeground.collect { client.setAppState(it) } }
         scope.launch { foreground.returns.collect { onAppReturned() } }
     }
 

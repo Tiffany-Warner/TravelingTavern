@@ -6,6 +6,7 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import com.tiffles.travelingtavern.data.bridge.LeaseLifecycle
 import com.tiffles.travelingtavern.data.lifecycle.AppForegroundTracker
 import dagger.Lazy
 import dagger.hilt.android.HiltAndroidApp
@@ -22,9 +23,14 @@ class TravelingTavernApplication : Application(), SingletonImageLoader.Factory {
     @Inject
     lateinit var foregroundTracker: AppForegroundTracker
 
+    /** Foreground and background for the session lease (A5) and the page's `setAppState`. */
+    @Inject
+    lateinit var leaseLifecycle: LeaseLifecycle
+
     override fun onCreate() {
         super.onCreate()
         foregroundTracker.start()
+        leaseLifecycle.start()
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =
