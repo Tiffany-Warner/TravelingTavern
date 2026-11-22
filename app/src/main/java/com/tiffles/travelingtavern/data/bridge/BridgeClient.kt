@@ -19,7 +19,7 @@ import javax.inject.Singleton
  * sent: `false` means it was refused and never reached the page. Exempt, because they touch
  * nothing but the page's DOM or CSS: [revealMessage], [endReveal], [setCleanMode] and
  * [setPageTheme]. [useHere] and [onForeground] are the lease's own hooks and are never gated,
- * nor are [interruptReply] and [watchChatSave] (A6), nor [setExtensionReported] (a page flag).
+ * nor is [interruptReply] (A6), nor [setExtensionReported] (a page flag).
  *
  * Commands are [CommandOrigin.User] unless noted: [setAppState], [reloadChat], [requestPersonas]
  * and [countTokens] are always started by the app, and [requestRecentChats] takes its origin
@@ -105,15 +105,8 @@ class BridgeClient @Inject constructor(
     suspend fun interruptReply() = runUnchecked(BridgeScript.call("interruptReply"))
 
     /**
-     * Arms the page's save watch without stopping anything (a reply that finished in the
-     * background, A6): `chatSaved` follows once SillyTavern's save has completed. Not gated: it
-     * only adds an observer in the page, no request.
-     */
-    suspend fun watchChatSave() = runUnchecked(BridgeScript.call("watchChatSave"))
-
-    /**
      * `leaseInfo` reported the desktop extension: the page stops its persona re-read for this load
-     * ([PersonaSyncSwitch]). Not gated, like [watchChatSave]: it only sets a flag in the page, no
+     * ([PersonaSyncSwitch]). Not gated: it only sets a flag in the page, no
      * request, and a refusal would only keep the re-read (the safe side).
      */
     suspend fun setExtensionReported() = runUnchecked(BridgeScript.call("setExtensionReported", JsonPrimitive(true)))

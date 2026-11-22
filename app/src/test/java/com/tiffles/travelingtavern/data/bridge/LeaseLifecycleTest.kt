@@ -400,36 +400,20 @@ class LeaseLifecycleTest {
     }
 
     @Test
-    fun `a reply that ends in the background releases once SillyTavern's save is reported`() = runTest {
+    fun `a reply that ends in the background releases at busy false, without a save wait`() = runTest {
+        // The page reports busy: false only once SillyTavern's save of the reply has completed
+        // (or after its 3 s bound, E8), so nothing else is waited for (D44). Also the path when the
+        // app goes to the background between the reply's end and that save (slice 10).
         replyInForeground()
         toBackground()
-        report(busy = false)
-        advanceTimeBy(800)
-        runCurrent()
-        coVerify(exactly = 1) { client.watchChatSave() }
         assertTrue(uploader.calls.isEmpty())
 
-        events += "saved"
-        store.onChatSaved()
+        report(busy = false)
         runCurrent()
 
-        assertEquals(listOf("saved", "upload"), events)
+        assertEquals(listOf("upload"), events)
         coVerify(exactly = 0) { client.interruptReply() }
         assertTrue(!store.replyInterrupted.value)
-    }
-
-    @Test
-    fun `a reply that ends in the background without a save report releases at the bound`() = runTest {
-        replyInForeground()
-        toBackground()
-        report(busy = false)
-        advanceTimeBy(2_999)
-        runCurrent()
-        assertTrue(uploader.calls.isEmpty())
-
-        advanceTimeBy(1)
-        runCurrent()
-        assertEquals(1, uploader.calls.size)
     }
 
     @Test
@@ -438,8 +422,9 @@ class LeaseLifecycleTest {
         uploader.gate = gate
         replyInForeground()
         toBackground()
-        replyEndsAndSaves()
-        assertEquals(listOf("saved", "upload"), events)
+        report(busy = false)
+        runCurrent()
+        assertEquals(listOf("upload"), events)
         assertEquals(0, replyService.stops)
 
         gate.complete(true)
@@ -448,55 +433,23 @@ class LeaseLifecycleTest {
     }
 
     @Test
-    fun `a return during the wait for the save releases nothing`() = runTest {
+    fun `a new reply's service isn't stopped when the previous reply's release finishes`() = runTest {
+        val gate = CompletableDeferred<Boolean>()
+        uploader.gate = gate
         replyInForeground()
         toBackground()
         report(busy = false)
         runCurrent()
         toForeground()
-        store.onChatSaved()
-        advanceTimeBy(5_000)
-        runCurrent()
-
-        assertTrue(uploader.calls.isEmpty())
-        assertEquals(1, replyService.stops)
-    }
-
-    @Test
-    fun `a return stops the old service and a new reply's service isn't stopped later`() = runTest {
-        replyInForeground()
-        toBackground()
-        report(busy = false)
-        runCurrent()
-        assertEquals(0, replyService.stops)
-
-        // The return cancels the release wait, so the old service stops at once. (The service
-        // token in stopServiceAfter is a defensive guard behind this.)
-        toForeground()
-        assertEquals(1, replyService.stops)
         report(busy = true)
         runCurrent()
         assertEquals(2, replyService.starts)
         val stopsBefore = replyService.stops
 
+        gate.complete(true)
         advanceTimeBy(5_000)
         runCurrent()
         assertEquals(stopsBefore, replyService.stops)
-        assertTrue(uploader.calls.isEmpty())
-    }
-
-    @Test
-    fun `return then background again during the save wait releases once, without the stale job`() = runTest {
-        replyInForeground()
-        toBackground()
-        report(busy = false)
-        runCurrent()
-        toForeground()
-        toBackground()
-        assertEquals(1, uploader.calls.size)
-
-        advanceTimeBy(5_000)
-        runCurrent()
         assertEquals(1, uploader.calls.size)
     }
 
@@ -515,19 +468,20 @@ class LeaseLifecycleTest {
     }
 
     @Test
-    fun `time limit in the background waits for a pending release after the reply`() = runTest {
+    fun `time limit in the background waits for the release after the reply`() = runTest {
+        val gate = CompletableDeferred<Boolean>()
+        uploader.gate = gate
         val lifecycle = replyInForeground()
         toBackground()
         report(busy = false)
         runCurrent()
         lifecycle.onReplyServiceTimeout { events += "serviceStopped" }
         runCurrent()
-        assertTrue(events.isEmpty())
+        assertEquals(listOf("upload"), events)
 
-        events += "saved"
-        store.onChatSaved()
+        gate.complete(true)
         runCurrent()
-        assertEquals(listOf("saved", "upload", "serviceStopped"), events)
+        assertEquals(listOf("upload", "serviceStopped"), events)
     }
 
     @Test
@@ -636,7 +590,8 @@ class LeaseLifecycleTest {
     fun `time limit after the reply's release was written just stops the service`() = runTest {
         val lifecycle = replyInForeground()
         toBackground()
-        replyEndsAndSaves()
+        report(busy = false)
+        runCurrent()
         events.clear()
         lifecycle.onReplyServiceTimeout { events += "serviceStopped" }
         runCurrent()

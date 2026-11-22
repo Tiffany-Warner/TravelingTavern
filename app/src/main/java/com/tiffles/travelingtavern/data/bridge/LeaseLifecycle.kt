@@ -37,9 +37,10 @@ import kotlin.random.Random
  * **Reply in the background** (A6): when a holder's reply starts (`busy` turns `true`) with the
  * app in the foreground, the reply service starts (Android 14+, [ReplyServiceController]); it
  * stops once the reply and the release that follows it are done. Going to the background during
- * a reply with the service running defers the release until the reply ends and SillyTavern's save
- * of it is reported (`chatSaved`, bounded), for at most [backgroundReplyDeadlineMs]; then the
- * reply is interrupted, before Chromium freezes the hidden page (D30). Without the service (Android
+ * a reply with the service running defers the release until the reply ends (`busy: false`, which
+ * the page reports only once SillyTavern's save of the reply has completed or after its 3 s bound,
+ * E8), for at most [backgroundReplyDeadlineMs]; then the reply is interrupted, before Chromium
+ * freezes the hidden page (D30, D44). Without the service (Android
  * 12–13, or it couldn't start) the reply is interrupted at once. The interrupt: Stop, then one
  * bounded wait ([interruptWaitMs]) for `busy: false` and the page's report that SillyTavern's save
  * of the partial reply completed (`chatSaved`), so the save lands first, then the release. At
@@ -84,7 +85,6 @@ class LeaseLifecycle internal constructor(
     private var interrupt: Job? = null
     private var replyDeadline: Job? = null
     private var serviceToken = 0
-    private var afterReply: Job? = null
 
     fun start() {
         scope.launch {
@@ -130,7 +130,7 @@ class LeaseLifecycle internal constructor(
             replyService.stop()
             stopService()
         }
-        val pending = afterReply?.takeIf { it.isActive } ?: interrupt?.takeIf { it.isActive }
+        val pending = release?.takeIf { it.isActive } ?: interrupt?.takeIf { it.isActive }
         val job = when {
             isForeground.value -> null
             store.status.value.isReplying() -> {
@@ -198,43 +198,20 @@ class LeaseLifecycle internal constructor(
     }
 
     /**
-     * The reply ended (or the page stopped being holder). A deferred release waits for
-     * SillyTavern's save first, as the interrupt does (D30). The service stops once an interrupt
-     * or that release has finished, so the process keeps its importance for the save and upload.
+     * The reply ended (or the page stopped being holder). A deferred release goes out at once: the
+     * page reports `busy: false` only after SillyTavern's save of the reply has completed, or after
+     * its 3 s bound (E8, D44). The service stops once an interrupt or that release has finished, so
+     * the process keeps its importance for the upload.
      */
     private fun onReplyEnded() {
         cancelReplyDeadline()
         var finishing: Job? = interrupt?.takeIf { it.isActive }
         if (releaseWhenReplyEnds) {
             releaseWhenReplyEnds = false
-            finishing = releaseAfterSave().also { afterReply = it }
+            finishing = releaseIfHolder()
+            if (finishing != null) Log.i(TAG, "Reply ended in the background: releasing")
         }
         stopServiceAfter(finishing)
-    }
-
-    /**
-     * A reply that finished in the background: arm the page's save watch, wait (one bound,
-     * [interruptWaitMs]) for the next `chatSaved`, then release. `busy: false` comes before
-     * SillyTavern even sends the save (D30); arming now still comes first (the save follows
-     * 0.2 s or more later). Nothing to wait for when the page is no longer holder.
-     */
-    private fun releaseAfterSave(): Job? {
-        if (store.status.value !is LeaseStatus.Holder) {
-            Log.d(TAG, "Reply ended in the background, not holder: nothing to release")
-            return null
-        }
-        Log.i(TAG, "Reply ended in the background: releasing after SillyTavern's save")
-        return scope.launch {
-            val savesBefore = store.chatSaves.value
-            client.watchChatSave()
-            val saved = withTimeoutOrNull(interruptWaitMs) { store.chatSaves.first { it > savesBefore } } != null
-            if (!saved) Log.w(TAG, "No chat save reported within $interruptWaitMs ms; releasing anyway")
-            if (returned) {
-                Log.i(TAG, "Returned before the release; no release")
-                return@launch
-            }
-            releaseIfHolder()?.join()
-        }
     }
 
     /** Stops the reply service now, or once [job] has finished, unless a new reply restarted it. */
@@ -314,13 +291,11 @@ class LeaseLifecycle internal constructor(
         returned = true
         releaseWhenReplyEnds = false
         cancelReplyDeadline()
-        // Their waits end here: they would release nothing after a return anyway, and a later
+        // The interrupt's wait ends here: it would release nothing after a return anyway, and a later
         // background must start fresh (a new reply gets its own interrupt). An upload already in
         // flight runs on as [release], which is waited for below (D28).
         interrupt?.cancel()
         interrupt = null
-        afterReply?.cancel()
-        afterReply = null
         val pending = release
         release = null
         val previous = appState
@@ -355,8 +330,7 @@ class LeaseLifecycle internal constructor(
 
         /**
          * The interrupt's one bound, shared by the wait for `busy: false` and the wait for the
-         * page's `chatSaved` after Stop (D30); also the wait for `chatSaved` after a reply that
-         * finished in the background. In the measured runs both had come within 1.2 s
+         * page's `chatSaved` after Stop (D30). In the measured runs both had come within 1.2 s
          * after Stop (Notes, slice 7).
          */
         const val INTERRUPT_WAIT_MS = 3_000L

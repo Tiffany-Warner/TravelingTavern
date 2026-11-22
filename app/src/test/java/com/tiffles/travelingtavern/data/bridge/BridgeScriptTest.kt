@@ -30,14 +30,6 @@ class BridgeScriptTest {
     }
 
     @Test
-    fun `watchChatSave arms the save watch without stopping`() {
-        assertEquals(
-            "window.__ttBridge && window.__ttBridge.watchChatSave();",
-            BridgeScript.call("watchChatSave")
-        )
-    }
-
-    @Test
     fun `call without arguments`() {
         assertEquals(
             "window.__ttBridge && window.__ttBridge.requestCharacters();",

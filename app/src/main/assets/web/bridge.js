@@ -1523,11 +1523,6 @@
             if (ctx) ctx[S.context.stopGeneration]();
         },
 
-        /** A reply finished in the background (A6): `chatSaved` follows once SillyTavern saved it. */
-        watchChatSave: function () {
-            watchChatSave();
-        },
-
         /**
          * Installs the desktop extension in SillyTavern (A8): POSTs [body] (built by the app) to
          * SillyTavern's install endpoint with its own request headers. Answers `extensionResult`.
