@@ -89,8 +89,9 @@ class BridgeClientTest {
         client.deleteChat("r1", "a.png", "chat")
         client.selectPersona("r2", "p.png", lockToChat = false)
         client.requestCharacters(fromServer = true)
+        client.connectModel("r3")
 
-        coVerify(exactly = 4) { gate.check(CommandOrigin.User) }
+        coVerify(exactly = 5) { gate.check(CommandOrigin.User) }
         coVerify(exactly = 0) { gate.check(CommandOrigin.App) }
     }
 

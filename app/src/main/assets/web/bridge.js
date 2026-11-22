@@ -1185,6 +1185,61 @@
             .finally(function () { events.removeListener(name, onDeleted); });
     }
 
+    const M = S.model;
+    /** How long Connect waits for SillyTavern's attempt, as the lease does (E10). */
+    const CONNECT_WAIT_MS = 10000;
+
+    function isModelConnected(ctx) {
+        const status = ctx && ctx[M.onlineStatus];
+        return typeof status === 'string' && status !== M.noConnection;
+    }
+
+    /**
+     * Resolves true once SillyTavern reports a connection, or after CONNECT_WAIT_MS with its status
+     * then. It fires no event when an attempt fails, so the wait is the only end it has (E10).
+     */
+    function waitForModel(ctx) {
+        return new Promise(function (resolve) {
+            const events = ctx[S.context.eventSource];
+            const name = eventName(ctx, M.statusChanged);
+            let timer = null;
+            function finish(connected) {
+                clearTimeout(timer);
+                events.removeListener(name, onChange);
+                resolve(connected);
+            }
+            function onChange(status) {
+                if (typeof status === 'string' && status !== M.noConnection) finish(true);
+            }
+            events.on(name, onChange);
+            timer = setTimeout(function () { finish(isModelConnected(context())); }, CONNECT_WAIT_MS);
+        });
+    }
+
+    /**
+     * Presses the selected API's connect button unless SillyTavern is connected or already
+     * connecting (a press would start a second status check), then waits for the attempt.
+     * Outcome: `alreadyConnected`, `pressed`, `alreadyConnecting`, `noButton` or `noContext`.
+     */
+    async function connectModel() {
+        const ctx = context();
+        if (!ctx) return { outcome: 'noContext', connected: false };
+        if (isModelConnected(ctx)) return { outcome: 'alreadyConnected', connected: true };
+        const api = ctx[M.mainApi];
+        const selector = Object.prototype.hasOwnProperty.call(M.connectButtons, api) ? M.connectButtons[api] : null;
+        const button = selector ? document.querySelector(selector) : null;
+        // Subscribed before the press: some sources (Custom) set their status inside the click handler.
+        const connected = waitForModel(ctx);
+        let outcome = 'noButton';
+        if (button && button.classList.contains(M.connectingClass)) {
+            outcome = 'alreadyConnecting';
+        } else if (button) {
+            button.click();
+            outcome = 'pressed';
+        }
+        return { outcome: outcome, connected: await connected };
+    }
+
     function postChatResult(requestId, ok, error, extra) {
         const payload = { requestId: requestId, ok: ok };
         if (error) payload.error = error;
@@ -1377,6 +1432,19 @@
         stopGeneration: function () {
             const ctx = context();
             if (ctx) ctx[S.context.stopGeneration]();
+        },
+
+        /**
+         * The banner's Connect (A7): presses SillyTavern's connect button for the selected API, as
+         * the lease does after a takeover (E10), and answers `connectResult` tagged [requestId].
+         */
+        connectModel: function (requestId) {
+            connectModel().then(function (result) {
+                post('connectResult', Object.assign({ requestId: requestId }, result));
+            }, function (e) {
+                postError('Connect failed: ' + e);
+                post('connectResult', { requestId: requestId, outcome: 'failed', connected: false });
+            });
         },
 
         /**

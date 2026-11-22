@@ -86,10 +86,11 @@ class BridgeRepository @Inject constructor(private val lease: LeaseStateStore) {
             is BridgeMessage.LeaseState -> lease.onLeaseState(message)
             is BridgeMessage.LeaseInfo -> lease.onLeaseInfo(message)
             BridgeMessage.ChatSaved -> lease.onChatSaved()
+            is BridgeMessage.LeaseNotice -> lease.onLeaseNotice(message)
             is BridgeMessage.Unknown -> Log.d(TAG, "Ignored unknown bridge message type: ${message.type}")
             is BridgeMessage.MessageReceived,
             is BridgeMessage.LorebookEntries, is BridgeMessage.LorebookResult, is BridgeMessage.TokenCount,
-            is BridgeMessage.PersonaResult, is BridgeMessage.LeaseNotice,
+            is BridgeMessage.PersonaResult, is BridgeMessage.ConnectResult,
             is BridgeMessage.MessageTapped, is BridgeMessage.ChatResult, is BridgeMessage.ImpersonateReady -> Unit
         }
         _messages.tryEmit(message)
@@ -108,6 +109,7 @@ class BridgeRepository @Inject constructor(private val lease: LeaseStateStore) {
         is BridgeMessage.GenerationState -> "generationState $running"
         is BridgeMessage.LeaseState -> "leaseState $state ${reason.orEmpty()}"
         is BridgeMessage.LeaseNotice -> "leaseNotice $kind"
+        is BridgeMessage.ConnectResult -> "connectResult $outcome connected=$connected"
         else -> this::class.simpleName.orEmpty()
     }
 

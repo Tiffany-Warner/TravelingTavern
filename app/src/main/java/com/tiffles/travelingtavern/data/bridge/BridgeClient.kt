@@ -87,6 +87,13 @@ class BridgeClient @Inject constructor(
     suspend fun stopGeneration() = run(BridgeScript.call("stopGeneration"))
 
     /**
+     * Connect on the "Not connected to a model" banner (A7, D2): the page presses SillyTavern's
+     * connect button for the selected API (as the lease does after a takeover, E10) and answers with
+     * `connectResult` tagged [requestId] once connected, or after its 10 s wait.
+     */
+    suspend fun connectModel(requestId: String) = run(BridgeScript.call("connectModel", JsonPrimitive(requestId)))
+
+    /**
      * The interrupt's Stop (A6), with the app in the background: arms the page's save watch, then
      * stops the reply; `chatSaved` follows once SillyTavern's save has completed. Not gated (D30):
      * the interrupt must fit its time budget, and the chat save SillyTavern sends after the stop is

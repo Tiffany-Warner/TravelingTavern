@@ -215,4 +215,11 @@
     <string name="reply_channel_name">Replies in progress</string>
     <string name="reply_notification_text">Finishing your reply…</string>
     <string name="chat_reply_interrupted">Your reply was interrupted when TravelingTavern went to the background.</string>
+
+    <!-- Session lease: notices (A7) -->
+    <string name="chat_not_connected">Not connected to a model</string>
+    <string name="chat_still_not_connected">Connect to a model in SillyTavern\'s API Connections.</string>
+    <string name="chat_connect">Connect</string>
+    <string name="chat_connecting">Connecting…</string>
+    <string name="chat_reply_not_started">Couldn\'t reach SillyTavern to start the reply. Try again.</string>
 </resources>

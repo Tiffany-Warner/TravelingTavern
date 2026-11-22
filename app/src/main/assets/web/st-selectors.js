@@ -274,6 +274,30 @@
             ]),
         }),
 
+        /**
+         * The model connection (A7 Connect). The same buttons SillyTavern's auto-connect presses
+         * (`RossAscends-mods.js` `RA_autoconnect`), by `main_api`; other APIs (e.g. `koboldhorde`)
+         * have none. Each carries the `disabled` class while an attempt runs (`startStatusLoading()`
+         * to `stopStatusLoading()`). Verified in 1.19.1's source (extension spec E15) and in the live
+         * page (session lease app spec, Notes slice 8).
+         */
+        model: Object.freeze({
+            /** getContext() members. */
+            onlineStatus: 'onlineStatus',
+            mainApi: 'mainApi',
+            /** onlineStatus while not connected. */
+            noConnection: 'no_connection',
+            /** Key into context.event_types; emitted only when the status changes, with the new one. */
+            statusChanged: 'ONLINE_STATUS_CHANGED',
+            connectButtons: Object.freeze({
+                kobold: '#api_button',
+                novel: '#api_button_novel',
+                textgenerationwebui: '#api_button_textgenerationwebui',
+                openai: '#api_button_openai',
+            }),
+            connectingClass: 'disabled',
+        }),
+
         /** selectCharacterById option: false opens the chat without the character editor panel. */
         selectOptions: Object.freeze({ switchMenu: false }),
 

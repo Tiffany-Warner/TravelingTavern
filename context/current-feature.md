@@ -4,7 +4,7 @@ Session Lease — `0.1.20` (in progress, branch `feature/session-lease`)
 
 ## Status
 
-**Implementing in slices** (see the spec's Implementation section). `context/specs/session-lease-app-spec.md` is reviewed (replaces the superseded `fix-stale-page-overwrites-spec.md`). Extension `v0.2.0-rc.3` is tagged and pinned (re-pinned from rc.1 before slice 8). Slices 1–7 done (build plumbing and `leaseTest`; lease messages and state; document-start injection; native parked scrim; Kotlin pre-check; foreground and background release; reply in the background).
+**Implementing in slices** (see the spec's Implementation section). `context/specs/session-lease-app-spec.md` is reviewed (replaces the superseded `fix-stale-page-overwrites-spec.md`). Extension `v0.2.0-rc.3` is tagged and pinned (re-pinned from rc.1 before slice 8). Slices 1–8 done (build plumbing and `leaseTest`; lease messages and state; document-start injection; native parked scrim; Kotlin pre-check; foreground and background release; reply in the background; notices).
 
 The decision, the spike's evidence and the requirement map are in that repo's `context/decisions/` (`session-lease-spike.md`, which now holds the direction change and the architecture assessment); the shared contract is its `context/specs/ext-0.2-session-lease-spec.md`.
 

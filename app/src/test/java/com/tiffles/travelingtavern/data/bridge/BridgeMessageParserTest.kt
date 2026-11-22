@@ -443,6 +443,19 @@ class BridgeMessageParserTest {
     }
 
     @Test
+    fun `connectResult keeps its outcome as sent`() {
+        assertEquals(
+            BridgeMessage.ConnectResult(requestId = "r1", outcome = "alreadyConnecting", connected = false),
+            parse("""{"v":1,"type":"connectResult","requestId":"r1","outcome":"alreadyConnecting","connected":false}""")
+        )
+        assertEquals(
+            BridgeMessage.ConnectResult(requestId = "r1", outcome = "somethingNew", connected = true),
+            parse("""{"v":1,"type":"connectResult","requestId":"r1","outcome":"somethingNew","connected":true}""")
+        )
+        assertNull(parse("""{"v":1,"type":"connectResult","requestId":"r1","outcome":"pressed"}"""))
+    }
+
+    @Test
     fun `lease messages without a version are not ours`() {
         assertNull(parse(parkedState.replace("\"v\":1,", "")))
     }

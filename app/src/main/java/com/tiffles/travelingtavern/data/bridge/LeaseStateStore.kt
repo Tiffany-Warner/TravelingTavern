@@ -3,9 +3,13 @@ package com.tiffles.travelingtavern.data.bridge
 import android.util.Log
 import com.tiffles.travelingtavern.BuildConfig
 import com.tiffles.travelingtavern.domain.model.LeaseStatus
+import com.tiffles.travelingtavern.domain.model.ModelBanner
 import com.tiffles.travelingtavern.domain.model.ParkReason
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,12 +35,16 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
     private var useHereToken = 0
     private var useHerePending = false
     private var preCheckPark: ParkReason? = null
+    private var connectToken = 0
     private val _lastState = MutableStateFlow<BridgeMessage.LeaseState?>(null)
     private val _info = MutableStateFlow<BridgeMessage.LeaseInfo?>(null)
     private val _status = MutableStateFlow<LeaseStatus>(LeaseStatus.NotReported)
     private val _unprotected = MutableStateFlow(false)
     private val _replyInterrupted = MutableStateFlow(false)
     private val _chatSaves = MutableStateFlow(0)
+    private val _modelBanner = MutableStateFlow<ModelBanner?>(null)
+    // No replay: a notice nobody is collecting at that moment (Chat not on screen) is dropped.
+    private val _replyNotStarted = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     /** The current load's last `leaseState` (pair, origin, `busy`) for the pre-check and release. Null until reported. */
     val lastState: StateFlow<BridgeMessage.LeaseState?> = _lastState.asStateFlow()
@@ -56,6 +64,15 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
     /** A reply was stopped because the app went to the background (A6), not yet shown in Chat. */
     val replyInterrupted: StateFlow<Boolean> = _replyInterrupted.asStateFlow()
 
+    /** The Chat screen's "Not connected to a model" banner (A7), or null when it isn't shown. */
+    val modelBanner: StateFlow<ModelBanner?> = _modelBanner.asStateFlow()
+
+    /**
+     * The page couldn't start a reply (`leaseNotice` `replyNotStarted`, A7). Not replayed: only a
+     * collector present when it happens (the Chat screen on view) gets it.
+     */
+    val replyNotStarted: SharedFlow<Unit> = _replyNotStarted.asSharedFlow()
+
     /**
      * A takeover is reloading the page: the last `leaseState` reason is `claiming` or
      * `reloadPending` (A2), whatever [status] shows. Reset with the page, like [lastState].
@@ -65,6 +82,8 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
 
     fun onLeaseState(message: BridgeMessage.LeaseState) {
         _lastState.value = message
+        // The banner lasts until SillyTavern connects or this page stops holding the lease (A7).
+        if (message.connected || message.state != HOLDER) _modelBanner.value = null
         useHerePending = false
         preCheckPark = null
         publish()
@@ -83,9 +102,53 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
         Log.d(TAG, "Page started: lease state reset")
         _lastState.value = null
         _info.value = null
+        _modelBanner.value = null
+        connectToken++
         useHerePending = false
         preCheckPark = null
         publish()
+    }
+
+    /** A `leaseNotice` (E11, A7). Unknown kinds are ignored. */
+    fun onLeaseNotice(message: BridgeMessage.LeaseNotice) {
+        when (message.kind) {
+            NOTICE_NOT_CONNECTED -> onNotConnected()
+            NOTICE_REPLY_NOT_STARTED -> _replyNotStarted.tryEmit(Unit)
+            else -> Log.d(TAG, "Ignored unknown lease notice: ${message.kind}")
+        }
+    }
+
+    /** Shows the banner, unless a later report already says connected or not holder. */
+    private fun onNotConnected() {
+        val state = _lastState.value
+        if (state == null || state.state != HOLDER || state.connected) return
+        if (_modelBanner.value == null) _modelBanner.value = ModelBanner()
+    }
+
+    /**
+     * Connect was tapped on the banner. Returns a token for [onConnectFinished], or null when
+     * there's nothing to do: no banner, or a Connect already running.
+     */
+    fun onConnectStarted(): Int? {
+        val banner = _modelBanner.value ?: return null
+        if (banner.connecting) return null
+        _modelBanner.value = banner.copy(connecting = true)
+        return ++connectToken
+    }
+
+    /**
+     * Connect ended. [tried] false: it never reached the page (refused by the pre-check), so the
+     * banner stays as it was. [connected] false after a try: the banner points to API Connections.
+     * A banner already cleared (SillyTavern connected, parked, page load) stays cleared, and a
+     * Connect from before a page load (an older [token]) leaves the new load's banner alone.
+     */
+    fun onConnectFinished(token: Int, tried: Boolean, connected: Boolean) {
+        if (token != connectToken) return
+        val banner = _modelBanner.value ?: return
+        _modelBanner.value = when {
+            tried && !connected -> ModelBanner(stillNotConnected = true)
+            else -> banner.copy(connecting = false)
+        }
     }
 
     /**
@@ -163,6 +226,9 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
 
     private companion object {
         const val TAG = "LeaseStateStore"
+        const val HOLDER = "holder"
+        const val NOTICE_NOT_CONNECTED = "notConnected"
+        const val NOTICE_REPLY_NOT_STARTED = "replyNotStarted"
         val TAKEOVER_REASONS = setOf("claiming", "reloadPending")
     }
 }

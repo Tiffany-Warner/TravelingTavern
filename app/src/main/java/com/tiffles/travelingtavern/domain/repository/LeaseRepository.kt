@@ -1,6 +1,7 @@
 package com.tiffles.travelingtavern.domain.repository
 
 import com.tiffles.travelingtavern.domain.model.LeaseStatus
+import com.tiffles.travelingtavern.domain.model.ModelBanner
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -24,6 +25,21 @@ interface LeaseRepository {
 
     /** The Chat screen showed the interrupted-reply notice. Main thread. */
     fun onReplyInterruptedShown()
+
+    /** The Chat screen's "Not connected to a model" banner (A7), or null when it isn't shown. */
+    val modelBanner: StateFlow<ModelBanner?>
+
+    /**
+     * SillyTavern couldn't start a reply (A7). Not replayed: collect it only while the Chat screen
+     * is on view, so a notice that arrives anywhere else is dropped.
+     */
+    val replyNotStarted: Flow<Unit>
+
+    /**
+     * Connect on the banner: presses SillyTavern's connect button for the selected API again and
+     * waits for its attempt. Still not connected → [modelBanner] points to API Connections.
+     */
+    suspend fun connectModel()
 
     /** Claims the lease for this phone (`__ttLease.useHere()`); [status] shows claiming at once. */
     suspend fun useHere()

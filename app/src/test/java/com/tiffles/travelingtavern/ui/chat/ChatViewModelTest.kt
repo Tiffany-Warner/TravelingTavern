@@ -9,6 +9,7 @@ import com.tiffles.travelingtavern.domain.character
 import com.tiffles.travelingtavern.domain.persona
 import com.tiffles.travelingtavern.domain.model.ChatActionResult
 import com.tiffles.travelingtavern.domain.model.MessageAction
+import com.tiffles.travelingtavern.domain.model.ModelBanner
 import com.tiffles.travelingtavern.domain.model.OpenChat
 import com.tiffles.travelingtavern.domain.model.PageError
 import com.tiffles.travelingtavern.domain.model.PageState
@@ -351,5 +352,38 @@ class ChatViewModelTest {
 
         assertEquals(1, chat.impersonateCalls)
         assertEquals("I wave back.", viewModel.input)
+    }
+
+    @Test
+    fun `the model banner shows in a ready chat and follows the repository`() = runTest {
+        openReadyChat()
+        assertNull((viewModel.uiState.value as ChatUiState.Ready).modelBanner)
+
+        lease.modelBanner.value = ModelBanner()
+        assertEquals(ModelBanner(), (viewModel.uiState.value as ChatUiState.Ready).modelBanner)
+
+        lease.modelBanner.value = null
+        assertNull((viewModel.uiState.value as ChatUiState.Ready).modelBanner)
+    }
+
+    @Test
+    fun `connect asks the repository`() = runTest {
+        openReadyChat()
+
+        viewModel.onConnectModel()
+
+        assertEquals(1, lease.connectCalls)
+    }
+
+    @Test
+    fun `replyNotStarted passes through without replay`() = runTest {
+        openReadyChat()
+        lease.replyNotStarted.tryEmit(Unit)
+        val seen = mutableListOf<Unit>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.replyNotStarted.collect { seen += it } }
+
+        lease.replyNotStarted.tryEmit(Unit)
+
+        assertEquals(1, seen.size)
     }
 }

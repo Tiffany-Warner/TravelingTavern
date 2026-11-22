@@ -155,6 +155,15 @@ sealed interface BridgeMessage {
     @Serializable
     data class LeaseNotice(val kind: String) : BridgeMessage
 
+    /**
+     * The answer to `connectModel` (A7, D2): [outcome] `pressed` (SillyTavern's connect button for
+     * the selected API was pressed), `alreadyConnecting` (an attempt was running: nothing pressed),
+     * `noButton` (the selected API has none), `alreadyConnected` or `noContext`, kept as sent.
+     * [connected]: SillyTavern's status at the end of the wait.
+     */
+    @Serializable
+    data class ConnectResult(val requestId: String, val outcome: String, val connected: Boolean) : BridgeMessage
+
     /** A type this app version doesn't know (e.g. from a newer bridge script). Ignored. */
     data class Unknown(val type: String) : BridgeMessage
 }

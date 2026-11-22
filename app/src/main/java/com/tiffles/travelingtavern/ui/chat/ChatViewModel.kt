@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.tiffles.travelingtavern.domain.model.CharacterSummary
 import com.tiffles.travelingtavern.domain.model.ChatActionResult
 import com.tiffles.travelingtavern.domain.model.MessageAction
+import com.tiffles.travelingtavern.domain.model.ModelBanner
 import com.tiffles.travelingtavern.domain.model.PageError
 import com.tiffles.travelingtavern.domain.model.PageState
 import com.tiffles.travelingtavern.domain.model.Persona
@@ -20,6 +21,7 @@ import com.tiffles.travelingtavern.domain.repository.PersonaRepository
 import com.tiffles.travelingtavern.domain.usecase.GetMessageActionsUseCase
 import com.tiffles.travelingtavern.ui.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -44,7 +46,9 @@ sealed interface ChatUiState {
         val sheet: MessageSheet? = null,
         val confirmation: ChatConfirmation? = null,
         /** The persona the user is chatting as, for the input bar's chip; null until known. */
-        val persona: Persona? = null
+        val persona: Persona? = null,
+        /** "Not connected to a model" after a takeover (A7); null when not shown. */
+        val modelBanner: ModelBanner? = null
     ) : ChatUiState {
         /** Send needs text in the message field and no reply generating. */
         fun canSend(input: String): Boolean = input.isNotBlank() && !generating
@@ -129,6 +133,12 @@ class ChatViewModel @Inject constructor(
      */
     val replyInterrupted: StateFlow<Boolean> = lease.replyInterrupted
 
+    /**
+     * SillyTavern couldn't start a reply (A7). Not replayed: the screen collects it only while it
+     * is on view, so a notice that arrives while the user is elsewhere is dropped, not shown later.
+     */
+    val replyNotStarted: Flow<Unit> = lease.replyNotStarted
+
     private val activePersona = personas.personas
         .map { list -> list?.firstOrNull { it.isActive } }
         .distinctUntilChanged()
@@ -149,8 +159,8 @@ class ChatViewModel @Inject constructor(
         }
 
     val uiState: StateFlow<ChatUiState> =
-        combine(chatState, activePersona) { state, persona ->
-            if (state is ChatUiState.Ready) state.copy(persona = persona) else state
+        combine(chatState, activePersona, lease.modelBanner) { state, persona, banner ->
+            if (state is ChatUiState.Ready) state.copy(persona = persona, modelBanner = banner) else state
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), ChatUiState.Loading())
 
     init {
@@ -176,6 +186,11 @@ class ChatViewModel @Inject constructor(
 
     /** The screen showed the interrupted-reply notice. */
     fun onReplyInterruptedShown() = lease.onReplyInterruptedShown()
+
+    /** Connect on the "Not connected to a model" banner. */
+    fun onConnectModel() {
+        viewModelScope.launch { lease.connectModel() }
+    }
 
     private suspend fun openFollowedChat() {
         val opened = characters.openChat(characterId, followedChatFile)
