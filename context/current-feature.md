@@ -11,7 +11,7 @@ The decision, the spike's evidence and the requirement map are in that repo's `c
 ## Order
 
 1. [x] TravelingTavern-Extension builds the lease in slices and tags **`v0.2.0-rc.1`** on its `dev`
-2. [ ] Extension fixes the SillyTavern context hook bug (`v0.2.0-rc.2`) and makes `onForeground()` always report (`v0.2.0-rc.3`); submodule re-pinned to rc.3 (`17004d5`) before slice 8; then re-test "unreadable read, then recovers" (spec Notes, slice 5)
+2. [x] Extension fixes the SillyTavern context hook bug (`v0.2.0-rc.2`) and makes `onForeground()` always report (`v0.2.0-rc.3`); submodule re-pinned to rc.3 (`17004d5`) before slice 8; "unreadable read, then recovers" and the takeover reload re-tested (spec Notes, slice 8)
 3. [ ] Feature branch here: submodule pinned to `v0.2.0-rc.3` (was rc.1 through slice 7); `0.1.20` implemented; app spec checklist (A10) and the extension's E14 checklist pass with the `leaseTest` build on the test install
 4. [ ] The extension releases `v0.2.0` to its `main`
 5. [ ] Re-pin the submodule to `v0.2.0`, re-run the build and unit tests, then merge
