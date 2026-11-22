@@ -37,7 +37,7 @@ fun AppLogo(modifier: Modifier = Modifier, size: Dp = 72.dp) {
 /** Adaptive icon canvas (108dp) over the logo area it shows (72dp). */
 private const val CANVAS_TO_LOGO = 1.5f
 
-/** Matches the corners of the source logo (docs/brand/travelingtavern_logo.svg). */
+/** Matches the corners of the source logo (docs/brand/travelingtavern_logo_wine.svg, 224 of 1024). */
 private const val CORNER_PERCENT = 22
 
 @Preview(name = "Logo · light", showBackground = true)

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Themed (monochrome) launcher icon: one color, the door knob cut out of the door. Source: docs/brand/travelingtavern_logo.svg (1024 x 1024), drawn at 72dp of the
+<!-- Themed (monochrome) launcher icon: the same shapes in one color (the door is already a cut-out). Source: docs/brand/travelingtavern_logo_wine.svg (1024 x 1024), drawn at 72dp of the
      108dp adaptive-icon canvas (18dp inset), as in the source; fits the 66dp safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -13,13 +13,10 @@
         android:translateY="18">
         <path
             android:fillColor="#FFFFFF"
-            android:pathData="M131.245 274.832L892.97 274.487L892.921 374.546L765.255 374.574L765.168 769.423L662.869 769.347L662.842 374.671L361.202 374.805L361.169 769.15L258.768 769.11L258.693 375.125L131.163 375.033L131.245 274.832Z" />
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M404.79 769.213C404.766 746.684 404.762 724.15 404.814 701.621C404.882 672.093 404.812 642.566 404.82 613.037C404.826 593.261 404.703 573.483 404.76 553.707C404.796 540.985 404.637 528.245 404.843 515.525C405.145 496.892 409.991 480.623 419.74 464.595C422.324 460.345 424.641 457.059 427.701 453.162C444.649 431.58 471.347 416.856 498.607 413.82C501.515 413.496 504.43 413.247 507.348 413.034L507.373 769.151L404.79 769.213Z" />
-        <path
-            android:fillColor="#FFFFFF"
             android:fillType="evenOdd"
-            android:pathData="M516.673 413.076C522.593 413.333 528.38 413.779 534.205 414.924C555.91 419.192 575.763 429.683 591.105 445.648C598.586 453.433 604.451 461.601 609.25 471.24C611.5 475.761 613.994 481.045 615.483 485.866C618.803 496.618 620.42 506.467 620.388 517.757C620.322 541.371 620.482 564.986 620.402 588.6C620.309 616.288 620.506 643.975 620.441 671.662C620.409 685.682 620.427 699.702 620.39 713.722C620.342 732.212 620.582 750.711 620.398 769.199L516.659 769.179L516.673 413.076Z M572.976 596.385C583.298 596.491 591.591 604.923 591.526 615.245C591.461 625.567 583.062 633.893 572.74 633.869C562.36 633.845 553.976 625.388 554.042 615.009C554.107 604.629 562.596 596.279 572.976 596.385Z" />
+            android:pathData="M232,246 H792 V350 H712 V778 H312 V350 H232 Z M408,778 V506 A104,104 0 0,1 616,506 V778 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M574,630 A22,22 0 1,1 574,674 A22,22 0 1,1 574,630 Z" />
     </group>
 </vector>

@@ -19,6 +19,11 @@ The decision, the spike's evidence and the requirement map are in that repo's `c
 
 ## History
 
+### 2026-11-21 — Wine logo
+- Launcher icon (and the Connect screen's `AppLogo`, drawn from the same layers) now uses `docs/brand/travelingtavern_logo_wine.svg`: wine-red background, cream tavern with the door cut out and its knob; monochrome layer for themed icons is the same shapes in one color
+- Same 1024 canvas and 18dp inset as the old logo, so it fits the safe zone; the old purple `travelingtavern_logo.svg` is deleted (nothing else referenced it)
+- Verified on emulators: app drawer (API 37) and themed icon on the home screen (API 35); not verified: Pixel 8. `versionCode` 27 (installed builds reached 26 on the session lease branch)
+
 ### 2026-11-21 — Decision: continue without protection
 - No document-start support (or `addDocumentStartJavaScript` throws) no longer blocks completely: the scrim (slice 4) offers Update (Play Store page for Android System WebView) and Continue without protection
 - Continue loads SillyTavern without the lease for this launch only, with a persistent "Not protected: data from another device can be overwritten" banner; asks again on next launch (user decision). Spec A2, A3, D13, D14
@@ -44,7 +49,7 @@ The decision, the spike's evidence and the requirement map are in that repo's `c
 - Verified on an emulator (API 35); not verified: Tailscale off, Delete disabled while generating, deleting a character's only chat
 
 ### 2026-11-19 — App icon
-- Logo (`docs/brand/travelingtavern_logo.svg`) as the adaptive launcher icon: purple background, TT + door foreground inside the safe zone, monochrome layer for themed icons; legacy webp mipmaps removed (min SDK 31)
+- Logo (`docs/brand/travelingtavern_logo.svg`, replaced by the wine logo on 2026-11-21) as the adaptive launcher icon: purple background, TT + door foreground inside the safe zone, monochrome layer for themed icons; legacy webp mipmaps removed (min SDK 31)
 
 <!-- Newest first. Verified against SillyTavern 1.19.0 over Tailscale on the emulator and Pixel 8 unless noted. -->
 
