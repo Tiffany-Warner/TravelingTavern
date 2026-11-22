@@ -1389,6 +1389,11 @@
             if (ctx) ctx[S.context.stopGeneration]();
         },
 
+        /** A reply finished in the background (A6): `chatSaved` follows once SillyTavern saved it. */
+        watchChatSave: function () {
+            watchChatSave();
+        },
+
         /** Start new chat ([deleteCurrent] false) or Restart chat (true), answered with `chatResult`. */
         newChat: function (requestId, deleteCurrent) {
             if (generating) {

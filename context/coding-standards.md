@@ -81,6 +81,7 @@ app/src/main/java/com/tiffles/travelingtavern/
 │   ├── webview/     # WebViewHolder, clients, file chooser, permissions
 │   ├── settings/    # DataStore + encrypted credentials
 │   ├── remote/
+│   ├── service/     # Android services (the reply foreground service)
 │   └── repository/
 ├── di/
 └── util/

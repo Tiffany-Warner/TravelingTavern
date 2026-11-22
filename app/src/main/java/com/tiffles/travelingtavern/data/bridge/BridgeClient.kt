@@ -19,7 +19,7 @@ import javax.inject.Singleton
  * sent: `false` means it was refused and never reached the page. Exempt, because they touch
  * nothing but the page's DOM or CSS: [revealMessage], [endReveal], [setCleanMode] and
  * [setPageTheme]. [useHere] and [onForeground] are the lease's own hooks and are never gated,
- * nor is [interruptReply] (A6).
+ * nor are [interruptReply] and [watchChatSave] (A6).
  *
  * Commands are [CommandOrigin.User] unless noted: [setAppState], [reloadChat], [requestPersonas]
  * and [countTokens] are always started by the app, and [requestRecentChats] takes its origin
@@ -93,6 +93,13 @@ class BridgeClient @Inject constructor(
      * still checked by the page's own lease (E6).
      */
     suspend fun interruptReply() = runUnchecked(BridgeScript.call("interruptReply"))
+
+    /**
+     * Arms the page's save watch without stopping anything (a reply that finished in the
+     * background, A6): `chatSaved` follows once SillyTavern's save has completed. Not gated: it
+     * only adds an observer in the page, no request.
+     */
+    suspend fun watchChatSave() = runUnchecked(BridgeScript.call("watchChatSave"))
 
     /**
      * Scrolls message [messageId] above the actions sheet, which covers the bottom [coveredPx] of

@@ -400,15 +400,151 @@ class LeaseLifecycleTest {
     }
 
     @Test
-    fun `a reply that ends in the background stops the service, then releases`() = runTest {
+    fun `a reply that ends in the background releases once SillyTavern's save is reported`() = runTest {
+        replyInForeground()
+        toBackground()
+        report(busy = false)
+        advanceTimeBy(800)
+        runCurrent()
+        coVerify(exactly = 1) { client.watchChatSave() }
+        assertTrue(uploader.calls.isEmpty())
+
+        events += "saved"
+        store.onChatSaved()
+        runCurrent()
+
+        assertEquals(listOf("saved", "upload"), events)
+        coVerify(exactly = 0) { client.interruptReply() }
+        assertTrue(!store.replyInterrupted.value)
+    }
+
+    @Test
+    fun `a reply that ends in the background without a save report releases at the bound`() = runTest {
+        replyInForeground()
+        toBackground()
+        report(busy = false)
+        advanceTimeBy(2_999)
+        runCurrent()
+        assertTrue(uploader.calls.isEmpty())
+
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(1, uploader.calls.size)
+    }
+
+    @Test
+    fun `the service keeps running until the release after the reply is written`() = runTest {
+        val gate = CompletableDeferred<Boolean>()
+        uploader.gate = gate
+        replyInForeground()
+        toBackground()
+        replyEndsAndSaves()
+        assertEquals(listOf("saved", "upload"), events)
+        assertEquals(0, replyService.stops)
+
+        gate.complete(true)
+        runCurrent()
+        assertEquals(1, replyService.stops)
+    }
+
+    @Test
+    fun `a return during the wait for the save releases nothing`() = runTest {
         replyInForeground()
         toBackground()
         report(busy = false)
         runCurrent()
+        toForeground()
+        store.onChatSaved()
+        advanceTimeBy(5_000)
+        runCurrent()
 
+        assertTrue(uploader.calls.isEmpty())
         assertEquals(1, replyService.stops)
+    }
+
+    @Test
+    fun `a return stops the old service and a new reply's service isn't stopped later`() = runTest {
+        replyInForeground()
+        toBackground()
+        report(busy = false)
+        runCurrent()
+        assertEquals(0, replyService.stops)
+
+        // The return cancels the release wait, so the old service stops at once. (The service
+        // token in stopServiceAfter is a defensive guard behind this.)
+        toForeground()
+        assertEquals(1, replyService.stops)
+        report(busy = true)
+        runCurrent()
+        assertEquals(2, replyService.starts)
+        val stopsBefore = replyService.stops
+
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertEquals(stopsBefore, replyService.stops)
+        assertTrue(uploader.calls.isEmpty())
+    }
+
+    @Test
+    fun `return then background again during the save wait releases once, without the stale job`() = runTest {
+        replyInForeground()
+        toBackground()
+        report(busy = false)
+        runCurrent()
+        toForeground()
+        toBackground()
         assertEquals(1, uploader.calls.size)
-        coVerify(exactly = 0) { client.interruptReply() }
+
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertEquals(1, uploader.calls.size)
+    }
+
+    @Test
+    fun `a new reply after a return during the interrupt gets its own interrupt`() = runTest {
+        replyService.supported = false
+        replyInForeground()
+        toBackground()
+        toForeground()
+        report(busy = false)
+        report(busy = true)
+        runCurrent()
+        toBackground()
+
+        coVerify(exactly = 2) { client.interruptReply() }
+    }
+
+    @Test
+    fun `time limit in the background waits for a pending release after the reply`() = runTest {
+        val lifecycle = replyInForeground()
+        toBackground()
+        report(busy = false)
+        runCurrent()
+        lifecycle.onReplyServiceTimeout { events += "serviceStopped" }
+        runCurrent()
+        assertTrue(events.isEmpty())
+
+        events += "saved"
+        store.onChatSaved()
+        runCurrent()
+        assertEquals(listOf("saved", "upload", "serviceStopped"), events)
+    }
+
+    @Test
+    fun `the service keeps running until the interrupt's release is written`() = runTest {
+        val gate = CompletableDeferred<Boolean>()
+        uploader.gate = gate
+        replyInForeground()
+        toBackground()
+        advanceTimeBy(45_000)
+        runCurrent()
+        replyEndsAndSaves()
+        assertEquals(listOf("stop", "saved", "upload"), events)
+        assertEquals(0, replyService.stops)
+
+        gate.complete(true)
+        runCurrent()
+        assertEquals(1, replyService.stops)
     }
 
     @Test
@@ -497,11 +633,10 @@ class LeaseLifecycleTest {
     }
 
     @Test
-    fun `time limit after the reply ended just stops the service`() = runTest {
+    fun `time limit after the reply's release was written just stops the service`() = runTest {
         val lifecycle = replyInForeground()
         toBackground()
-        report(busy = false)
-        runCurrent()
+        replyEndsAndSaves()
         events.clear()
         lifecycle.onReplyServiceTimeout { events += "serviceStopped" }
         runCurrent()
