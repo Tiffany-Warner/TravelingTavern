@@ -19,6 +19,12 @@ interface LeaseRepository {
     /** A command was refused because SillyTavern never reported its lease state in time (A4). */
     val stillLoading: Flow<Unit>
 
+    /** A reply was interrupted when the app went to the background (A6), not yet shown in Chat. */
+    val replyInterrupted: StateFlow<Boolean>
+
+    /** The Chat screen showed the interrupted-reply notice. Main thread. */
+    fun onReplyInterruptedShown()
+
     /** Claims the lease for this phone (`__ttLease.useHere()`); [status] shows claiming at once. */
     suspend fun useHere()
 

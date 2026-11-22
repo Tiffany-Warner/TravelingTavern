@@ -29,6 +29,7 @@ object BridgeMessageParser {
         val type = (obj["type"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return null
         return when (type) {
             "ready" -> BridgeMessage.Ready
+            "chatSaved" -> BridgeMessage.ChatSaved
             "characters" -> decode(obj, BridgeMessage.Characters.serializer())
             "recentChats" -> decode(obj, BridgeMessage.RecentChats.serializer())
             "chatChanged" -> decode(obj, BridgeMessage.ChatChanged.serializer())

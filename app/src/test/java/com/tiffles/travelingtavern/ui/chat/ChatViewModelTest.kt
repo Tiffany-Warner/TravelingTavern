@@ -3,6 +3,7 @@ package com.tiffles.travelingtavern.ui.chat
 import androidx.lifecycle.SavedStateHandle
 import com.tiffles.travelingtavern.domain.FakeCharacterRepository
 import com.tiffles.travelingtavern.domain.FakeChatSessionRepository
+import com.tiffles.travelingtavern.domain.FakeLeaseRepository
 import com.tiffles.travelingtavern.domain.FakePersonaRepository
 import com.tiffles.travelingtavern.domain.character
 import com.tiffles.travelingtavern.domain.persona
@@ -37,6 +38,7 @@ class ChatViewModelTest {
     private val repository = FakeCharacterRepository()
     private val chat = FakeChatSessionRepository()
     private val personas = FakePersonaRepository()
+    private val lease = FakeLeaseRepository()
     private lateinit var savedState: SavedStateHandle
     private lateinit var viewModel: ChatViewModel
 
@@ -57,7 +59,7 @@ class ChatViewModelTest {
                 Routes.FullScreen.Chat.ARG_CHAT_FILE to chatFile
             ) + saved
         )
-        viewModel = ChatViewModel(savedState, repository, chat, GetMessageActionsUseCase(), personas)
+        viewModel = ChatViewModel(savedState, repository, chat, GetMessageActionsUseCase(), personas, lease)
     }
 
     private fun TestScope.collectState() {

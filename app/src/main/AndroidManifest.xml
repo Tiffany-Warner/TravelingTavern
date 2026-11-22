@@ -8,6 +8,9 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- The reply service (A6): a shortService, which needs no type-specific permission. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
@@ -45,6 +48,12 @@
                 <data android:scheme="travelingtavern" android:host="chat" />
             </intent-filter>
         </activity>
+
+        <!-- Keeps a reply running in the background, Android 14+ only (A6). -->
+        <service
+            android:name=".data.service.ReplyService"
+            android:exported="false"
+            android:foregroundServiceType="shortService" />
     </application>
 
 </manifest>

@@ -11,9 +11,14 @@ class FakeLeaseRepository : LeaseRepository {
     override val unprotected = MutableStateFlow(false)
     override val commandWaiting = MutableStateFlow(false)
     override val stillLoading = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    override val replyInterrupted = MutableStateFlow(false)
     var useHereCalls = 0
     var reloadCalls = 0
     var continueCalls = 0
+
+    override fun onReplyInterruptedShown() {
+        replyInterrupted.value = false
+    }
 
     override suspend fun useHere() {
         useHereCalls++

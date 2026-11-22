@@ -30,6 +30,48 @@
         post('error', { message: String(message) });
     }
 
+    /** How long the interrupt's save watch stays armed at most (the app waits far less). */
+    const SAVE_WATCH_MAX_MS = 10000;
+    let saveWatch = null;
+
+    function isChatSave(url) {
+        let path;
+        try {
+            path = new URL(url, location.href).pathname.toLowerCase().replace(/\/+$/, '');
+        } catch (e) {
+            return false;
+        }
+        return S.api.chatSaves.indexOf(path) >= 0;
+    }
+
+    /**
+     * The interrupt's save watch (A6): posts `chatSaved` once, when the page's own chat save
+     * request that started after arming has completed (any status), or never. Passive: a
+     * PerformanceObserver on resource entries, so the lease's fetch wrapper stays the only one.
+     */
+    function watchChatSave() {
+        if (saveWatch) saveWatch();
+        if (typeof PerformanceObserver !== 'function') return;
+        const armedAt = performance.now();
+        let timer = null;
+        const observer = new PerformanceObserver(function (list) {
+            const saved = list.getEntries().some(function (entry) {
+                return entry.startTime >= armedAt && isChatSave(entry.name);
+            });
+            if (!saved) return;
+            disarm();
+            post('chatSaved');
+        });
+        function disarm() {
+            observer.disconnect();
+            clearTimeout(timer);
+            if (saveWatch === disarm) saveWatch = null;
+        }
+        saveWatch = disarm;
+        timer = setTimeout(disarm, SAVE_WATCH_MAX_MS);
+        observer.observe({ type: 'resource' });
+    }
+
     function context() {
         return S.getContext();
     }
@@ -1333,6 +1375,16 @@
         },
 
         stopGeneration: function () {
+            const ctx = context();
+            if (ctx) ctx[S.context.stopGeneration]();
+        },
+
+        /**
+         * The app's interrupt (A6): arms the save watch, then stops the reply. `chatSaved` follows
+         * once SillyTavern's save of the partial reply has completed.
+         */
+        interruptReply: function () {
+            watchChatSave();
             const ctx = context();
             if (ctx) ctx[S.context.stopGeneration]();
         },

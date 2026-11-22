@@ -161,6 +161,11 @@
             settingsPowerUser: 'power_user',
             /** SillyTavern saves settings 1 s after a change (saveSettingsDebounced, debounce_timeout.relaxed). */
             settingsSaveDelayMs: 1000,
+            /**
+             * Paths of SillyTavern's chat saves (lower case, no trailing slash): a character's chat
+             * (`script.js` `saveChat`) and a group chat (`group-chats.js`). Verified in 1.19.1.
+             */
+            chatSaves: Object.freeze(['/api/chats/save', '/api/chats/group/save']),
         }),
         /** Fields of one /api/chats/recent row. */
         recentChat: Object.freeze({

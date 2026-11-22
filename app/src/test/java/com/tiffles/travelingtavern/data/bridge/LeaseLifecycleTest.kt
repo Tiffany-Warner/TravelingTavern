@@ -27,7 +27,7 @@ import org.junit.Test
 import java.time.Instant
 import java.util.Base64
 
-/** A5: the background release, its retry, and the order of things on return. */
+/** A5: the background release, its retry, and the order of things on return. A6: reply in the background. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class LeaseLifecycleTest {
 
@@ -36,6 +36,10 @@ class LeaseLifecycleTest {
     private val uploader = FakeUploader()
     private val client: BridgeClient = mockk(relaxed = true)
     private val backoffs = mutableListOf<Long>()
+    private val replyService = FakeReplyService()
+
+    /** What happened, in order: `stop` (the interrupt's Stop), `upload`, `serviceStopped`. */
+    private val events = mutableListOf<String>()
 
     @Before
     fun setUp() {
@@ -44,6 +48,10 @@ class LeaseLifecycleTest {
         every { Log.i(any(), any()) } returns 0
         every { Log.w(any(), any<String>()) } returns 0
         coEvery { client.setAppState(any()) } returns true
+        coEvery { client.interruptReply() } answers {
+            events += "stop"
+            true
+        }
     }
 
     @After
@@ -56,10 +64,14 @@ class LeaseLifecycleTest {
         store = store,
         uploader = uploader,
         client = client,
+        replyService = replyService,
         scope = backgroundScope,
         now = { Instant.parse("2026-11-21T10:00:00.123456Z") },
         backoffMs = { (100L + backoffs.size * 50).also { backoffs += it } },
-        returnWaitMs = 5_500
+        returnWaitMs = 5_500,
+        interruptWaitMs = 3_000,
+        timeoutStopMs = 8_500,
+        backgroundReplyDeadlineMs = 45_000
     ).also { it.start(); runCurrent() }
 
     private fun report(state: String = "holder", reason: String? = null, epoch: Long? = 4L, busy: Boolean = false) =
@@ -83,13 +95,44 @@ class LeaseLifecycleTest {
         runCurrent()
     }
 
-    private class FakeUploader : ReleaseUploader {
+    /** Started, then a reply starts in the foreground (the service starts if it can). */
+    private fun TestScope.replyInForeground(): LeaseLifecycle {
+        val lifecycle = lifecycle()
+        foreground.value = true
+        runCurrent()
+        report(busy = false)
+        report(busy = true)
+        runCurrent()
+        return lifecycle
+    }
+
+    /** After Stop: the page reports `busy: false`, then SillyTavern's save completes (`chatSaved`). */
+    private fun TestScope.replyEndsAndSaves() {
+        report(busy = false)
+        runCurrent()
+        events += "saved"
+        store.onChatSaved()
+        runCurrent()
+    }
+
+    private fun TestScope.toBackground() {
+        foreground.value = false
+        runCurrent()
+    }
+
+    private fun TestScope.toForeground() {
+        foreground.value = true
+        runCurrent()
+    }
+
+    private inner class FakeUploader : ReleaseUploader {
         val calls = mutableListOf<Pair<String, String>>()
         var results = ArrayDeque<Boolean>()
         var gate: CompletableDeferred<Boolean>? = null
 
         override suspend fun upload(origin: String, body: String): Boolean {
             calls += origin to body
+            events += "upload"
             gate?.let { return it.await() }
             return results.removeFirstOrNull() ?: true
         }
@@ -149,12 +192,12 @@ class LeaseLifecycleTest {
     }
 
     @Test
-    fun `release is deferred while a reply generates`() = runTest {
-        lifecycle()
-        report(busy = true)
-        goBackground()
+    fun `release is deferred while a reply generates under the reply service`() = runTest {
+        replyInForeground()
+        toBackground()
 
         assertTrue(uploader.calls.isEmpty())
+        coVerify(exactly = 0) { client.interruptReply() }
     }
 
     // -- The marker
@@ -327,5 +370,393 @@ class LeaseLifecycleTest {
         runCurrent()
 
         assertEquals(2, uploader.calls.size)
+    }
+
+    // -- Reply service (A6, Android 14+)
+
+    @Test
+    fun `the service starts when a reply starts in the foreground`() = runTest {
+        replyInForeground()
+
+        assertEquals(1, replyService.starts)
+    }
+
+    @Test
+    fun `the service doesn't start for a reply that starts in the background`() = runTest {
+        lifecycle()
+        report(busy = true)
+
+        assertEquals(0, replyService.starts)
+    }
+
+    @Test
+    fun `the service stops when the reply ends, with nothing released in the foreground`() = runTest {
+        replyInForeground()
+        report(busy = false)
+        runCurrent()
+
+        assertEquals(1, replyService.stops)
+        assertTrue(uploader.calls.isEmpty())
+    }
+
+    @Test
+    fun `a reply that ends in the background stops the service, then releases`() = runTest {
+        replyInForeground()
+        toBackground()
+        report(busy = false)
+        runCurrent()
+
+        assertEquals(1, replyService.stops)
+        assertEquals(1, uploader.calls.size)
+        coVerify(exactly = 0) { client.interruptReply() }
+    }
+
+    @Test
+    fun `a reply that ends after the return releases nothing`() = runTest {
+        replyInForeground()
+        toBackground()
+        toForeground()
+        report(busy = false)
+        runCurrent()
+
+        assertEquals(1, replyService.stops)
+        assertTrue(uploader.calls.isEmpty())
+    }
+
+    @Test
+    fun `a page that parks during the reply stops the service and releases nothing`() = runTest {
+        replyInForeground()
+        toBackground()
+        report(state = "parked", reason = "lost", busy = false)
+        runCurrent()
+
+        assertEquals(1, replyService.stops)
+        assertTrue(uploader.calls.isEmpty())
+    }
+
+    @Test
+    fun `a service that couldn't start means the reply is interrupted in the background`() = runTest {
+        replyService.startResult = false
+        replyInForeground()
+        toBackground()
+
+        coVerify(exactly = 1) { client.interruptReply() }
+    }
+
+    // -- Time limit
+
+    @Test
+    fun `time limit in the foreground only stops the service`() = runTest {
+        val lifecycle = replyInForeground()
+        lifecycle.onReplyServiceTimeout { events += "serviceStopped" }
+        runCurrent()
+
+        assertEquals(listOf("serviceStopped"), events)
+        coVerify(exactly = 0) { client.interruptReply() }
+        assertTrue(uploader.calls.isEmpty())
+    }
+
+    @Test
+    fun `after a time limit in the foreground, going to the background interrupts`() = runTest {
+        val lifecycle = replyInForeground()
+        lifecycle.onReplyServiceTimeout {}
+        toBackground()
+
+        coVerify(exactly = 1) { client.interruptReply() }
+    }
+
+    @Test
+    fun `time limit in the background interrupts, releases, then stops the service`() = runTest {
+        val lifecycle = replyInForeground()
+        toBackground()
+        lifecycle.onReplyServiceTimeout { events += "serviceStopped" }
+        runCurrent()
+        assertEquals(listOf("stop"), events)
+
+        advanceTimeBy(500)
+        replyEndsAndSaves()
+
+        assertEquals(listOf("stop", "saved", "upload", "serviceStopped"), events)
+        assertTrue(store.replyInterrupted.value)
+    }
+
+    @Test
+    fun `time limit in the background stops the service within the allowed time`() = runTest {
+        uploader.gate = CompletableDeferred()
+        val lifecycle = replyInForeground()
+        toBackground()
+        lifecycle.onReplyServiceTimeout { events += "serviceStopped" }
+        runCurrent()
+
+        advanceTimeBy(8_499)
+        runCurrent()
+        assertEquals(listOf("stop", "upload"), events)  // no save report: released at the 3 s bound
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(listOf("stop", "upload", "serviceStopped"), events)
+    }
+
+    @Test
+    fun `time limit after the reply ended just stops the service`() = runTest {
+        val lifecycle = replyInForeground()
+        toBackground()
+        report(busy = false)
+        runCurrent()
+        events.clear()
+        lifecycle.onReplyServiceTimeout { events += "serviceStopped" }
+        runCurrent()
+
+        assertEquals(listOf("serviceStopped"), events)
+    }
+
+    // -- Interrupt (Android 12–13: no service)
+
+    @Test
+    fun `without the service, a reply is interrupted on going to the background`() = runTest {
+        replyService.supported = false
+        replyInForeground()
+        assertEquals(0, replyService.starts)
+        toBackground()
+
+        coVerify(exactly = 1) { client.interruptReply() }
+        assertTrue(store.replyInterrupted.value)
+    }
+
+    @Test
+    fun `without the service, the interrupt releases once the save is reported`() = runTest {
+        replyService.supported = false
+        replyInForeground()
+        toBackground()
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertEquals(listOf("stop"), events)
+
+        replyEndsAndSaves()
+
+        assertEquals(listOf("stop", "saved", "upload"), events)
+    }
+
+    @Test
+    fun `busy false alone doesn't release before the bound`() = runTest {
+        replyService.supported = false
+        replyInForeground()
+        toBackground()
+        report(busy = false)
+        advanceTimeBy(2_999)
+        runCurrent()
+        assertEquals(listOf("stop"), events)
+
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(listOf("stop", "upload"), events)
+    }
+
+    @Test
+    fun `a save report before busy false still waits for busy false`() = runTest {
+        replyService.supported = false
+        replyInForeground()
+        toBackground()
+        store.onChatSaved()
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertEquals(listOf("stop"), events)
+
+        report(busy = false)
+        runCurrent()
+        assertEquals(listOf("stop", "upload"), events)
+    }
+
+    @Test
+    fun `a save reported before the interrupt doesn't count`() = runTest {
+        replyService.supported = false
+        replyInForeground()
+        store.onChatSaved()
+        toBackground()
+        report(busy = false)
+        advanceTimeBy(2_999)
+        runCurrent()
+
+        assertEquals(listOf("stop"), events)
+    }
+
+    @Test
+    fun `the release still goes out when the wait runs out`() = runTest {
+        replyService.supported = false
+        replyInForeground()
+        toBackground()
+
+        advanceTimeBy(2_999)
+        runCurrent()
+        assertEquals(listOf("stop"), events)
+        advanceTimeBy(1)
+        runCurrent()
+
+        assertEquals(listOf("stop", "upload"), events)
+    }
+
+    @Test
+    fun `a return during the interrupt's wait releases nothing`() = runTest {
+        replyService.supported = false
+        replyInForeground()
+        toBackground()
+        toForeground()
+        replyEndsAndSaves()
+
+        assertEquals(listOf("stop", "saved"), events)
+    }
+
+    @Test
+    fun `a page that parks during the interrupt's wait releases nothing`() = runTest {
+        replyService.supported = false
+        replyInForeground()
+        toBackground()
+        report(state = "parked", reason = "lost", busy = false)
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        assertEquals(listOf("stop"), events)
+    }
+
+    // -- Deadline in the background (D30)
+
+    @Test
+    fun `the deadline interrupts a reply still running in the background`() = runTest {
+        replyInForeground()
+        toBackground()
+
+        advanceTimeBy(44_999)
+        runCurrent()
+        assertTrue(events.isEmpty())
+        advanceTimeBy(1)
+        runCurrent()
+
+        assertEquals(listOf("stop"), events)
+        assertTrue(store.replyInterrupted.value)
+    }
+
+    @Test
+    fun `the deadline's interrupt keeps the order, then the reply's end stops the service`() = runTest {
+        replyInForeground()
+        toBackground()
+        advanceTimeBy(45_000)
+        runCurrent()
+        advanceTimeBy(500)
+        replyEndsAndSaves()
+
+        assertEquals(listOf("stop", "saved", "upload"), events)
+        assertEquals(1, replyService.stops)
+    }
+
+    @Test
+    fun `the deadline's interrupt releases at once when the save is reported`() = runTest {
+        replyInForeground()
+        toBackground()
+        advanceTimeBy(45_000)
+        runCurrent()
+        report(busy = false)
+        advanceTimeBy(700)
+        runCurrent()
+        assertEquals(listOf("stop"), events)
+
+        events += "saved"
+        store.onChatSaved()
+        runCurrent()
+        assertEquals(listOf("stop", "saved", "upload"), events)
+    }
+
+    @Test
+    fun `the deadline's interrupt still releases when the wait runs out`() = runTest {
+        replyInForeground()
+        toBackground()
+        advanceTimeBy(45_000 + 2_999)
+        runCurrent()
+        assertEquals(listOf("stop"), events)
+        advanceTimeBy(1)
+        runCurrent()
+
+        assertEquals(listOf("stop", "upload"), events)
+    }
+
+    @Test
+    fun `a reply that ends before the deadline cancels it and releases once`() = runTest {
+        replyInForeground()
+        toBackground()
+        advanceTimeBy(20_000)
+        report(busy = false)
+        runCurrent()
+        advanceTimeBy(60_000)
+        runCurrent()
+
+        assertEquals(listOf("upload"), events)
+        assertEquals(1, replyService.stops)
+        coVerify(exactly = 0) { client.interruptReply() }
+    }
+
+    @Test
+    fun `a return before the deadline cancels it`() = runTest {
+        replyInForeground()
+        toBackground()
+        advanceTimeBy(20_000)
+        toForeground()
+        advanceTimeBy(60_000)
+        runCurrent()
+
+        assertTrue(events.isEmpty())
+        coVerify(exactly = 0) { client.interruptReply() }
+        assertEquals(0, replyService.stops)
+    }
+
+    @Test
+    fun `a return while the deadline's release uploads waits for it before onForeground`() = runTest {
+        val gate = CompletableDeferred<Boolean>()
+        uploader.gate = gate
+        replyInForeground()
+        toBackground()
+        advanceTimeBy(45_000)
+        runCurrent()
+        replyEndsAndSaves()
+        assertEquals(listOf("stop", "saved", "upload"), events)
+
+        toForeground()
+        advanceTimeBy(1_000)
+        runCurrent()
+        coVerify(exactly = 0) { client.onForeground() }
+
+        gate.complete(true)
+        runCurrent()
+        coVerifyOrder {
+            client.onForeground()
+            client.setAppState(true)
+        }
+    }
+
+    @Test
+    fun `the time limit cancels the deadline`() = runTest {
+        val lifecycle = replyInForeground()
+        toBackground()
+        lifecycle.onReplyServiceTimeout { events += "serviceStopped" }
+        runCurrent()
+        replyEndsAndSaves()
+        advanceTimeBy(60_000)
+        runCurrent()
+
+        assertEquals(listOf("stop", "saved", "upload", "serviceStopped"), events)
+        coVerify(exactly = 1) { client.interruptReply() }
+    }
+
+    private inner class FakeReplyService : ReplyServiceController {
+        override var supported = true
+        var startResult = true
+        var starts = 0
+        var stops = 0
+
+        override fun start(): Boolean {
+            starts++
+            return startResult
+        }
+
+        override fun stop() {
+            stops++
+        }
     }
 }

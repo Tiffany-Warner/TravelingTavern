@@ -103,21 +103,23 @@ Native screens keep the page's last data while parked, under the scrim; nothing 
 
 ## A6. Reply in the Background (R25, decided)
 
-**Android 14+ (API 34+): `shortService` foreground service**
+**Android 14+ (API 34+): `shortService` foreground service, plus a 45 s deadline** (D30)
 
-- Started **when a reply starts** (`leaseState.busy` turns `true`), while the app is still in the foreground (starting a foreground service from the background is restricted), and stopped when the reply ends (`busy` → `false`) **(verify)**
-- It keeps the app's process out of the cached state, so Android doesn't freeze the WebView's renderer while the reply finishes. **Confirm the cause first:** the spike saw the renderer frozen (`isFrozen=true`) but couldn't confirm it with a heartbeat. Also confirm the renderer stays running under the service, and whether `WebView.setRendererPriorityPolicy` must be set for that **(verify)**
-- When the reply ends in the background: stop the service, write the release (A5)
-- **Time limit** (about 3 minutes for `shortService`, **(verify)**): `onTimeout` with the app in the foreground → stop the service, nothing else (a foreground WebView isn't frozen). In the background → interrupt (below) **before** stopping the service, then stop it. After `onTimeout` the service must stop itself promptly: Android allows only a short grace period before it treats the app as not responding **(verify the time Android allows)**, so the interrupt's bounded wait must fit inside it
-- Manifest: the service with `foregroundServiceType="shortService"`; `FOREGROUND_SERVICE` permission **(verify no type-specific permission is needed)**
+- Started **when a reply starts** (`leaseState.busy` turns `true`), while the app is still in the foreground (starting a foreground service from the background is restricted), and stopped when the reply ends (`busy` → `false`). Verified: Notes, slice 7
+- It keeps the app's process out of the cached state, so Android doesn't freeze the process or the WebView's renderer (verified with a heartbeat; `setRendererPriorityPolicy` isn't needed: the renderer follows the app's importance)
+- **Why a deadline too:** Chromium freezes the hidden page itself 60 s after the app goes to the background, whatever the process state (measured: Notes, slice 7). The service can't prevent that, and a frozen page doesn't send SillyTavern's save of the partial reply until it's visible again. So a reply still running **45 s** (`BACKGROUND_REPLY_DEADLINE_MS`) after going to the background is interrupted (below), early enough that the whole interrupt finishes before the freeze
+- When the reply ends in the background before the deadline: cancel the deadline, stop the service, write the release (A5). Returning to the foreground also cancels the deadline (the reply goes on there)
+- **Time limit** (3 minutes for `shortService`, verified), a safety net now that the deadline comes first: `onTimeout` with the app in the foreground → stop the service, nothing else. In the background → interrupt (below) **before** stopping the service, then stop it. Android removes the service's importance 5 s after the limit and treats the app as not responding 10 s after it (verified), so the service stops at the latest 8.5 s after `onTimeout`
+- Manifest: the service with `foregroundServiceType="shortService"`; `FOREGROUND_SERVICE` permission only (verified: no type-specific permission)
+- **Not the extension's 60 s:** the 60 s `busy` limit in E4 / E8 is how long a *claiming* page waits for the holder's `busy` to clear. It is unrelated to Chromium's 60 s page freeze, and neither changes the other: an interrupted reply clears `busy` within the shared bound below, so a claimer never waits it out
 
 **Android 12–13 (API 31–33): no foreground service.** Going to the background during a reply → interrupt (below). No other foreground-service type is used.
 
-**Interrupt**, in this order:
+**Interrupt**, in this order (D30):
 
-1. Stop the reply (`stopGeneration`)
-2. Wait, bounded, for `leaseState.busy` to turn `false`, so ST's save of the partial reply lands first **(verify that ST's chat save is sent by then; the bound fits the timeout grace period above)**
-3. Write the release (A5)
+1. Stop the reply: `bridge.js` `interruptReply` arms a watch for the page's own chat save, then calls ST's stop
+2. Wait, with **one** bound of 3 s for both, for `leaseState.busy` to turn `false` **and** for `chatSaved`: the page's report that ST's save of the partial reply completed (any status). **Answered (verify):** ST's chat save is **not** sent by the time `busy` turns `false`; the page reports `busy: false` as soon as the generation request ends and ST saves 0.2–1.1 s later (Notes, slice 7), hence the save report
+3. Write the release (A5), as soon as both arrived or when the bound runs out (nothing was generated, so no save; or a failed save that wasn't seen)
 
 On return the Chat screen shows "Your reply was interrupted when TravelingTavern went to the background." A takeover never waits out the 60 s `busy` limit for a reply that can't finish.
 
@@ -125,8 +127,8 @@ On return the Chat screen shows "Your reply was interrupted when TravelingTavern
 
 - Channel "Replies in progress", low importance (no sound, no heads-up)
 - Text "Finishing your reply…", no actions
-- **It appears briefly during every reply, even with the app in the foreground,** because the service must start while the app is visible (choice above). Expected, not a bug
-- With the notification permission denied (Android 13+), the notification is hidden; the service must still run **(verify on Android 14+)**. The app doesn't ask for the permission for this
+- **Shown only once the service has run about 10 s** (Android's default for foreground-service notifications, D31), so short replies show none, in the foreground or not
+- With the notification permission denied (Android 13+), the notification is hidden and the service still runs (verified on API 35, Notes slice 7). The app doesn't ask for the permission for this. It doesn't declare `POST_NOTIFICATIONS` either, so on Android 13+ the permission is always denied and the notification never shows (`appops`: `POST_NOTIFICATION: ignore`)
 
 ## A7. No Model Connection After a Takeover; Notices (R37)
 
@@ -190,6 +192,7 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 - [ ] Killed app → desktop shows Use here
 - [ ] Takeover while generating, desktop → app and app → desktop
 - [ ] Reply in the background on Android 14+: completes under the service; notification "Finishing your reply…" shown; runs with the notification permission denied
+- [ ] Reply in the background on Android 14+ still running 45 s after going to the background (D30): interrupted at the deadline, before the page freeze; ST's partial save completes before "Release written"; message on return
 - [ ] Reply in the background on Android 12–13 (emulator): interrupted, partial reply saved before the release, message on return
 - [ ] Commands right after a page load wait for the first `leaseState` instead of being held
 - [ ] Reply that can't start (`replyNotStarted`): snackbar shown, nothing sent
@@ -206,8 +209,8 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 ## Investigate First
 
 - Document-start script support (emulator, Pixel 8): answered, Notes slice 3
-- The freeze cause; whether the renderer keeps running under a `shortService`, and whether `setRendererPriorityPolicy` is needed
-- `shortService` start rules, time limit and `onTimeout` on API 34–36; the service with the notification permission denied
+- The freeze cause; whether the renderer keeps running under a `shortService`, and whether `setRendererPriorityPolicy` is needed: answered, Notes slice 7 (Chromium's own 60 s page freeze, D30)
+- `shortService` start rules, time limit and `onTimeout`: answered on API 37, Notes slice 7; the service with the notification permission denied: answered on API 35; API 34 and 36 not checked
 - Whether a lease version mismatch can happen with document-start injection from assets: answered, Notes slice 3
 
 ## Docs to Update
@@ -227,7 +230,7 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 4. [x] Native parked scrim (A3)
 5. [x] Kotlin pre-check (A4)
 6. [x] Foreground and background release (A5)
-7. [ ] Reply in the background (A6)
+7. [x] Reply in the background (A6)
 8. [ ] Notices (A7)
 9. [ ] Extension install and update; conditional persona re-read (A8, Changes)
 10. [ ] Manual and E14 checklists on the test install; docs
@@ -263,9 +266,45 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 - **D27 (slice 6):** a release needs `LeaseStatus.Holder` (so nothing while parked, after a failed pre-check, unprotected or before the first report) and a last `leaseState` that is `holder` with an epoch. The marker names that pair, `releasedAt` is UTC ISO 8601 with milliseconds; `ReleaseMarker` mirrors `markerFor` and `uploadBody` in `session-lease.js` (`{ name, data }`, base64 of the UTF-8 JSON). Retry (E3) in `LeaseLifecycle`: at most 3 attempts, a random 100–200 ms between them. A `403` fetches the token again and resends once **within** the attempt, as the page's own `leaseFetch` does
 - **D28 (slice 6):** `data/remote/OkHttpReleaseUploader` sends only to the saved server (same origin rule as the lease file reader), with `CookieManager`'s cookies, `X-CSRF-Token` and basic auth from the shared client. The token is memory only, reused, dropped and fetched again after a `403`; logs carry outcomes only. One attempt, CSRF fetches included, has a 5 s budget (`RELEASE_ATTEMPT_BUDGET_MS`, each call's `Call.timeout()` set to what is left), so the return path's wait (5.5 s) outlasts any attempt in flight. On return no further attempt starts. If the bound ever ran out, the job is cancelled and `onForeground()` runs anyway (WARN): the one remaining gap is an upload the server receives after the app's client gave up on it. It matters because such a marker would land after `onForeground()` has checked and found nothing to invalidate, and it names the page's current pair: the phone would look released while in use, and another device could claim without a click
 - **D29 (slice 6):** going to the background while `busy` calls `LeaseLifecycle.onBackgroundWhileBusy()`, which only logs. Slice 7 (A6) fills it: start or rely on the reply service (API 34+) and release when `busy` ends in the background, or interrupt (API 31–33)
+- **D30 (slice 7, user decision 2026-11-21):** the reply service plus a **45 s deadline** (`LeaseLifecycle.BACKGROUND_REPLY_DEADLINE_MS`) and a **save-ordered release**. Why: the service keeps Android from freezing the process, but Chromium freezes the hidden page 60 s after it is hidden (6 runs, no spread), and a frozen page holds ST's save until the return. The deadline starts at `ProcessLifecycleOwner`'s stop (about 0.7 s after the page turns hidden); the interrupt takes at most 3 s (shared bound) plus one 5 s release attempt, so it ends by about 53.7 s after hiding, about 6 s before the freeze. **Why `busy: false` wasn't enough:** on the device the page reported `busy: false` 9 ms after Stop and ST sent its save 0.76 s later, so a release on `busy: false` landed first; a device claiming in that gap would hold the save and the phone would lose the partial reply. ST 1.19.1 has no "chat saved" event, so `bridge.js` `interruptReply` arms a passive `PerformanceObserver` on resource entries (the lease stays the only fetch wrapper) before ST's stop, and posts `chatSaved` once when a chat save that started after arming has completed (any status), or never; the watch disarms itself after 10 s. The save paths (`/api/chats/save`, `/api/chats/group/save`) are in `st-selectors.js`. Kotlin counts `chatSaved` in `LeaseStateStore.chatSaves` and waits for the next one after Stop, inside the one 3 s bound shared with `busy: false`; the release goes out when both have arrived or when the bound runs out. Same wait on all three paths: the deadline, API 31–33 (interrupt at once on going to the background) and `onTimeout` in the background. The interrupt's Stop is not gated by the Kotlin pre-check (`BridgeClient.interruptReply`): it must fit the time budget, and ST's save after it is still pair-checked by the page's own lease (E6). A return during the release upload is still waited for before `onForeground()` (D28); a return during the interrupt's wait releases nothing
+- **D31 (slice 7):** the reply notification uses Android's default foreground-service notification behavior, so it is shown only once the service has run for about 10 s; replies that finish sooner in the foreground show no notification at all (A6 expected a brief one every time). Its small icon is the launcher's monochrome layer. The interrupted-reply message (A6) is a snackbar on the Chat screen, from a `LeaseStateStore` flag the screen collects only while visible, so an interrupt in the background shows on return
 
 ## Notes
 
+- **Slice 7, A6 (verify) findings (2026-11-21):** `leaseTest` build on an emulator (API 37, WebView 157) against the test install (SillyTavern 1.19.1) with the test tools' mock model (one word every 2 s, about 88 s per reply). A page heartbeat (`setInterval` pushing `Date.now()`, read back after the return) and page lifecycle listeners (`freeze`, `resume`, `visibilitychange`) were added through the WebView's DevTools; process state from `dumpsys activity processes`
+    - **Android's cached-app freezer is real:** Home, then other apps → the app goes `cch` and both the app and its renderer process show `isFrozen=true` about 10 s later; the heartbeat stops for the whole time. Home alone keeps the app `prev` (not cached) for a while
+    - **The `shortService` works as an Android-side fix:** started on `busy: true` in the foreground (`types=0x800`, channel `replies_in_progress`), then Home and other apps → the app is `fg-service-short` and the renderer `FGS`, neither frozen, **without** `setRendererPriorityPolicy` (the renderer follows the app's importance). No type-specific permission: only `FOREGROUND_SERVICE` is declared, and `startForeground` with the short-service type didn't throw
+    - **But Chromium freezes the hidden page itself, 60 s after it is hidden**, whatever the process state. First seen under the service: tokens stopped reaching the page about 60 s after Home (the mock had sent the whole reply; nothing on the Android side was frozen), so the reply hung until the time limit. **So a `shortService` alone can't finish a reply longer than about 60 s after Home.** This is the freeze the spike saw
+    - **Freeze timing, measured** (API 37, WebView 157.0.8103.50): a page heartbeat every 250 ms (`Date.now()` into an array) plus `visibilitychange` / `freeze` / `resume` listeners with `Date.now()`, armed through DevTools; Home with `adb shell input keyevent HOME`, the PC's `Date.now()` taken just before it (the PC clock runs about 0.5 s ahead of the emulator's, so `hidden` shows at −0.5 s); read back after the return. 6 runs:
+
+        | Run | Setup | `hidden` → `freeze` | Home → last heartbeat |
+        |---|---|---|---|
+        | 0 | Home only, 100 s (first sighting, second precision) | 60 s | — |
+        | 1 | Home only, 75 s | 60.0 s | 59.2 s |
+        | 2 | Home only, 75 s | 60.0 s | 59.3 s |
+        | 3 | Home only, 75 s | 60.0 s | 58.5 s |
+        | 4 | reply streaming under the service, Home then Settings and Chrome | 60.0 s | 59.3 s |
+        | 5 | same as 4 | 60.0 s | 58.9 s |
+
+        No spread between runs (the heartbeat's last beat is 0.2–1 s earlier, since hidden pages run timers about once a second). Runs 4 and 5 are the same while the service kept Android from freezing the app, so this is Chromium's own background-page freeze, not Android's. Not measured on other WebView versions or API levels
+    - **Interrupt at a 45 s deadline, ST's save vs the release** (2 runs, reply under the service, Home then Settings and Chrome; resource timings from DevTools, buffer cleared and enlarged before the run; same emulator clock as logcat): the deadline fired 45.0 s after `ProcessLifecycleOwner`'s stop both times and the page was still running. Run 2 in ms after the interrupt: page reports `busy: false` +9; generation response ends +103; the lease's `busy: false` write +108–135; **Kotlin release written +124; `/api/chats/save` sent +763** (after the lease's pair re-read at +745). Run 1: release written +46 (its save wasn't in the full timing buffer). **So waiting for `leaseState.busy: false` does not put ST's partial save before the release:** the page reports `busy: false` as soon as the generation request ends, and ST saves afterwards. The save still landed (the lease file's pair was unchanged, so the page's own pair check passed), but a device claiming in that gap would hold it and the partial reply would be lost on the phone (nothing overwritten). SillyTavern 1.19.1 has no "chat saved" event (`public/scripts/events.js`; `saveChatConditional` emits none)
+    - **`PerformanceObserver` in WebView 157:** it reports the page's fetch requests as resource entries, including those sent through the lease's fetch wrapper, **with the page's resource timing buffer full** (250 of 250 entries, the default size, as after a normal session): the app's `chatSaved` arrived in both runs below. Entries arrive once the response has ended
+    - **Group chats** save to `/api/chats/group/save` (1.19.1 `group-chats.js`, three call sites), a character's chat to `/api/chats/save` (`script.js`); both are watched. Not exercised on a device (the test install has no group)
+    - **Save-ordered release, re-checked** (D30; 2 runs, same setup as above, buffer left full; times in ms after the deadline's interrupt, page entries from a test-only observer, app lines from logcat, one clock):
+
+        | Run | `busy: false` reported | generate ends | lease `busy: false` write | `/api/chats/save` sent → completed | `chatSaved` in Kotlin | **Release written** |
+        |---|---|---|---|---|---|---|
+        | 1 | +4 | +34 | +37–43 | +201 → **+213** | +264 | **+785** |
+        | 2 | +5 | +30 | +33–39 | +1104 → **+1118** | +1169 | **+1687** |
+
+        ("Release written" is logged when the upload's answer arrives; its request starts right after `chatSaved`.) The partial replies (24 and 23 words) are in the chat file. The deadline fired 45.0 s after the stop both times; the page wasn't frozen yet
+    - **The ~0.5 s between `chatSaved` and "Release written"** is the Kotlin upload's connection setup, not the save wait: timed with temporary logs (not committed) on API 35, three background releases: first in the process, `/csrf-token` 529 ms then `/api/files/upload` 7 ms; with the token cached, the upload alone 113 and 141 ms. API 37 run 2 had the token cached and still took about 0.5 s, so most of it is opening a connection to the server after an idle spell (the page's own requests reuse Chromium's connections and take a few ms)
+    - **API 35, notification permission denied** (Medium Phone API 35, WebView 157.0.8103.50; `POST_NOTIFICATION: ignore`, since the app doesn't declare it): a reply, then Home, Settings and Chrome. 33 s after Home the service ran (`isForeground=true types=0x800`), the app was `fg-service-short` and the renderer `FGS`, nothing frozen; no notification posted (`dumpsys notification` has none for the app; the expanded shade showed none). The 45 s deadline fired; ms after the interrupt: generate ends +35, lease `busy: false` write +39–63, `/api/chats/save` +1064 → **+1072**, `chatSaved` +1082, **release written +1606**
+    - **Android 12–13 (API 31–33) waits for the release checklist:** no system image is installed for them, so the interrupt at once on going to the background is covered by unit tests only
+    - Not reproduced on a device: the `onTimeout` path with the save report (unit tests; the time limit's interrupt itself ran on the device before D30), a save that never comes (unit tests: release at the 3 s bound)
+    - **Time limit (API 37):** `onTimeout` came exactly 180 s after the start. `dumpsys activity settings`: `short_fgs_timeout_duration=180000`, `short_fgs_proc_state_extra_wait_duration=5000` (the process loses its foreground-service importance 5 s after the limit), `short_fgs_anr_extra_wait_duration=10000` (ANR 10 s after it). The interrupt then ran: `evaluateJavascript` reached the frozen page (ST logged `generation_stopped` at once), and the release was written 0.5 s later
+    - **ST's save of the partial reply did not go out before the release in a frozen page:** the 31-word partial reached the chat file only on the return, about 50 s after the release. Before the 60 s page freeze, the interrupt's wait isn't affected by this
+    - Not yet checked: API 34 and 36 (no image or AVD); API 31–33 (above)
 - **Slice 6 (2026-11-21):** `leaseTest` build on an emulator (API 37, WebView 157) against the test install (SillyTavern 1.19.1). Claude in Chrome wasn't connected, so the desktop was a stand-in: a Node script running the submodule's own `createSessionLease` (rc.1) with its own cookies and CSRF token, i.e. a real start decision without SillyTavern's page. Lease and marker were read the same way
     - **Background release with the page's JavaScript paused** (DevTools `Debugger.pause`, then Home): `Release written (attempt 1)` about 1 s after Home (`ProcessLifecycleOwner` reports the stop after about 0.7 s); the marker named the lease's exact pair. The stand-in's start decision then claimed without a click (`claimed, reloading`, epoch + 1). After the resume, the returning app reported `parked lost` and showed "In use on another device"
     - **Return without a takeover:** marker = lease pair while away; on return the page bumped the epoch (marker one behind, so no longer released) and stayed holder; a fresh stand-in page parked as `held`

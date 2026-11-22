@@ -15,6 +15,7 @@ import com.tiffles.travelingtavern.domain.model.Persona
 import com.tiffles.travelingtavern.domain.model.TappedMessage
 import com.tiffles.travelingtavern.domain.repository.CharacterRepository
 import com.tiffles.travelingtavern.domain.repository.ChatSessionRepository
+import com.tiffles.travelingtavern.domain.repository.LeaseRepository
 import com.tiffles.travelingtavern.domain.repository.PersonaRepository
 import com.tiffles.travelingtavern.domain.usecase.GetMessageActionsUseCase
 import com.tiffles.travelingtavern.ui.navigation.Routes
@@ -93,7 +94,8 @@ class ChatViewModel @Inject constructor(
     private val characters: CharacterRepository,
     private val chat: ChatSessionRepository,
     private val getMessageActions: GetMessageActionsUseCase,
-    personas: PersonaRepository
+    personas: PersonaRepository,
+    private val lease: LeaseRepository
 ) : ViewModel() {
 
     val characterId: String = checkNotNull(savedStateHandle[Routes.FullScreen.Chat.ARG_CHARACTER_ID])
@@ -120,6 +122,12 @@ class ChatViewModel @Inject constructor(
     private val _events = MutableSharedFlow<ChatEvent>(extraBufferCapacity = 4)
 
     val events: SharedFlow<ChatEvent> = _events.asSharedFlow()
+
+    /**
+     * A reply was interrupted when the app went to the background (A6). A flag rather than an
+     * event, so the screen shows it once it is visible again.
+     */
+    val replyInterrupted: StateFlow<Boolean> = lease.replyInterrupted
 
     private val activePersona = personas.personas
         .map { list -> list?.firstOrNull { it.isActive } }
@@ -165,6 +173,9 @@ class ChatViewModel @Inject constructor(
             chat.impersonations.collect { text -> input = text }
         }
     }
+
+    /** The screen showed the interrupted-reply notice. */
+    fun onReplyInterruptedShown() = lease.onReplyInterruptedShown()
 
     private suspend fun openFollowedChat() {
         val opened = characters.openChat(characterId, followedChatFile)

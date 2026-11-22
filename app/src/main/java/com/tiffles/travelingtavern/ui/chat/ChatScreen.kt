@@ -142,6 +142,14 @@ fun ChatScreen(
 private fun ChatEventsEffect(viewModel: ChatViewModel, snackbarHostState: SnackbarHostState) {
     val clipboard = LocalClipboard.current
     val context = LocalContext.current
+    // Collected only while the screen is visible, so an interrupt in the background shows on return.
+    val replyInterrupted by viewModel.replyInterrupted.collectAsStateWithLifecycle()
+    LaunchedEffect(replyInterrupted) {
+        if (replyInterrupted) {
+            viewModel.onReplyInterruptedShown()
+            snackbarHostState.showSnackbar(context.getString(R.string.chat_reply_interrupted))
+        }
+    }
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {

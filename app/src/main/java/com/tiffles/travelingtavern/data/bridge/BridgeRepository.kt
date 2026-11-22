@@ -85,6 +85,7 @@ class BridgeRepository @Inject constructor(private val lease: LeaseStateStore) {
             is BridgeMessage.Error -> Log.w(TAG, "Bridge reported an error")
             is BridgeMessage.LeaseState -> lease.onLeaseState(message)
             is BridgeMessage.LeaseInfo -> lease.onLeaseInfo(message)
+            BridgeMessage.ChatSaved -> lease.onChatSaved()
             is BridgeMessage.Unknown -> Log.d(TAG, "Ignored unknown bridge message type: ${message.type}")
             is BridgeMessage.MessageReceived,
             is BridgeMessage.LorebookEntries, is BridgeMessage.LorebookResult, is BridgeMessage.TokenCount,

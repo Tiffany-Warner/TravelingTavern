@@ -35,6 +35,10 @@ class LeaseRepositoryImpl @Inject constructor(
 
     override val stillLoading: Flow<Unit> = gate.stillLoading
 
+    override val replyInterrupted: StateFlow<Boolean> = store.replyInterrupted
+
+    override fun onReplyInterruptedShown() = store.onReplyInterruptedShown()
+
     override suspend fun useHere() {
         val token = withContext(Dispatchers.Main) { store.onUseHere() }
         client.useHere()

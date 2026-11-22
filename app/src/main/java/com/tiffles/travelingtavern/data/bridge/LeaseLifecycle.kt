@@ -8,6 +8,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
@@ -31,6 +34,17 @@ import kotlin.random.Random
  * pair before the marker lands, and a marker landing afterwards would make a foreground holder
  * look released, so another device could claim without a click. Then `setAppState(true)`.
  *
+ * **Reply in the background** (A6): when a holder's reply starts (`busy` turns `true`) with the
+ * app in the foreground, the reply service starts (Android 14+, [ReplyServiceController]); it
+ * stops when the reply ends. Going to the background during a reply with the service running
+ * defers the release until the reply ends, for at most [backgroundReplyDeadlineMs]; then the reply
+ * is interrupted, before Chromium freezes the hidden page (D30). Without the service (Android
+ * 12–13, or it couldn't start) the reply is interrupted at once. The interrupt: Stop, then one
+ * bounded wait ([interruptWaitMs]) for `busy: false` and the page's report that SillyTavern's save
+ * of the partial reply completed (`chatSaved`), so the save lands first, then the release. At the service's time limit in the background (a safety net: the
+ * deadline normally comes first), the same interrupt runs before the service stops, bounded by
+ * [timeoutStopMs] so it fits the time Android allows.
+ *
  * Call [start] once, from `Application.onCreate`. Runs on the main thread (the app scope).
  */
 @Singleton
@@ -39,10 +53,14 @@ class LeaseLifecycle internal constructor(
     private val store: LeaseStateStore,
     private val uploader: ReleaseUploader,
     private val client: BridgeClient,
+    private val replyService: ReplyServiceController,
     private val scope: CoroutineScope,
     private val now: () -> Instant = Instant::now,
     private val backoffMs: () -> Long = { releaseBackoffMs() },
-    private val returnWaitMs: Long = RELEASE_ATTEMPT_BUDGET_MS + RETURN_WAIT_MARGIN_MS
+    private val returnWaitMs: Long = RELEASE_ATTEMPT_BUDGET_MS + RETURN_WAIT_MARGIN_MS,
+    private val interruptWaitMs: Long = INTERRUPT_WAIT_MS,
+    private val timeoutStopMs: Long = TIMEOUT_STOP_MS,
+    private val backgroundReplyDeadlineMs: Long = BACKGROUND_REPLY_DEADLINE_MS
 ) {
 
     @Inject
@@ -51,13 +69,18 @@ class LeaseLifecycle internal constructor(
         store: LeaseStateStore,
         uploader: ReleaseUploader,
         client: BridgeClient,
+        replyService: ReplyServiceController,
         @ApplicationScope scope: CoroutineScope
-    ) : this(foreground.isForeground, store, uploader, client, scope)
+    ) : this(foreground.isForeground, store, uploader, client, replyService, scope)
 
     private var started = false
     private var release: Job? = null
     private var returned = false
     private var appState: Job? = null
+    private var serviceRunning = false
+    private var releaseWhenReplyEnds = false
+    private var interrupt: Job? = null
+    private var replyDeadline: Job? = null
 
     fun start() {
         scope.launch {
@@ -82,33 +105,140 @@ class LeaseLifecycle internal constructor(
                 }
             }
         }
-    }
-
-    /** Releases if this page is a holder that isn't generating. Starts the upload at once. */
-    private fun onBackground() {
-        val status = store.status.value
-        val state = store.lastState.value
-        val epoch = state?.epoch
-        if (state == null || epoch == null || status !is LeaseStatus.Holder || state.state != HOLDER) {
-            Log.d(TAG, "Background: not holder, nothing to release")
-            return
+        scope.launch {
+            store.status.map { it.isReplying() }.distinctUntilChanged().collect { replying ->
+                if (replying) onReplyStarted() else onReplyEnded()
+            }
         }
-        if (status.busy) {
-            onBackgroundWhileBusy()
-            return
-        }
-        returned = false
-        val body = ReleaseMarker.uploadBody(state.pageId, epoch, now().truncatedTo(ChronoUnit.MILLIS).toString())
-        release = scope.launch { uploadWithRetry(state.origin, body) }
     }
 
     /**
-     * A reply is generating (`busy`): no release in slice 6. Slice 7 (A6) decides here: on API 34+
-     * the reply service keeps the page running and releases when `busy` ends in the background;
-     * on API 31–33 it interrupts (stop, bounded wait for `busy: false`, then release).
+     * The reply service reached its time limit (called by the service). In the foreground it just
+     * stops. In the background the interrupt runs first, then the service stops, at the latest
+     * after [timeoutStopMs] (Android treats a service that outlives the grace period as not
+     * responding); release retries still pending then go on without it.
+     */
+    fun onReplyServiceTimeout(stopService: () -> Unit) {
+        serviceRunning = false
+        cancelReplyDeadline()
+        val stop = {
+            replyService.stop()
+            stopService()
+        }
+        if (isForeground.value || !store.status.value.isReplying()) {
+            Log.i(TAG, "Reply service time limit: stopping it")
+            stop()
+            return
+        }
+        Log.i(TAG, "Reply service time limit in the background: interrupting the reply")
+        releaseWhenReplyEnds = false
+        val job = startInterrupt()
+        scope.launch {
+            if (withTimeoutOrNull(timeoutStopMs) { job.join() } == null) {
+                Log.w(TAG, "Interrupt not finished after $timeoutStopMs ms; stopping the reply service anyway")
+            }
+            stop()
+        }
+    }
+
+    /** Releases if this page is a holder that isn't generating; see [onBackgroundWhileBusy] otherwise. */
+    private fun onBackground() {
+        returned = false
+        val status = store.status.value
+        if (status !is LeaseStatus.Holder) {
+            Log.d(TAG, "Background: not holder, nothing to release")
+            return
+        }
+        if (status.busy) onBackgroundWhileBusy() else releaseIfHolder()
+    }
+
+    /**
+     * A reply is generating (`busy`): with the reply service running, it finishes and the release
+     * follows when it ends ([onReplyEnded]); without it (Android 12–13, or the service didn't
+     * start), the reply is interrupted.
      */
     private fun onBackgroundWhileBusy() {
-        Log.i(TAG, "Background while a reply generates: release deferred")
+        if (serviceRunning) {
+            Log.i(TAG, "Background while a reply generates: it may finish under the reply service, then releases")
+            releaseWhenReplyEnds = true
+            replyDeadline = scope.launch {
+                delay(backgroundReplyDeadlineMs)
+                Log.i(TAG, "Reply still running $backgroundReplyDeadlineMs ms after going to the background: interrupting it")
+                releaseWhenReplyEnds = false
+                startInterrupt()
+            }
+        } else {
+            Log.i(TAG, "Background while a reply generates, no reply service: interrupting it")
+            startInterrupt()
+        }
+    }
+
+    /** A holder's reply started: the reply service starts, but only from the foreground (A6). */
+    private fun onReplyStarted() {
+        when {
+            !isForeground.value -> Log.i(TAG, "Reply started in the background: no reply service")
+            !replyService.supported || serviceRunning -> Unit
+            else -> serviceRunning = replyService.start()
+        }
+    }
+
+    /** The reply ended (or the page stopped being holder): stop the service; release if deferred. */
+    private fun onReplyEnded() {
+        cancelReplyDeadline()
+        if (serviceRunning) {
+            serviceRunning = false
+            replyService.stop()
+        }
+        if (releaseWhenReplyEnds) {
+            releaseWhenReplyEnds = false
+            Log.i(TAG, "Reply ended in the background")
+            releaseIfHolder()
+        }
+    }
+
+    private fun cancelReplyDeadline() {
+        replyDeadline?.cancel()
+        replyDeadline = null
+    }
+
+    /**
+     * Stop, then one bounded wait for `busy: false` and the next `chatSaved` (SillyTavern's save of
+     * the partial reply lands first; `busy: false` alone comes before ST even sends it, D30), then
+     * the release, which goes out even when the wait runs out (nothing generated, so no save; or
+     * the save failed to report). Not after a return.
+     */
+    private fun startInterrupt(): Job {
+        interrupt?.takeIf { it.isActive }?.let { return it }
+        return scope.launch {
+            val savesBefore = store.chatSaves.value
+            client.interruptReply()
+            store.onReplyInterrupted()
+            val settled = withTimeoutOrNull(interruptWaitMs) {
+                store.status.first { !it.isReplying() }
+                store.chatSaves.first { it > savesBefore }
+            } != null
+            if (!settled) Log.w(TAG, "No busy: false and chat save within $interruptWaitMs ms; releasing anyway")
+            if (returned) {
+                Log.i(TAG, "Returned during the interrupt; no release")
+                return@launch
+            }
+            releaseIfHolder()?.join()
+        }.also { interrupt = it }
+    }
+
+    /**
+     * Starts the release upload if this page is holder (busy or not: an interrupt that ran out
+     * of time still releases; a released claim's `busy` is ignored, E5). Null when not holder.
+     */
+    private fun releaseIfHolder(): Job? {
+        val state = store.lastState.value
+        val epoch = state?.epoch
+        if (state == null || epoch == null || store.status.value !is LeaseStatus.Holder || state.state != HOLDER) {
+            Log.d(TAG, "Not holder, nothing to release")
+            return null
+        }
+        val body = ReleaseMarker.uploadBody(state.pageId, epoch, now().truncatedTo(ChronoUnit.MILLIS).toString())
+        return scope.launch { uploadWithRetry(state.origin, body) }.also { release = it }
     }
 
     private suspend fun uploadWithRetry(origin: String, body: String) {
@@ -129,6 +259,8 @@ class LeaseLifecycle internal constructor(
     /** Waits (bounded) for a release in flight, then `onForeground()`, then `setAppState(true)`. */
     private fun onReturn() {
         returned = true
+        releaseWhenReplyEnds = false
+        cancelReplyDeadline()
         val pending = release
         release = null
         val previous = appState
@@ -160,8 +292,38 @@ class LeaseLifecycle internal constructor(
         const val HOLDER = "holder"
         const val MAX_ATTEMPTS = 3
         const val RETURN_WAIT_MARGIN_MS = 500L
+
+        /**
+         * The interrupt's one bound, shared by the wait for `busy: false` and the wait for the
+         * page's `chatSaved` after Stop (D30). In the measured runs both had come within 1.2 s
+         * after Stop (Notes, slice 7).
+         */
+        const val INTERRUPT_WAIT_MS = 3_000L
+
+        /**
+         * How long a reply may keep running under the reply service after the app goes to the
+         * background before it is interrupted (D30). Chromium freezes a hidden page 60 s after it
+         * is hidden (measured on WebView 157, no spread between runs: Notes, slice 7), and a
+         * frozen page doesn't send SillyTavern's save of the partial reply until it is visible
+         * again. The whole interrupt must therefore finish before 60 s: at most
+         * [INTERRUPT_WAIT_MS] for `busy: false` and the save (one shared bound) plus one release attempt
+         * ([RELEASE_ATTEMPT_BUDGET_MS]) ends 53 s after the deadline starts. The deadline starts
+         * at `ProcessLifecycleOwner`'s stop, about 0.7 s after the page turns hidden, so about 6 s
+         * are left before the freeze, as margin for other WebView versions.
+         */
+        const val BACKGROUND_REPLY_DEADLINE_MS = 45_000L
+
+        /**
+         * At the time limit, the interrupt gets this long before the service stops: the wait plus
+         * one release attempt ([RELEASE_ATTEMPT_BUDGET_MS]), inside the 10 s Android allows
+         * after `onTimeout` before it treats the app as not responding (Notes, slice 7).
+         */
+        const val TIMEOUT_STOP_MS = INTERRUPT_WAIT_MS + RELEASE_ATTEMPT_BUDGET_MS + 500L
     }
 }
+
+/** A holder generating a reply (`busy`). */
+private fun LeaseStatus.isReplying(): Boolean = this is LeaseStatus.Holder && busy
 
 /** E3's wait before another release attempt: a random 100–200 ms. */
 internal fun releaseBackoffMs(random: Random = Random): Long = random.nextLong(100L, 201L)

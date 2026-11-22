@@ -120,6 +120,18 @@ class BridgeMessageParserTest {
     }
 
     @Test
+    fun `chatSaved`() {
+        assertEquals(BridgeMessage.ChatSaved, parse("""{"v":1,"type":"chatSaved"}"""))
+        assertEquals(BridgeMessage.ChatSaved, parse("""{"v":1,"type":"chatSaved","status":500}"""))
+    }
+
+    @Test
+    fun `chatSaved without a version or malformed is dropped`() {
+        assertNull(parse("""{"type":"chatSaved"}"""))
+        assertNull(parse("""{"v":1,"type":"chatSaved""""))
+    }
+
+    @Test
     fun `unknown type is kept as unknown, not dropped`() {
         assertEquals(BridgeMessage.Unknown("somethingNew"), parse("""{"v":2,"type":"somethingNew","x":1}"""))
     }

@@ -35,6 +35,8 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
     private val _info = MutableStateFlow<BridgeMessage.LeaseInfo?>(null)
     private val _status = MutableStateFlow<LeaseStatus>(LeaseStatus.NotReported)
     private val _unprotected = MutableStateFlow(false)
+    private val _replyInterrupted = MutableStateFlow(false)
+    private val _chatSaves = MutableStateFlow(0)
 
     /** The current load's last `leaseState` (pair, origin, `busy`) for the pre-check and release. Null until reported. */
     val lastState: StateFlow<BridgeMessage.LeaseState?> = _lastState.asStateFlow()
@@ -47,6 +49,12 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
 
     /** Continue without protection was chosen (this process only): the warning banner shows. */
     val unprotected: StateFlow<Boolean> = _unprotected.asStateFlow()
+
+    /** How many `chatSaved` reports the page has sent (the interrupt waits for the next one, A6). */
+    val chatSaves: StateFlow<Int> = _chatSaves.asStateFlow()
+
+    /** A reply was stopped because the app went to the background (A6), not yet shown in Chat. */
+    val replyInterrupted: StateFlow<Boolean> = _replyInterrupted.asStateFlow()
 
     /**
      * A takeover is reloading the page: the last `leaseState` reason is `claiming` or
@@ -110,6 +118,21 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
     fun onPreCheckFailed(reason: ParkReason) {
         preCheckPark = reason
         publish()
+    }
+
+    /** The page reported that its chat save after the interrupt's Stop completed. */
+    fun onChatSaved() {
+        _chatSaves.value++
+    }
+
+    /** The interrupt (A6) stopped a reply: the Chat screen tells the user on return. */
+    fun onReplyInterrupted() {
+        _replyInterrupted.value = true
+    }
+
+    /** The Chat screen showed the interrupted-reply notice. */
+    fun onReplyInterruptedShown() {
+        _replyInterrupted.value = false
     }
 
     /** Continue without protection (A2): SillyTavern loads without the lease for this process. */

@@ -18,7 +18,8 @@ import javax.inject.Singleton
  * Every command goes through the lease pre-check ([LeaseGate], A4) and returns whether it was
  * sent: `false` means it was refused and never reached the page. Exempt, because they touch
  * nothing but the page's DOM or CSS: [revealMessage], [endReveal], [setCleanMode] and
- * [setPageTheme]. [useHere] and [onForeground] are the lease's own hooks and are never gated.
+ * [setPageTheme]. [useHere] and [onForeground] are the lease's own hooks and are never gated,
+ * nor is [interruptReply] (A6).
  *
  * Commands are [CommandOrigin.User] unless noted: [setAppState], [reloadChat], [requestPersonas]
  * and [countTokens] are always started by the app, and [requestRecentChats] takes its origin
@@ -84,6 +85,14 @@ class BridgeClient @Inject constructor(
     suspend fun impersonate() = run(BridgeScript.call("impersonate"))
 
     suspend fun stopGeneration() = run(BridgeScript.call("stopGeneration"))
+
+    /**
+     * The interrupt's Stop (A6), with the app in the background: arms the page's save watch, then
+     * stops the reply; `chatSaved` follows once SillyTavern's save has completed. Not gated (D30):
+     * the interrupt must fit its time budget, and the chat save SillyTavern sends after the stop is
+     * still checked by the page's own lease (E6).
+     */
+    suspend fun interruptReply() = runUnchecked(BridgeScript.call("interruptReply"))
 
     /**
      * Scrolls message [messageId] above the actions sheet, which covers the bottom [coveredPx] of

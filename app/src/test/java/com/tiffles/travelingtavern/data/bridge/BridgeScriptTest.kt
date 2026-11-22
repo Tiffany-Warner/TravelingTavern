@@ -22,6 +22,14 @@ class BridgeScriptTest {
     }
 
     @Test
+    fun `interruptReply is one call that arms the save watch and stops in the page`() {
+        assertEquals(
+            "window.__ttBridge && window.__ttBridge.interruptReply();",
+            BridgeScript.call("interruptReply")
+        )
+    }
+
+    @Test
     fun `call without arguments`() {
         assertEquals(
             "window.__ttBridge && window.__ttBridge.requestCharacters();",

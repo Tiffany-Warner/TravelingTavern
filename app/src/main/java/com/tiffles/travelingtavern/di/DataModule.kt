@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.tiffles.travelingtavern.data.bridge.LeaseFileReader
 import com.tiffles.travelingtavern.data.bridge.ReleaseUploader
+import com.tiffles.travelingtavern.data.bridge.ReplyServiceController
 import com.tiffles.travelingtavern.data.media.ContentPictureEncoder
 import com.tiffles.travelingtavern.data.media.PictureEncoder
 import com.tiffles.travelingtavern.data.remote.BasicAuthInterceptor
@@ -18,6 +19,7 @@ import com.tiffles.travelingtavern.data.repository.LorebookRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.PersonaRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.ServerConfigRepositoryImpl
 import com.tiffles.travelingtavern.data.settings.HiddenChatsStore
+import com.tiffles.travelingtavern.data.service.AndroidReplyServiceController
 import com.tiffles.travelingtavern.data.settings.settingsDataStore
 import com.tiffles.travelingtavern.domain.repository.CharacterRepository
 import com.tiffles.travelingtavern.domain.repository.ChatSessionRepository
@@ -72,6 +74,9 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindReleaseUploader(impl: OkHttpReleaseUploader): ReleaseUploader
+
+    @Binds
+    abstract fun bindReplyServiceController(impl: AndroidReplyServiceController): ReplyServiceController
 
     companion object {
         @Provides

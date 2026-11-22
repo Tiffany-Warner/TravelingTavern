@@ -8,6 +8,9 @@ sealed interface BridgeMessage {
     /** SillyTavern finished loading and the bridge is listening. */
     data object Ready : BridgeMessage
 
+    /** After `interruptReply`: the page's chat save request has completed (any status). Once. */
+    data object ChatSaved : BridgeMessage
+
     @Serializable
     data class Characters(val items: List<CharacterDto>) : BridgeMessage
 

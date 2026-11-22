@@ -210,4 +210,9 @@
     <string name="lease_continue_unprotected">Continue without protection</string>
     <string name="lease_still_loading">SillyTavern is still loading, try again in a moment.</string>
     <string name="lease_unprotected_banner">Not protected: data from another device can be overwritten</string>
+
+    <!-- Session lease: reply in the background (A6) -->
+    <string name="reply_channel_name">Replies in progress</string>
+    <string name="reply_notification_text">Finishing your reply…</string>
+    <string name="chat_reply_interrupted">Your reply was interrupted when TravelingTavern went to the background.</string>
 </resources>
