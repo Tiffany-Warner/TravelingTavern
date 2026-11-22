@@ -223,4 +223,40 @@
     <string name="chat_connecting">Connecting…</string>
     <string name="chat_reply_not_started">Couldn\'t reach SillyTavern to start the reply. Try again.</string>
     <string name="chat_reply_not_started_saved">Couldn\'t reach SillyTavern to start the reply. Your message was saved.</string>
+
+    <!-- Desktop protection: the TravelingTavern extension (session lease A8) -->
+    <string name="protection_title">Desktop protection</string>
+    <string name="protection_checking">Checking SillyTavern…</string>
+    <string name="protection_not_installed">Not installed</string>
+    <string name="protection_not_installed_detail">Without the TravelingTavern extension, SillyTavern on your computer can overwrite changes made on this phone.</string>
+    <string name="protection_update_available">Update available</string>
+    <string name="protection_update_available_detail">The TravelingTavern extension on your SillyTavern is older than this app.</string>
+    <string name="protection_update_app">Update TravelingTavern</string>
+    <string name="protection_update_app_detail">The extension on your SillyTavern is newer than this app.</string>
+    <string name="protection_installed">Installed</string>
+    <string name="protection_untested">Not tested with SillyTavern %1$s yet.</string>
+    <string name="protection_untested_unknown">Not tested with this SillyTavern version yet.</string>
+    <string name="protection_install">Install</string>
+    <string name="protection_update">Update</string>
+    <string name="protection_get_app_update">Get the update</string>
+    <string name="protection_not_now">Not now</string>
+    <string name="protection_ok">OK</string>
+    <string name="protection_prompt_title">Keep your devices from overwriting each other</string>
+    <string name="protection_prompt_text">Without the TravelingTavern extension, a SillyTavern tab on your computer can overwrite changes made on this phone, and this phone can overwrite changes made in that tab. Install it on every browser you use with SillyTavern.</string>
+    <string name="protection_confirm_install_title">Install the TravelingTavern extension?</string>
+    <string name="protection_confirm_install_text">SillyTavern downloads it from GitHub and installs it for your user. SillyTavern on this phone then reloads.</string>
+    <string name="protection_confirm_update_title">Update the TravelingTavern extension?</string>
+    <string name="protection_confirm_update_text">SillyTavern downloads the latest version from GitHub. SillyTavern on this phone then reloads.</string>
+    <string name="protection_installing">Installing the extension…</string>
+    <string name="protection_updating">Updating the extension…</string>
+    <string name="protection_installed_title">Extension installed</string>
+    <string name="protection_updated_title">Extension updated</string>
+    <string name="protection_reload_computer">Reload SillyTavern on your computer to turn on protection there.</string>
+    <string name="protection_already_installed_title">Already installed</string>
+    <string name="protection_already_installed_text">The extension is already installed in SillyTavern.</string>
+    <string name="protection_up_to_date">The extension is already up to date.</string>
+    <string name="protection_install_failed_title">Couldn\'t install</string>
+    <string name="protection_install_failed_text">Couldn\'t install the extension. On your computer, use SillyTavern\'s Install extension with this address:</string>
+    <string name="protection_update_failed_title">Couldn\'t update</string>
+    <string name="protection_update_failed_text">Couldn\'t update the extension. If it was installed for all users, or extensions are turned off, update it in SillyTavern\'s Manage extensions on your computer.</string>
 </resources>

@@ -57,6 +57,7 @@ import com.tiffles.travelingtavern.ui.lorebooks.LorebooksScreen
 import com.tiffles.travelingtavern.ui.me.MeScreen
 import com.tiffles.travelingtavern.ui.personas.PersonaEditorScreen
 import com.tiffles.travelingtavern.ui.personas.PersonasScreen
+import com.tiffles.travelingtavern.ui.protection.ExtensionPromptHost
 
 /**
  * The app shell: a bottom navigation bar over four tab graphs, plus full-screen
@@ -141,6 +142,8 @@ fun TravelingTavernNavHost(
                     }
                 }
             }
+            // The one-time extension dialog (A8): drawn only while no scrim covers the app.
+            ExtensionPromptHost()
         }
     }
 }

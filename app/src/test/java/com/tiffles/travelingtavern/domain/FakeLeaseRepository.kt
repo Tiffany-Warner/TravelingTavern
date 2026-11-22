@@ -1,5 +1,6 @@
 package com.tiffles.travelingtavern.domain
 
+import com.tiffles.travelingtavern.domain.model.DesktopProtection
 import com.tiffles.travelingtavern.domain.model.LeaseStatus
 import com.tiffles.travelingtavern.domain.model.ModelBanner
 import com.tiffles.travelingtavern.domain.repository.LeaseRepository
@@ -10,6 +11,9 @@ class FakeLeaseRepository : LeaseRepository {
 
     override val status = MutableStateFlow<LeaseStatus>(LeaseStatus.NotReported)
     override val unprotected = MutableStateFlow(false)
+    override val desktopProtection = MutableStateFlow<DesktopProtection?>(null)
+    override val extensionPromptDue = MutableStateFlow(false)
+    var extensionPromptShownCalls = 0
     override val commandWaiting = MutableStateFlow(false)
     override val stillLoading = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     override val replyInterrupted = MutableStateFlow(false)
@@ -38,5 +42,11 @@ class FakeLeaseRepository : LeaseRepository {
 
     override suspend fun continueWithoutProtection() {
         continueCalls++
+    }
+
+    override suspend fun onExtensionPromptShown() {
+        extensionPromptShownCalls++
+        // As the real flag: once shown, never due again.
+        extensionPromptDue.value = false
     }
 }

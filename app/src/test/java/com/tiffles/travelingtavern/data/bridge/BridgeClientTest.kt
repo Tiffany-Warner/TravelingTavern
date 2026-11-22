@@ -13,6 +13,9 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -142,6 +145,28 @@ class BridgeClientTest {
 
         coVerify(exactly = 0) { gate.check(any()) }
         assertTrue(scriptsRun().size == 2)
+    }
+
+    @Test
+    fun `extension install and update are checked as user-started`() = runTest {
+        coEvery { gate.check(any()) } returns LeaseCheck.Allowed
+        val body = buildJsonObject { put("url", JsonPrimitive("u")) }
+
+        assertTrue(client.installExtension("r1", body))
+        assertTrue(client.updateExtension("r2", body))
+
+        coVerify(exactly = 2) { gate.check(CommandOrigin.User) }
+        assertTrue(scriptsRun()[0].contains("__ttBridge.installExtension(\"r1\",{\"url\":\"u\"})"))
+        assertTrue(scriptsRun()[1].contains("__ttBridge.updateExtension(\"r2\","))
+    }
+
+    @Test
+    fun `extension install refused by the pre-check never reaches the page`() = runTest {
+        coEvery { gate.check(any()) } returns LeaseCheck.Refused
+
+        assertFalse(client.installExtension("r1", JsonObject(emptyMap())))
+
+        assertTrue(scriptsRun().isEmpty())
     }
 
     @Test

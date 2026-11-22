@@ -1,5 +1,6 @@
 package com.tiffles.travelingtavern.domain.repository
 
+import com.tiffles.travelingtavern.domain.model.DesktopProtection
 import com.tiffles.travelingtavern.domain.model.LeaseStatus
 import com.tiffles.travelingtavern.domain.model.ModelBanner
 import kotlinx.coroutines.flow.Flow
@@ -49,4 +50,13 @@ interface LeaseRepository {
 
     /** Loads SillyTavern without the lease, for this app launch only (no document-start support). */
     suspend fun continueWithoutProtection()
+
+    /** The Desktop protection row (A8), from the current load's `leaseInfo`; null while not known yet. */
+    val desktopProtection: Flow<DesktopProtection?>
+
+    /** The one-time "Keep your devices from overwriting each other" dialog should show now (A8). */
+    val extensionPromptDue: Flow<Boolean>
+
+    /** The one-time dialog was shown: it never shows again. */
+    suspend fun onExtensionPromptShown()
 }

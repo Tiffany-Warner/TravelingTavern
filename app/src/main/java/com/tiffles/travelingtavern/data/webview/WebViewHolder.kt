@@ -45,7 +45,7 @@ class WebViewHolder @Inject constructor(
     private val lease: LeaseStateStore,
     private val serverPolicy: ServerPolicy,
     @ApplicationScope private val scope: CoroutineScope
-) {
+) : PageReloader {
     // The WebView holds this wrapper, not an Activity, so no Activity can leak through it.
     private val contextWrapper = MutableContextWrapper(appContext)
     private val tracker = PageStateTracker()
@@ -113,6 +113,13 @@ class WebViewHolder @Inject constructor(
     fun reload() {
         webView.reload()
     }
+
+    /**
+     * After an extension install or update (A2, A8): drops the HTTP cache so the page loads the new
+     * extension files, then reloads. Only the cache: never cookies (the SillyTavern session) or web
+     * storage (`sessionStorage` holds the lease's tab id, `localStorage` SillyTavern's own data).
+     */
+    override fun clearCacheAndReload() = webView.clearCacheOnlyAndReload()
 
     /**
      * No document-start support and the user chose to continue anyway: loads SillyTavern

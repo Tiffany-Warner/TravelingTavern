@@ -4,7 +4,7 @@ Session Lease — `0.1.20` (in progress, branch `feature/session-lease`)
 
 ## Status
 
-**Implementing in slices** (see the spec's Implementation section). `context/specs/session-lease-app-spec.md` is reviewed (replaces the superseded `fix-stale-page-overwrites-spec.md`). Extension `v0.2.0-rc.3` is tagged and pinned (re-pinned from rc.1 before slice 8). Slices 1–8 done (build plumbing and `leaseTest`; lease messages and state; document-start injection; native parked scrim; Kotlin pre-check; foreground and background release; reply in the background; notices).
+**Implementing in slices** (see the spec's Implementation section). `context/specs/session-lease-app-spec.md` is reviewed (replaces the superseded `fix-stale-page-overwrites-spec.md`). Extension `v0.2.0-rc.3` is tagged and pinned (re-pinned from rc.1 before slice 8). Slices 1–9 done (build plumbing and `leaseTest`; lease messages and state; document-start injection; native parked scrim; Kotlin pre-check; foreground and background release; reply in the background; notices; extension install and update with the conditional persona re-read). Next: slice 10, the manual and E14 checklists on the test install, and docs.
 
 The decision, the spike's evidence and the requirement map are in that repo's `context/decisions/` (`session-lease-spike.md`, which now holds the direction change and the architecture assessment); the shared contract is its `context/specs/ext-0.2-session-lease-spec.md`.
 
@@ -14,7 +14,7 @@ The decision, the spike's evidence and the requirement map are in that repo's `c
 2. [x] Extension fixes the SillyTavern context hook bug (`v0.2.0-rc.2`) and makes `onForeground()` always report (`v0.2.0-rc.3`); submodule re-pinned to rc.3 (`17004d5`) before slice 8; "unreadable read, then recovers" and the takeover reload re-tested (spec Notes, slice 8)
 3. [ ] Feature branch here: submodule pinned to `v0.2.0-rc.3` (was rc.1 through slice 7); `0.1.20` implemented; app spec checklist (A10) and the extension's E14 checklist pass with the `leaseTest` build on the test install
 4. [ ] The extension releases `v0.2.0` to its `main`
-5. [ ] Re-pin the submodule to `v0.2.0`, re-run the build and unit tests, then merge
+5. [ ] Re-pin the submodule to `v0.2.0`, re-run the build and unit tests, check the app's one-tap extension install succeeds against `main` (slice 9 checked the request and the failure paths only, since `main` had no release), then merge
 6. [ ] After the release: privacy check of `spike/session-lease`, tag `archive/spike-session-lease`, push the tag, delete the branch (ask first)
 
 ## History

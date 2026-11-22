@@ -456,6 +456,20 @@ class BridgeMessageParserTest {
     }
 
     @Test
+    fun `extensionResult carries status and upToDate`() {
+        assertEquals(
+            BridgeMessage.ExtensionResult(requestId = "r1", ok = true, status = 200, upToDate = false),
+            parse("""{"v":1,"type":"extensionResult","requestId":"r1","ok":true,"status":200,"upToDate":false}""")
+        )
+        assertEquals(
+            BridgeMessage.ExtensionResult(requestId = "r1", ok = false, status = 409, upToDate = null),
+            parse("""{"v":1,"type":"extensionResult","requestId":"r1","ok":false,"status":409,"upToDate":null}""")
+        )
+        assertNull(parse("""{"v":1,"type":"extensionResult","requestId":"r1","ok":true}"""))
+        assertNull(parse("""{"v":1,"type":"extensionResult","requestId":"r1","ok":"yes","status":200,"upToDate":null}"""))
+    }
+
+    @Test
     fun `lease messages without a version are not ours`() {
         assertNull(parse(parkedState.replace("\"v\":1,", "")))
     }

@@ -164,6 +164,19 @@ sealed interface BridgeMessage {
     @Serializable
     data class ConnectResult(val requestId: String, val outcome: String, val connected: Boolean) : BridgeMessage
 
+    /**
+     * The answer to an extension install or update (A8), tagged [requestId]. [status] is
+     * SillyTavern's HTTP status (0 when no answer came back, e.g. a network error); [upToDate] is
+     * set for a successful update only (`isUpToDate`: true means there was nothing to pull).
+     */
+    @Serializable
+    data class ExtensionResult(
+        val requestId: String,
+        val ok: Boolean,
+        val status: Int,
+        val upToDate: Boolean? = null
+    ) : BridgeMessage
+
     /** A type this app version doesn't know (e.g. from a newer bridge script). Ignored. */
     data class Unknown(val type: String) : BridgeMessage
 }

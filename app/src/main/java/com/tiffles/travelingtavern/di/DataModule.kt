@@ -13,17 +13,23 @@ import com.tiffles.travelingtavern.data.remote.OkHttpConnectionTester
 import com.tiffles.travelingtavern.data.remote.OkHttpLeaseFileReader
 import com.tiffles.travelingtavern.data.remote.OkHttpReleaseUploader
 import com.tiffles.travelingtavern.data.repository.CharacterRepositoryImpl
-import com.tiffles.travelingtavern.data.repository.LeaseRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.ChatSessionRepositoryImpl
+import com.tiffles.travelingtavern.data.repository.ExtensionRepositoryImpl
+import com.tiffles.travelingtavern.data.repository.LeaseRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.LorebookRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.PersonaRepositoryImpl
 import com.tiffles.travelingtavern.data.repository.ServerConfigRepositoryImpl
-import com.tiffles.travelingtavern.data.settings.HiddenChatsStore
 import com.tiffles.travelingtavern.data.service.AndroidReplyServiceController
+import com.tiffles.travelingtavern.data.settings.ExtensionPromptFlag
+import com.tiffles.travelingtavern.data.settings.ExtensionPromptStore
+import com.tiffles.travelingtavern.data.settings.HiddenChatsStore
 import com.tiffles.travelingtavern.data.settings.settingsDataStore
+import com.tiffles.travelingtavern.data.webview.PageReloader
+import com.tiffles.travelingtavern.data.webview.WebViewHolder
 import com.tiffles.travelingtavern.domain.repository.CharacterRepository
 import com.tiffles.travelingtavern.domain.repository.ChatSessionRepository
 import com.tiffles.travelingtavern.domain.repository.ConnectionTester
+import com.tiffles.travelingtavern.domain.repository.ExtensionRepository
 import com.tiffles.travelingtavern.domain.repository.HiddenChatsRepository
 import com.tiffles.travelingtavern.domain.repository.LeaseRepository
 import com.tiffles.travelingtavern.domain.repository.LorebookRepository
@@ -68,6 +74,15 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindLeaseRepository(impl: LeaseRepositoryImpl): LeaseRepository
+
+    @Binds
+    abstract fun bindExtensionRepository(impl: ExtensionRepositoryImpl): ExtensionRepository
+
+    @Binds
+    abstract fun bindPageReloader(impl: WebViewHolder): PageReloader
+
+    @Binds
+    abstract fun bindExtensionPromptFlag(impl: ExtensionPromptStore): ExtensionPromptFlag
 
     @Binds
     abstract fun bindLeaseFileReader(impl: OkHttpLeaseFileReader): LeaseFileReader

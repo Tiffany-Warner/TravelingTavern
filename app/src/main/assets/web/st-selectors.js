@@ -166,6 +166,16 @@
              * (`script.js` `saveChat`) and a group chat (`group-chats.js`). Verified in 1.19.1.
              */
             chatSaves: Object.freeze(['/api/chats/save', '/api/chats/group/save']),
+            /**
+             * Extension install and update (`src/endpoints/extensions.js`, verified in 1.19.1).
+             * POST with getRequestHeaders(). Install body `{ url }` (no `branch`: the default
+             * branch; no `global`: needs admin), `409` when the folder exists. Update body
+             * `{ extensionName }`, answer field `isUpToDate` (the state before its pull), `404`
+             * when not in the user's folder.
+             */
+            extensionInstall: '/api/extensions/install',
+            extensionUpdate: '/api/extensions/update',
+            extensionUpToDate: 'isUpToDate',
         }),
         /** Fields of one /api/chats/recent row. */
         recentChat: Object.freeze({

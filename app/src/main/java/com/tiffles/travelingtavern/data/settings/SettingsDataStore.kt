@@ -3,6 +3,7 @@ package com.tiffles.travelingtavern.data.settings
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -18,4 +19,7 @@ object SettingsKeys {
 
     /** Chats hidden from the Chats tab (1.6c), as `avatar/chatFile` keys. */
     val HIDDEN_CHATS = stringSetPreferencesKey("hidden_chats")
+
+    /** The one-time desktop extension dialog (A8) was shown. */
+    val EXTENSION_PROMPT_SHOWN = booleanPreferencesKey("extension_prompt_shown")
 }

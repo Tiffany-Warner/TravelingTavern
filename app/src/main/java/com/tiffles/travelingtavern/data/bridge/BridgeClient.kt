@@ -142,6 +142,17 @@ class BridgeClient @Inject constructor(
         holder.webView.evaluateJavascript(BridgeScript.setTheme(theme), null)
     }
 
+    /**
+     * Installs the desktop extension (A8): the page POSTs [body] to SillyTavern's install endpoint
+     * with its own request headers; answered by `extensionResult` tagged [requestId].
+     */
+    suspend fun installExtension(requestId: String, body: JsonObject) =
+        run(BridgeScript.call("installExtension", JsonPrimitive(requestId), body))
+
+    /** Updates the desktop extension (A8), like [installExtension]. */
+    suspend fun updateExtension(requestId: String, body: JsonObject) =
+        run(BridgeScript.call("updateExtension", JsonPrimitive(requestId), body))
+
     /** Asks for a fresh `lorebooks` message; [fromServer] re-reads everything from the server first. */
     suspend fun requestLorebooks(fromServer: Boolean) =
         run(BridgeScript.call("requestLorebooks", JsonPrimitive(fromServer)))

@@ -1,13 +1,18 @@
 package com.tiffles.travelingtavern.data.repository
 
+import com.tiffles.travelingtavern.BuildConfig
 import com.tiffles.travelingtavern.data.bridge.BridgeClient
 import com.tiffles.travelingtavern.data.bridge.BridgeMessage
 import com.tiffles.travelingtavern.data.bridge.BridgeRepository
 import com.tiffles.travelingtavern.data.bridge.LeaseGate
 import com.tiffles.travelingtavern.data.bridge.LeaseStateStore
+import com.tiffles.travelingtavern.data.bridge.isExtensionPromptDue
 import com.tiffles.travelingtavern.data.bridge.sendAndAwait
+import com.tiffles.travelingtavern.data.bridge.toDesktopProtection
+import com.tiffles.travelingtavern.data.settings.ExtensionPromptFlag
 import com.tiffles.travelingtavern.data.webview.WebViewHolder
 import com.tiffles.travelingtavern.di.ApplicationScope
+import com.tiffles.travelingtavern.domain.model.DesktopProtection
 import com.tiffles.travelingtavern.domain.model.LeaseStatus
 import com.tiffles.travelingtavern.domain.model.ModelBanner
 import com.tiffles.travelingtavern.domain.repository.LeaseRepository
@@ -16,6 +21,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -25,14 +32,27 @@ import javax.inject.Singleton
 
 /** [LeaseRepository] over [LeaseStateStore], the bridge and the WebView. */
 @Singleton
-class LeaseRepositoryImpl @Inject constructor(
+class LeaseRepositoryImpl internal constructor(
     private val store: LeaseStateStore,
     private val client: BridgeClient,
     private val bridge: BridgeRepository,
     private val holder: WebViewHolder,
     gate: LeaseGate,
-    @ApplicationScope private val scope: CoroutineScope
+    private val promptFlag: ExtensionPromptFlag,
+    private val scope: CoroutineScope,
+    appLeaseVersion: Int
 ) : LeaseRepository {
+
+    @Inject
+    constructor(
+        store: LeaseStateStore,
+        client: BridgeClient,
+        bridge: BridgeRepository,
+        holder: WebViewHolder,
+        gate: LeaseGate,
+        promptFlag: ExtensionPromptFlag,
+        @ApplicationScope scope: CoroutineScope
+    ) : this(store, client, bridge, holder, gate, promptFlag, scope, BuildConfig.LEASE_VERSION)
 
     override val status: StateFlow<LeaseStatus> = store.status
 
@@ -84,6 +104,16 @@ class LeaseRepositoryImpl @Inject constructor(
     override suspend fun reload() = withContext(Dispatchers.Main) { holder.reload() }
 
     override suspend fun continueWithoutProtection() = withContext(Dispatchers.Main) { holder.continueWithoutLease() }
+
+    override val desktopProtection: Flow<DesktopProtection?> =
+        combine(store.info, bridge.isReady) { info, ready -> toDesktopProtection(info, ready, appLeaseVersion) }
+            .distinctUntilChanged()
+
+    override val extensionPromptDue: Flow<Boolean> =
+        combine(desktopProtection, store.status, store.unprotected, promptFlag.shown, ::isExtensionPromptDue)
+            .distinctUntilChanged()
+
+    override suspend fun onExtensionPromptShown() = promptFlag.markShown()
 
     private companion object {
         const val USE_HERE_ANSWER_MS = 5_000L

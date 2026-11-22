@@ -50,6 +50,7 @@ object BridgeMessageParser {
             "leaseInfo" -> decode(obj, BridgeMessage.LeaseInfo.serializer())
             "leaseNotice" -> decode(obj, BridgeMessage.LeaseNotice.serializer())
             "connectResult" -> decode(obj, BridgeMessage.ConnectResult.serializer())
+            "extensionResult" -> decode(obj, BridgeMessage.ExtensionResult.serializer())
             else -> BridgeMessage.Unknown(type)
         }
     }

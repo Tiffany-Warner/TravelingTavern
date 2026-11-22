@@ -1351,6 +1351,39 @@
         refreshChatDecorations();
     }
 
+    // ---- Desktop extension (A8) -------------------------------------------------------
+
+    /** `extensionResult`: [status] is the HTTP status (0 when nothing came back); [upToDate] only for an update. */
+    function postExtensionResult(requestId, ok, status, upToDate) {
+        post('extensionResult', { requestId: requestId, ok: ok, status: status, upToDate: upToDate });
+    }
+
+    /**
+     * POSTs [body] to [path] with SillyTavern's request headers (CSRF, auth) and answers
+     * [requestId]. Only the status (and `isUpToDate` with [readUpToDate]) goes back: the answer's
+     * server paths never leave the page.
+     */
+    function extensionRequest(requestId, path, body, readUpToDate) {
+        const ctx = context();
+        if (!ctx) {
+            postExtensionResult(requestId, false, 0, null);
+            return;
+        }
+        fetch(path, { method: 'POST', headers: ctx[S.context.getRequestHeaders](), body: JSON.stringify(body || {}) })
+            .then(async function (response) {
+                if (!response.ok) {
+                    postExtensionResult(requestId, false, response.status, null);
+                    return;
+                }
+                const data = readUpToDate ? await response.json() : null;
+                postExtensionResult(requestId, true, response.status, data ? data[S.api.extensionUpToDate] === true : null);
+            })
+            .catch(function (e) {
+                postError('Extension request failed: ' + e);
+                postExtensionResult(requestId, false, 0, null);
+            });
+    }
+
     const chatActions = {
         /** The page's view of the app (foreground, open chat). Read by Phase 8; nothing reads it yet. */
         appState: appState,
@@ -1493,6 +1526,19 @@
         /** A reply finished in the background (A6): `chatSaved` follows once SillyTavern saved it. */
         watchChatSave: function () {
             watchChatSave();
+        },
+
+        /**
+         * Installs the desktop extension in SillyTavern (A8): POSTs [body] (built by the app) to
+         * SillyTavern's install endpoint with its own request headers. Answers `extensionResult`.
+         */
+        installExtension: function (requestId, body) {
+            extensionRequest(requestId, S.api.extensionInstall, body, false);
+        },
+
+        /** Updates the desktop extension (A8), like [installExtension]; the answer carries `upToDate`. */
+        updateExtension: function (requestId, body) {
+            extensionRequest(requestId, S.api.extensionUpdate, body, true);
         },
 
         /** The desktop extension is reported for this load: the persona re-read stops (only `true` turns it off). */

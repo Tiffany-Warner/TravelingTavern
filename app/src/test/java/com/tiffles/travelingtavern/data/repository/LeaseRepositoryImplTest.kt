@@ -5,7 +5,9 @@ import com.tiffles.travelingtavern.data.bridge.BridgeClient
 import com.tiffles.travelingtavern.data.bridge.BridgeRepository
 import com.tiffles.travelingtavern.data.bridge.LeaseGate
 import com.tiffles.travelingtavern.data.bridge.LeaseStateStore
+import com.tiffles.travelingtavern.data.settings.ExtensionPromptFlag
 import com.tiffles.travelingtavern.data.webview.WebViewHolder
+import com.tiffles.travelingtavern.domain.model.ExtensionState
 import com.tiffles.travelingtavern.domain.model.ModelBanner
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -17,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -40,6 +43,8 @@ class LeaseRepositoryImplTest {
         every { stillLoading } returns MutableSharedFlow()
     }
 
+    private val promptFlag = FakePromptFlag()
+
     @Before
     fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
@@ -55,7 +60,9 @@ class LeaseRepositoryImplTest {
     }
 
     private fun TestScope.repository() =
-        LeaseRepositoryImpl(store, client, bridge, mockk<WebViewHolder>(relaxed = true), gate, backgroundScope)
+        LeaseRepositoryImpl(
+            store, client, bridge, mockk<WebViewHolder>(relaxed = true), gate, promptFlag, backgroundScope, appLeaseVersion = 1
+        )
 
     private fun leaseState(connected: Boolean) = bridge.onRawMessage(
         """{"v":1,"type":"leaseState","state":"holder","reason":null,"pageId":"t1.l1","epoch":3,""" +
@@ -168,5 +175,47 @@ class LeaseRepositoryImplTest {
 
         coVerify(exactly = 0) { client.connectModel(any()) }
         assertNull(store.modelBanner.value)
+    }
+
+    private fun leaseInfo(extensionLeaseVersion: Int?) = bridge.onRawMessage(
+        """{"v":1,"type":"leaseInfo","leaseVersion":1,"extensionVersion":null,""" +
+            """"extensionLeaseVersion":$extensionLeaseVersion,"stVersion":"1.19.1","untestedServer":false}"""
+    )
+
+    @Test
+    fun `the prompt waits for SillyTavern to be ready, then shows once`() = runTest {
+        val repository = repository()
+        leaseState(connected = true)
+        leaseInfo(extensionLeaseVersion = null)
+        assertEquals("before APP_READY the extension may not have announced itself", false, repository.extensionPromptDue.first())
+        assertNull(repository.desktopProtection.first())
+
+        bridge.onRawMessage("""{"v":1,"type":"ready"}""")
+        assertEquals(ExtensionState.NotInstalled, repository.desktopProtection.first()?.extension)
+        assertEquals(true, repository.extensionPromptDue.first())
+
+        repository.onExtensionPromptShown()
+        assertEquals(false, repository.extensionPromptDue.first())
+    }
+
+    @Test
+    fun `an extension reported before ready means no prompt`() = runTest {
+        val repository = repository()
+        leaseState(connected = true)
+        leaseInfo(extensionLeaseVersion = null)
+        leaseInfo(extensionLeaseVersion = 1)
+        bridge.onRawMessage("""{"v":1,"type":"ready"}""")
+
+        assertEquals(ExtensionState.Installed, repository.desktopProtection.first()?.extension)
+        assertEquals(false, repository.extensionPromptDue.first())
+    }
+}
+
+/** In-memory [ExtensionPromptFlag]. */
+class FakePromptFlag : ExtensionPromptFlag {
+    override val shown = MutableStateFlow(false)
+
+    override suspend fun markShown() {
+        shown.value = true
     }
 }
