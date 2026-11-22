@@ -93,7 +93,7 @@ app/src/main/assets/web/  bridge.js, st-selectors.js, clean-theme.css
 - Injected CSS classes/DOM ids prefixed `tt-` (`tt-clean`, `tt-style-text`)
 
 ## Theming
-- Material 3; dynamic color on 12+, brand palette fallback
+- Material 3; dynamic color off, brand palette used. The "Use wallpaper colors" toggle comes with Appearance (`project-schema.md` → Later)
 - All colors/type/shapes via `MaterialTheme`; no hardcoded colors or px (use `dp`/`sp`)
 - Light + dark from the start
 - Edge-to-edge with correct IME insets on every screen

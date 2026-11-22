@@ -27,6 +27,7 @@
 2. `./gradlew connectedDebugAndroidTest` passes. Use emulator/spare device, not my daily phone (uninstalls app, wipes data). Multiple devices: `ANDROID_SERIAL=<serial>`. Note result in PR.
 3. PR `dev`→`main`, titled `Release x.y.z`, listing included history entries
 4. I merge with merge commit (no squash/rebase)
+5. `1.0.0` (Phase 1 complete): a signed release APK attached to a GitHub Release for the merge commit's tag. Keystore and its passwords stay outside the repo, never committed (`*.jks`, `*.keystore`, `keystore.properties` are gitignored)
 
 ## Private data (public repo)
 Nothing identifying my network/devices/accounts in code, tests, specs, history, commits or PRs: no real IPs, machine-tied ports, Tailscale machine/tailnet names, hostnames, usernames, emails, passwords, tokens, keys.

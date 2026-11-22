@@ -18,7 +18,7 @@ The look is **quiet and simple**: neutral surfaces, one accent color, and the ch
 - Accent: warm amber (one tone, plus its container variant for selected states)
 - Status colors (error, warning) only for actual status — never decoration
 - No gradients, glows, particles, or colored card borders
-- Dynamic color (Material You) is **off by default**, with an "Use wallpaper colors" toggle in Me → Appearance for users who want it
+- Dynamic color (Material You) is **off**. A "Use wallpaper colors" toggle comes with Appearance in Me, a later nice-to-have (`project-schema.md` → Later)
 
 ## Typography
 
@@ -37,7 +37,7 @@ The look is **quiet and simple**: neutral surfaces, one accent color, and the ch
 - **Bottom navigation bar** with four tabs: **Chats**, **Characters**, **Lorebooks**, **Me** (Me stays last)
 - Never ship a placeholder tab
 - Icons with short labels, labels always shown
-- Bottom bar is hidden on full-screen destinations: Chat, Advanced, Connect, Personas, the persona editor, creator flows
+- Bottom bar is hidden on full-screen destinations: Chat, Advanced, Connect, Personas, the persona editor, Create a character (and later creator flows)
 - Tab state is preserved when switching tabs (scroll position, search text)
 
 ## Common Patterns
@@ -49,7 +49,7 @@ The look is **quiet and simple**: neutral surfaces, one accent color, and the ch
 - **Primary action per screen:** one FAB or one filled button, never both
 - **Empty states:** one short sentence + one action button, no illustrations for now
 - **Errors:** inline banner at the top of the content ("Can't reach your server — Retry"), not dialogs. Connection status is not shown at all when things are working
-- **Sheets over dialogs** for choices (e.g. Create vs Import)
+- **Sheets over dialogs** for choices (e.g. a chat's Hide / Delete)
     - Exception: deleting a whole chat (Delete in Chats, Restart chat) confirms in an alert dialog (`ConfirmDeleteChatDialog`: red delete icon, a bold red first line "This also deletes the chat on your SillyTavern.", red button) so it can't be mistaken for the Start new chat sheet (1.6c, user decision 2026-11-19). Deleting a persona uses the same dialog (`ConfirmDeleteDialog`, 1.9, user decision 2026-11-20)
 - **Overflow menus:** a ⋮ (or a persona card's horizontal ⋯) opens a dropdown anchored under it, not a sheet
 - **Motion:** Material defaults only; no custom animations until a later polish pass
@@ -63,6 +63,6 @@ Where each core feature lives in the app:
 | Recent conversations | **Chats** tab (default) |
 | Character library | **Characters** tab — one library, since characters live in SillyTavern |
 | Lorebooks (World Info) | **Lorebooks** tab — browse, filter, create and delete lorebooks; edit entries |
-| Create a character | FAB on Characters → sheet: Create / Import |
-| Settings and profile | **Me** tab — persona, appearance, notifications, server, Advanced |
+| Create a character | + on Characters → Create a character screen (1.10). Import is later |
+| Me (settings and profile) | **Me** tab — personas, server, Advanced, About. Notifications return with Phase 8; Appearance is later |
 | Connection status | Nothing when connected; a banner only when disconnected |

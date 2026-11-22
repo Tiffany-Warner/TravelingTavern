@@ -64,9 +64,11 @@ Proactive messages and reminders come last, but every phase before them keeps to
 - [x] 1.6c Chats tab hide and delete — long press a chat to hide it (app only) or delete it in SillyTavern; ⋮ → Show hidden chats
 - [x] 1.7b Voice input — on-device speech-to-text mic in the main chat. **Replaced (2026-11-19):** voice typing comes from the keyboard's own mic; 1.7 removes the in-app mic
 - [x] 1.7 Chat screen — story chat: message cards, tap for SillyTavern's message actions, native input bar; reload on resume, lifecycle events, deep link to a chat
-- [ ] 1.8 Me tab & Advanced — personas row (with 1.9), appearance, server, full SillyTavern UI behind Advanced, open-source licenses. (The session lease removes the old per-file-guard blocker for the full SillyTavern UI; starting 1.8 is a separate decision)
+- [ ] 1.8 Me tab & Advanced — personas row (with 1.9), server, full SillyTavern UI behind Advanced, open-source licenses. No Notify me row (returns with Phase 8) and no Appearance (Later). (The session lease removes the old per-file-guard blocker for the full SillyTavern UI; starting 1.8 is a separate decision)
 - [ ] Session lease (`0.1.20`) — one active SillyTavern page per user: bundled lease at document start, native parked state with Use here, reply foreground service, extension install / update (`context/specs/session-lease-app-spec.md`)
 - [x] 1.9 Personas — a chip in the chat's input bar shows the active persona; tapping it opens a full-screen persona list to switch (picking in a chat locks it to that chat), create, edit and delete personas, and set the default
+- [ ] 1.10 Create a character (simple) (`0.1.22`) — the Characters + opens one native screen: picture (optional), name (required), description, first message; saved through the bridge with SillyTavern's own create code, then the new chat opens. Import is later; Phase 3 grows this screen into the full creator (`context/specs/phase1-10-create-character-spec.md`)
+- [ ] **1.0.0 release** — Phase 1 complete and usable day-to-day (`CLAUDE.md` → Versioning): a signed release APK attached to a GitHub Release
 
 ---
 
@@ -82,7 +84,7 @@ Proactive messages and reminders come last, but every phase before them keeps to
 
 ## Phase 3 — Character Creator
 
-> Goal: Guided, step-by-step creator that writes a standard SillyTavern V2 card.
+> Goal: Guided, step-by-step creator that writes a standard SillyTavern V2 card. Grows 1.10's Create a character screen; it doesn't replace it with a second one.
 
 - [ ] Step-by-step creator (Basics → Who they are → Memories → How they talk → Greeting → Look & voice → Journals)
 - [ ] Live token estimate per field
@@ -155,7 +157,7 @@ Proactive messages and reminders come last, but every phase before them keeps to
 **App**
 
 - [ ] UnifiedPush receiver (ntfy as distributor)
-- [ ] Notify me toggle (global) + per-character on/off
+- [ ] Notify me toggle (global, a row in Me) + per-character on/off
 - [ ] One notification channel per character, avatar as large icon, hide text on lock screen option
 - [ ] Tap opens that character's chat, reloaded
 - [ ] Heartbeat to the Bridge (from the lifecycle events built in 1.7), including each chat's texting / story style, so the headless page adds the texting instruction for texting chats
@@ -164,6 +166,15 @@ Proactive messages and reminders come last, but every phase before them keeps to
 - [ ] Proactive voice notes and selfies, with Play action (MediaSession) and selfie preview (BigPictureStyle) on the notification
 - [ ] Quiet hours
 - [ ] Inline reply from notification (stretch)
+
+---
+
+## Later (nice to have)
+
+Not in 1.0.0 and not tied to a phase yet:
+
+- **Appearance** (Me): theme choice and the "Use wallpaper colors" (dynamic color) toggle. Until then the app follows the system's light / dark setting with dynamic color off
+- **Import a character** (card file or URL) from the Characters +
 
 ---
 
