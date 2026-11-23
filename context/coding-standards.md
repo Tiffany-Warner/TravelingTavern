@@ -120,3 +120,7 @@ app/src/main/assets/web/  bridge.js, st-selectors.js, clean-theme.css
 - Functions ≲40 lines; extract well-named helpers freely
 - Self-documenting; KDoc for public APIs and non-obvious logic
 - `./gradlew lint` clean before commit
+
+## License
+- This repo is AGPL-3.0-only (matches SillyTavern and the extension). No per-file license headers
+- New dependencies and copied code must use a license that can be combined with AGPL v3 (Apache 2.0, MIT, ISC, BSD, LGPL, GPL-3.0, AGPL-3.0; fonts under OFL). Ask me before anything else. Copied code keeps its own notice

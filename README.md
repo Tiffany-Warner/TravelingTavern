@@ -105,3 +105,11 @@ Min SDK 31 (Android 12), Target SDK 36.
 - [`CLAUDE.md`](CLAUDE.md) — project overview and conventions
 - [`context/project-schema.md`](context/project-schema.md) — roadmap and phases
 - [`context/coding-standards.md`](context/coding-standards.md) — architecture and style rules
+
+## License
+
+Copyright (C) 2026 Tiffany Warner
+
+Licensed under the GNU Affero General Public License v3.0 only (AGPL-3.0-only), the same license as SillyTavern. See [LICENSE](LICENSE).
+
+Third-party parts keep their own licenses: the Inter font (SIL Open Font License 1.1, [`licenses/Inter-OFL.txt`](licenses/Inter-OFL.txt)), code ported from the Aegis wrapper (ISC, notice in `TavernWebChromeClient.kt`) and Material Icons (Apache 2.0).
