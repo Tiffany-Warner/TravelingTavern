@@ -18,6 +18,11 @@ The decision, the spike's evidence and the requirement map are in that repo's `c
 
 ## History
 
+### 2026-11-22 — Relicense to AGPL-3.0-only
+- `LICENSE` is now the unmodified GNU AGPL v3 text (SillyTavern's license); README has a License section, coding standards a License rule (AGPL-compatible dependencies only, ask otherwise)
+- Commits before this one, incl. everything on `main`, stay Apache 2.0; the extension is relicensed in its own repo and reaches `extension/` at the `v0.2.0` re-pin
+- 1.8 About: the licenses screen starts with the app's own license and the no-warranty notice (AGPL section 5(d)). No code, no bump
+
 ### 2026-11-21 — Docs: 1.0.0 MVP scope
 - Phase 1 complete = `1.0.0`, released as a signed APK on a GitHub Release. 1.8 renamed Me & Advanced (`ui/me/MeScreen.kt`); no Notify me row (returns with Phase 8); Appearance moved to a new Later list (roadmap, Screen Map, dynamic color line)
 - New 1.10 Create a character (simple), `0.1.22`: + on Characters opens one screen (picture, name, description, first message), saved with SillyTavern's own `/char-create` callback, then the chat opens; Import later; Phase 3 grows the screen
