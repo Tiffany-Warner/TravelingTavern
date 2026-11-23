@@ -45,13 +45,15 @@ import androidx.core.view.WindowCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tiffles.travelingtavern.R
+import com.tiffles.travelingtavern.domain.model.LeaseAction
 import com.tiffles.travelingtavern.ui.lease.components.LeaseScrim
+import com.tiffles.travelingtavern.ui.lease.components.ProtectionOffBanner
 import com.tiffles.travelingtavern.ui.lease.components.UnprotectedBanner
 import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
 
 /**
  * Wraps the whole app shell (the `Scaffold`, tab bar included) with the session lease's
- * parked scrim (A3) and the "Not protected" banner (A2). [content] gets the lease's snackbar
+ * parked scrim (A3), the "Not protected" banner (A2) and the "Protection is off" banner (A3). [content] gets the lease's snackbar
  * host for its `Scaffold` (the pre-check's "still loading" message, A4).
  */
 @Composable
@@ -70,8 +72,9 @@ fun LeaseGuard(
     }
     LeaseGuardContent(
         uiState = uiState,
-        onUseHere = viewModel::useHere,
-        onReload = viewModel::reload,
+        onAction = viewModel::onAction,
+        onConfirmWarning = viewModel::confirmWarning,
+        onCancelWarning = viewModel::cancelWarning,
         onUpdateWebView = { context.openWebViewStorePage() },
         onContinueWithoutProtection = viewModel::continueWithoutProtection,
         modifier = modifier,
@@ -81,7 +84,7 @@ fun LeaseGuard(
 }
 
 /**
- * Stateless: [content] below, the banner above it while unprotected, a loading bar over its top
+ * Stateless: [content] below, a banner above it while unprotected or with protection off, a loading bar over its top
  * while a user-started command waits (A4, D25), the scrim over all of it while parked, in a
  * window of its own so it also covers open sheets and dialogs (D42). When the scrim appears it
  * hides the keyboard and clears text focus, and [content] leaves the accessibility tree, so
@@ -90,8 +93,9 @@ fun LeaseGuard(
 @Composable
 fun LeaseGuardContent(
     uiState: LeaseGuardUiState,
-    onUseHere: () -> Unit,
-    onReload: () -> Unit,
+    onAction: (LeaseAction) -> Unit,
+    onConfirmWarning: () -> Unit,
+    onCancelWarning: () -> Unit,
     onUpdateWebView: () -> Unit,
     onContinueWithoutProtection: () -> Unit,
     modifier: Modifier = Modifier,
@@ -107,9 +111,14 @@ fun LeaseGuardContent(
                 .then(if (scrim != null) Modifier.clearAndSetSemantics {} else Modifier)
         ) {
             val topInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout.only(WindowInsetsSides.Top))
-            if (uiState.unprotected) UnprotectedBanner(insets = topInsets)
+            if (uiState.protectionOff) {
+                ProtectionOffBanner(insets = topInsets, onTurnProtectionOn = { onAction(LeaseAction.TurnProtectionOn) })
+            } else if (uiState.unprotected) {
+                UnprotectedBanner(insets = topInsets)
+            }
             // The banner already pads for the status bar; the shell below mustn't count it again.
-            val contentModifier = if (uiState.unprotected) Modifier.consumeWindowInsets(topInsets) else Modifier
+            val banner = uiState.protectionOff || uiState.unprotected
+            val contentModifier = if (banner) Modifier.consumeWindowInsets(topInsets) else Modifier
             Box(modifier = contentModifier.weight(1f)) {
                 content { SnackbarHost(hostState = snackbarHostState) }
                 if (uiState.waiting) {
@@ -126,8 +135,11 @@ fun LeaseGuardContent(
             ScrimWindow {
                 LeaseScrim(
                     state = scrim,
-                    onUseHere = onUseHere,
-                    onReload = onReload,
+                    actions = uiState.actions,
+                    warning = uiState.warning,
+                    onAction = onAction,
+                    onConfirmWarning = onConfirmWarning,
+                    onCancelWarning = onCancelWarning,
                     onUpdateWebView = onUpdateWebView,
                     onContinueWithoutProtection = onContinueWithoutProtection
                 )
@@ -214,7 +226,20 @@ private fun LeaseGuardUnprotectedPreview() {
     TravelingTavernTheme {
         LeaseGuardContent(
             uiState = LeaseGuardUiState(unprotected = true),
-            onUseHere = {}, onReload = {}, onUpdateWebView = {}, onContinueWithoutProtection = {}
+            onAction = {}, onConfirmWarning = {}, onCancelWarning = {}, onUpdateWebView = {}, onContinueWithoutProtection = {}
+        ) {
+            Surface(modifier = Modifier.fillMaxSize()) { Text("App", style = MaterialTheme.typography.titleLarge) }
+        }
+    }
+}
+
+@Preview(name = "Protection off", showBackground = true)
+@Composable
+private fun LeaseGuardOffPreview() {
+    TravelingTavernTheme {
+        LeaseGuardContent(
+            uiState = LeaseGuardUiState(protectionOff = true),
+            onAction = {}, onConfirmWarning = {}, onCancelWarning = {}, onUpdateWebView = {}, onContinueWithoutProtection = {}
         ) {
             Surface(modifier = Modifier.fillMaxSize()) { Text("App", style = MaterialTheme.typography.titleLarge) }
         }
@@ -226,8 +251,8 @@ private fun LeaseGuardUnprotectedPreview() {
 private fun LeaseGuardParkedPreview() {
     TravelingTavernTheme {
         LeaseGuardContent(
-            uiState = LeaseGuardUiState(scrim = ScrimState.InUse),
-            onUseHere = {}, onReload = {}, onUpdateWebView = {}, onContinueWithoutProtection = {}
+            uiState = LeaseGuardUiState(scrim = ScrimState.InUse, actions = listOf(LeaseAction.UseHere)),
+            onAction = {}, onConfirmWarning = {}, onCancelWarning = {}, onUpdateWebView = {}, onContinueWithoutProtection = {}
         ) {
             Surface(modifier = Modifier.fillMaxSize()) { Text("App", style = MaterialTheme.typography.titleLarge) }
         }

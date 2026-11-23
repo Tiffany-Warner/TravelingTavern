@@ -160,6 +160,26 @@ class LeaseLifecycleTest {
     }
 
     @Test
+    fun `protection off is never treated as holder, so nothing is released`() = runTest {
+        lifecycle()
+        store.onLeaseState(
+            BridgeMessage.LeaseState(
+                state = "off",
+                reason = null,
+                pageId = null,
+                epoch = null,
+                busy = false,
+                connected = false,
+                origin = "http://192.0.2.1:8000",
+                actions = listOf("turnProtectionOn")
+            )
+        )
+        goBackground()
+
+        assertTrue(uploader.calls.isEmpty())
+    }
+
+    @Test
     fun `nothing is released before the page reports, or unprotected`() = runTest {
         lifecycle()
         goBackground()

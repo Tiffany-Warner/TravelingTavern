@@ -45,8 +45,20 @@ interface LeaseRepository {
     /** Claims the lease for this phone (`__ttLease.useHere()`); [status] shows claiming at once. */
     suspend fun useHere()
 
-    /** Reloads the page to finish a takeover (`reloadPending`). */
-    suspend fun reload()
+    /**
+     * Take over anyway (`__ttLease.takeOverAnyway()`), after the warning; [status] shows claiming
+     * at once, as for [useHere].
+     */
+    suspend fun takeOverAnyway()
+
+    /** Refresh: `__ttLease.refresh()`, or a plain page reload if the page declines or doesn't answer. */
+    suspend fun refresh()
+
+    /** Turn off protection in this page (`__ttLease.turnOffProtection()`), after the warning. */
+    suspend fun turnOffProtection()
+
+    /** Turn protection back on (`__ttLease.turnProtectionOn()`); no warning, it's the safe direction. */
+    suspend fun turnProtectionOn()
 
     /** Loads SillyTavern without the lease, for this app launch only (no document-start support). */
     suspend fun continueWithoutProtection()

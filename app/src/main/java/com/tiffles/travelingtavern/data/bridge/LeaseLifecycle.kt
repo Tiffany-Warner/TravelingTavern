@@ -263,11 +263,14 @@ class LeaseLifecycle internal constructor(
     private fun releaseIfHolder(): Job? {
         val state = store.lastState.value
         val epoch = state?.epoch
-        if (state == null || epoch == null || store.status.value !is LeaseStatus.Holder || state.state != HOLDER) {
+        val pageId = state?.pageId
+        if (state == null || epoch == null || pageId == null ||
+            store.status.value !is LeaseStatus.Holder || state.state != HOLDER
+        ) {
             Log.d(TAG, "Not holder, nothing to release")
             return null
         }
-        val body = ReleaseMarker.uploadBody(state.pageId, epoch, now().truncatedTo(ChronoUnit.MILLIS).toString())
+        val body = ReleaseMarker.uploadBody(pageId, epoch, now().truncatedTo(ChronoUnit.MILLIS).toString())
         return scope.launch { uploadWithRetry(state.origin, body) }.also { release = it }
     }
 

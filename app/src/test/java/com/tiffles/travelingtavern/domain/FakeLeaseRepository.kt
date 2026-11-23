@@ -21,8 +21,8 @@ class FakeLeaseRepository : LeaseRepository {
     override val replyNotStarted = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     var connectCalls = 0
     var useHereCalls = 0
-    var reloadCalls = 0
     var continueCalls = 0
+    val leaseCalls = mutableListOf<String>()
 
     override fun onReplyInterruptedShown() {
         replyInterrupted.value = false
@@ -36,8 +36,20 @@ class FakeLeaseRepository : LeaseRepository {
         useHereCalls++
     }
 
-    override suspend fun reload() {
-        reloadCalls++
+    override suspend fun takeOverAnyway() {
+        leaseCalls += "takeOverAnyway"
+    }
+
+    override suspend fun refresh() {
+        leaseCalls += "refresh"
+    }
+
+    override suspend fun turnOffProtection() {
+        leaseCalls += "turnOffProtection"
+    }
+
+    override suspend fun turnProtectionOn() {
+        leaseCalls += "turnProtectionOn"
     }
 
     override suspend fun continueWithoutProtection() {

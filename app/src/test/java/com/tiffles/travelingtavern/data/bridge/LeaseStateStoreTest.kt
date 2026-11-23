@@ -84,24 +84,24 @@ class LeaseStateStoreTest {
         )
         expected.forEach { (reason, parkReason) ->
             store.onLeaseState(state("parked", reason))
-            assertEquals(reason, LeaseStatus.Parked(parkReason), store.status.value)
+            assertEquals(reason, parkReason, store.parkReason())
         }
     }
 
     @Test
     fun `an unknown or missing reason is kept`() {
         store.onLeaseState(state("parked", "napping"))
-        assertEquals(LeaseStatus.Parked(ParkReason.Unknown("napping")), store.status.value)
+        assertEquals(ParkReason.Unknown("napping"), store.parkReason())
 
         store.onLeaseState(state("parked", reason = null))
-        assertEquals(LeaseStatus.Parked(ParkReason.Unknown(null)), store.status.value)
+        assertEquals(ParkReason.Unknown(null), store.parkReason())
     }
 
     @Test
     fun `an unknown state counts as parked`() {
         store.onLeaseState(state("sleeping", reason = null))
 
-        assertEquals(LeaseStatus.Parked(ParkReason.Unknown("sleeping")), store.status.value)
+        assertEquals(ParkReason.Unknown("sleeping"), store.parkReason())
     }
 
     @Test
@@ -119,17 +119,17 @@ class LeaseStateStoreTest {
         store.onLeaseState(state("holder"))
         store.onLeaseInfo(info(2))
 
-        assertEquals(LeaseStatus.VersionMismatch, store.status.value)
+        assertTrue(store.status.value is LeaseStatus.VersionMismatch)
 
         store.onLeaseState(state("parked", "held"))
-        assertEquals(LeaseStatus.VersionMismatch, store.status.value)
+        assertTrue(store.status.value is LeaseStatus.VersionMismatch)
     }
 
     @Test
     fun `a mismatch shows even before the first leaseState`() {
         store.onLeaseInfo(info(0))
 
-        assertEquals(LeaseStatus.VersionMismatch, store.status.value)
+        assertTrue(store.status.value is LeaseStatus.VersionMismatch)
     }
 
     @Test
@@ -137,7 +137,7 @@ class LeaseStateStoreTest {
         store.onLeaseState(state("parked", "held"))
         store.onLeaseInfo(info(1))
 
-        assertEquals(LeaseStatus.Parked(ParkReason.Held), store.status.value)
+        assertEquals(ParkReason.Held, store.parkReason())
     }
 
     @Test
@@ -176,7 +176,7 @@ class LeaseStateStoreTest {
                 """"extensionLeaseVersion":null,"stVersion":null,"untestedServer":true}"""
         )
 
-        assertEquals(LeaseStatus.Parked(ParkReason.LostRace), store.status.value)
+        assertEquals(ParkReason.LostRace, store.parkReason())
         assertEquals(1, store.info.value?.leaseVersion)
 
         repository.onPageStarted()
@@ -215,7 +215,7 @@ class LeaseStateStoreTest {
 
         store.onUseHere()
 
-        assertEquals(LeaseStatus.Parked(ParkReason.Claiming), store.status.value)
+        assertEquals(ParkReason.Claiming, store.parkReason())
     }
 
     @Test
@@ -225,7 +225,7 @@ class LeaseStateStoreTest {
 
         store.onLeaseState(state("parked", "lostRace"))
 
-        assertEquals(LeaseStatus.Parked(ParkReason.LostRace), store.status.value)
+        assertEquals(ParkReason.LostRace, store.parkReason())
     }
 
     @Test
@@ -245,7 +245,7 @@ class LeaseStateStoreTest {
 
         store.onUseHereUnanswered(token)
 
-        assertEquals(LeaseStatus.Parked(ParkReason.Held), store.status.value)
+        assertEquals(ParkReason.Held, store.parkReason())
     }
 
     @Test
@@ -256,7 +256,7 @@ class LeaseStateStoreTest {
 
         store.onUseHereUnanswered(first)
 
-        assertEquals(LeaseStatus.Parked(ParkReason.Claiming), store.status.value)
+        assertEquals(ParkReason.Claiming, store.parkReason())
     }
 
     @Test
@@ -267,7 +267,7 @@ class LeaseStateStoreTest {
         store.onPageStarted()
         store.onLeaseState(state("parked", "held"))
 
-        assertEquals(LeaseStatus.Parked(ParkReason.Held), store.status.value)
+        assertEquals(ParkReason.Held, store.parkReason())
     }
 
     @Test
@@ -291,7 +291,7 @@ class LeaseStateStoreTest {
         store.onContinueWithoutProtection()
 
         store.onLeaseState(state("parked", "held"))
-        assertEquals(LeaseStatus.Parked(ParkReason.Held), store.status.value)
+        assertEquals(ParkReason.Held, store.parkReason())
 
         store.onPageStarted()
         assertEquals(LeaseStatus.Unprotected, store.status.value)
@@ -303,7 +303,7 @@ class LeaseStateStoreTest {
         store.onLeaseState(state("holder"))
 
         store.onPreCheckFailed(ParkReason.Unreadable)
-        assertEquals(LeaseStatus.Parked(ParkReason.Unreadable), store.status.value)
+        assertEquals(ParkReason.Unreadable, store.parkReason())
 
         store.onLeaseState(state("holder"))
         assertEquals(LeaseStatus.Holder(busy = false, connected = true), store.status.value)
@@ -325,9 +325,12 @@ class LeaseStateStoreTest {
         store.onPreCheckFailed(ParkReason.Unreadable)
 
         val token = store.onUseHere()
-        assertEquals(LeaseStatus.Parked(ParkReason.Claiming), store.status.value)
+        assertEquals(ParkReason.Claiming, store.parkReason())
 
         store.onUseHereUnanswered(token)
         assertEquals(LeaseStatus.Holder(busy = false, connected = true), store.status.value)
     }
 }
+
+/** The park reason shown, actions aside (those have their own tests). */
+internal fun LeaseStateStore.parkReason(): ParkReason? = (status.value as? LeaseStatus.Parked)?.reason

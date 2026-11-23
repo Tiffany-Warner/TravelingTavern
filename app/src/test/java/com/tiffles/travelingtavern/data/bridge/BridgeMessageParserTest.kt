@@ -371,12 +371,36 @@ class BridgeMessageParserTest {
     }
 
     @Test
+    fun `leaseState actions are kept as sent, unknown strings included`() {
+        val parsed = parse(parkedState.replace("}", ",\"actions\":[\"useHere\",\"dance\"]}"))
+
+        assertEquals(listOf("useHere", "dance"), (parsed as BridgeMessage.LeaseState).actions)
+    }
+
+    @Test
+    fun `leaseState without actions (an older page) still parses, with null actions`() {
+        assertNull((parse(parkedState) as BridgeMessage.LeaseState).actions)
+    }
+
+    @Test
+    fun `leaseState off with a null pageId parses`() {
+        val parsed = parse(
+            """{"v":1,"type":"leaseState","state":"off","reason":null,"pageId":null,"epoch":null,""" +
+                """"busy":false,"connected":false,"origin":"http://192.0.2.1:8000","actions":["turnProtectionOn"]}"""
+        ) as BridgeMessage.LeaseState
+
+        assertEquals("off", parsed.state)
+        assertNull(parsed.pageId)
+    }
+
+    @Test
     fun `leaseState missing a field or with a wrong type is dropped`() {
         assertNull(parse(parkedState.replace(",\"origin\":\"http://192.0.2.1:8000\"", "")))
         assertNull(parse(parkedState.replace("\"reason\":\"held\",", "")))
         assertNull(parse(parkedState.replace("\"epoch\":null", "\"epoch\":\"three\"")))
         assertNull(parse(parkedState.replace("\"busy\":false", "\"busy\":\"no\"")))
-        assertNull(parse(parkedState.replace("\"pageId\":\"t1.l1\"", "\"pageId\":null")))
+        assertNull(parse(parkedState.replace("\"connected\":true", "\"connected\":\"yes\"")))
+        assertNull(parse(parkedState.replace("\"pageId\":\"t1.l1\"", "\"pageId\":7")))
     }
 
     @Test

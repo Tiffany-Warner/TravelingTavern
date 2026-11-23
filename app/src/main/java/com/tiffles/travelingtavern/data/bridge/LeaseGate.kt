@@ -47,7 +47,7 @@ sealed interface LeaseCheck {
  * The Kotlin lease pre-check (A4), run before every bridge command that isn't exempt. Call on the
  * main thread ([LeaseStateStore] is written there).
  *
- * - Unprotected (no lease reports in the page): allowed with no check
+ * - Unprotected (no lease reports in the page) or Off (protection turned off, E4): allowed with no check
  * - Not reported yet: waits up to [firstReportTimeoutMs] for the page's first `leaseState`
  *   ([waiting] is true meanwhile for a [CommandOrigin.User] command), then checks; none →
  *   refused ([stillLoading] fires for a user command; an app command is refused quietly)
@@ -95,7 +95,8 @@ class LeaseGate internal constructor(
             return LeaseCheck.Refused
         }
         return when (status) {
-            LeaseStatus.Unprotected -> LeaseCheck.Allowed
+            // Nothing to check: no lease runs in the page (Off: the user turned it off, E4).
+            LeaseStatus.Unprotected, LeaseStatus.Off -> LeaseCheck.Allowed
             is LeaseStatus.Holder -> checkPair()
             else -> {
                 Log.d(TAG, "Command refused: ${status.label()}")
@@ -146,7 +147,7 @@ class LeaseGate internal constructor(
         LeaseCheck.Refused
     }
 
-    private fun decide(read: LeaseFileRead, pair: Pair<String, Long?>): LeaseCheck {
+    private fun decide(read: LeaseFileRead, pair: Pair<String?, Long?>): LeaseCheck {
         val reason = when (read) {
             is LeaseFileRead.Found ->
                 if (read.holder == pair.first && read.epoch == pair.second) {
@@ -165,7 +166,7 @@ class LeaseGate internal constructor(
         return LeaseCheck.RefusedPageMustCheck
     }
 
-    private data class Match(val pair: Pair<String, Long?>, val at: Long)
+    private data class Match(val pair: Pair<String?, Long?>, val at: Long)
 
     private fun LeaseStatus.label(): String = this::class.simpleName.orEmpty()
 

@@ -2,6 +2,7 @@ package com.tiffles.travelingtavern.data.bridge
 
 import android.util.Log
 import com.tiffles.travelingtavern.BuildConfig
+import com.tiffles.travelingtavern.domain.model.LeaseAction
 import com.tiffles.travelingtavern.domain.model.LeaseStatus
 import com.tiffles.travelingtavern.domain.model.ModelBanner
 import com.tiffles.travelingtavern.domain.model.ParkReason
@@ -21,9 +22,11 @@ import javax.inject.Singleton
  * every page load) and the app-only states. Fed by [BridgeRepository] and the WebView host.
  * Main thread only for writes; the flows can be read from anywhere.
  *
- * [status] precedence: no document start (unless continued without protection), then a lease
- * version mismatch, then a Use here waiting for the page's answer, then a failed pre-check (A4),
- * then the page's state, then [LeaseStatus.Unprotected]. Unprotected, an extension installed in SillyTavern can still run
+ * [status] precedence: no document start (unless continued without protection), then protection
+ * off (the page runs no lease code, so a version mismatch doesn't matter), then a lease version
+ * mismatch (not while unprotected, D45), then a Use here or Take over anyway waiting for the page's
+ * answer, then a failed pre-check (A4), then the page's state, then [LeaseStatus.Unprotected].
+ * Every parked state carries its ways out (A3: never stuck). Unprotected, an extension installed in SillyTavern can still run
  * its own lease (late, after SillyTavern's first requests): its state then wins, so a parked
  * page gets the scrim instead of hanging with its requests held.
  */
@@ -37,6 +40,7 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
     private var useHereToken = 0
     private var useHerePending = false
     private var preCheckPark: ParkReason? = null
+    private var appReloadRequested = false
     private var connectToken = 0
     private val _lastState = MutableStateFlow<BridgeMessage.LeaseState?>(null)
     private val _info = MutableStateFlow<BridgeMessage.LeaseInfo?>(null)
@@ -83,7 +87,15 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
      * `reloadPending` (A2), whatever [status] shows. Reset with the page, like [lastState].
      */
     val isTakeoverReload: Boolean
-        get() = _lastState.value?.reason in TAKEOVER_REASONS
+        get() = appReloadRequested || _lastState.value?.reason in TAKEOVER_REASONS
+
+    /**
+     * The user confirmed a scrim action that reloads a parked page (Refresh, Take over anyway, Turn
+     * off protection): its stale edits may be discarded, so [isTakeoverReload] until the next page load.
+     */
+    fun onParkedReloadRequested() {
+        appReloadRequested = true
+    }
 
     fun onLeaseState(message: BridgeMessage.LeaseState) {
         _lastState.value = message
@@ -111,6 +123,7 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
         connectToken++
         useHerePending = false
         preCheckPark = null
+        appReloadRequested = false
         publish()
     }
 
@@ -157,7 +170,7 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
     }
 
     /**
-     * Use here was tapped: a parked page shows claiming at once (A3), until its next
+     * Use here or Take over anyway was tapped: a parked page shows claiming at once (A3), until its next
      * `leaseState` or page load. Returns a token for [onUseHereUnanswered].
      */
     fun onUseHere(): Int {
@@ -218,16 +231,29 @@ class LeaseStateStore internal constructor(private val appLeaseVersion: Int) {
     private fun publish() {
         val info = _info.value
         val state = _lastState.value
-        val pageStatus = preCheckPark?.let(LeaseStatus::Parked) ?: state?.toLeaseStatus()
+        val unprotected = _unprotected.value
+        val pageStatus = preCheckPark?.let { LeaseStatus.Parked(it, preCheckActions(it)) } ?: state?.toLeaseStatus()
         _status.value = when {
-            !documentStartSupported && !_unprotected.value -> LeaseStatus.NoDocumentStart
-            info != null && info.leaseVersion != appLeaseVersion -> LeaseStatus.VersionMismatch
+            !documentStartSupported && !unprotected -> LeaseStatus.NoDocumentStart
+            pageStatus == LeaseStatus.Off -> LeaseStatus.Off
+            !unprotected && info != null && info.leaseVersion != appLeaseVersion ->
+                LeaseStatus.VersionMismatch(withContinue(refreshFirst(pageActions(state?.actions))))
             useHerePending && pageStatus is LeaseStatus.Parked -> LeaseStatus.Parked(ParkReason.Claiming)
+            pageStatus is LeaseStatus.Parked && pageStatus.reason is ParkReason.Unknown && !unprotected ->
+                pageStatus.copy(actions = withContinue(pageStatus.actions))
             pageStatus != null -> pageStatus
-            _unprotected.value -> LeaseStatus.Unprotected
+            unprotected -> LeaseStatus.Unprotected
             else -> LeaseStatus.NotReported
         }
     }
+
+    /**
+     * Only the page can turn its protection off: where it doesn't offer that (an unknown state,
+     * Restart needed), the app's own Continue without protection comes last, so a reload that ends
+     * in the same state can't trap the user (D45).
+     */
+    private fun withContinue(actions: List<LeaseAction>): List<LeaseAction> =
+        if (LeaseAction.TurnOffProtection in actions) actions else actions + LeaseAction.ContinueWithoutProtection
 
     private companion object {
         const val TAG = "LeaseStateStore"

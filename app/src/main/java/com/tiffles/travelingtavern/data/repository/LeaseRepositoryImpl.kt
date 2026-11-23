@@ -1,5 +1,6 @@
 package com.tiffles.travelingtavern.data.repository
 
+import android.util.Log
 import com.tiffles.travelingtavern.BuildConfig
 import com.tiffles.travelingtavern.data.bridge.BridgeClient
 import com.tiffles.travelingtavern.data.bridge.BridgeMessage
@@ -91,17 +92,42 @@ class LeaseRepositoryImpl internal constructor(
         withContext(Dispatchers.Main) { store.onConnectFinished(token, tried = sent, connected = answer?.connected == true) }
     }
 
-    override suspend fun useHere() {
+    override suspend fun useHere() = claim { client.useHere() }
+
+    override suspend fun takeOverAnyway() {
+        withContext(Dispatchers.Main) { store.onParkedReloadRequested() }
+        claim { client.leaseAction(TAKE_OVER_ANYWAY) }
+    }
+
+    /** Shows claiming at once and calls [call]; a claim reports `claiming` right away, so no answer means it was ignored. */
+    private suspend fun claim(call: suspend () -> Unit) {
         val token = withContext(Dispatchers.Main) { store.onUseHere() }
-        client.useHere()
-        // A claim reports `claiming` right away; without any answer the tap was ignored.
+        call()
         scope.launch(Dispatchers.Main) {
             delay(USE_HERE_ANSWER_MS)
             store.onUseHereUnanswered(token)
         }
     }
 
-    override suspend fun reload() = withContext(Dispatchers.Main) { holder.reload() }
+    override suspend fun refresh() {
+        withContext(Dispatchers.Main) { store.onParkedReloadRequested() }
+        val answer = client.leaseAction(REFRESH)
+        if (answer != true) {
+            // Not offered (e.g. a holder page behind the app's own pre-check scrim), an older page, or no answer.
+            Log.i(TAG, "Refresh not taken by the page (${answer ?: "no answer"}): reloading")
+            withContext(Dispatchers.Main) { holder.reload() }
+        }
+    }
+
+    override suspend fun turnOffProtection() {
+        withContext(Dispatchers.Main) { store.onParkedReloadRequested() }
+        if (client.leaseAction(TURN_OFF_PROTECTION) != true) Log.w(TAG, "Turn off protection not taken by the page")
+    }
+
+    override suspend fun turnProtectionOn() {
+        // No reload fallback: the off flag survives a plain reload, so only the page can turn it on.
+        if (client.leaseAction(TURN_PROTECTION_ON) != true) Log.w(TAG, "Turn protection on not taken by the page")
+    }
 
     override suspend fun continueWithoutProtection() = withContext(Dispatchers.Main) { holder.continueWithoutLease() }
 
@@ -116,6 +142,11 @@ class LeaseRepositoryImpl internal constructor(
     override suspend fun onExtensionPromptShown() = promptFlag.markShown()
 
     private companion object {
+        const val TAG = "LeaseRepository"
+        const val TAKE_OVER_ANYWAY = "takeOverAnyway"
+        const val REFRESH = "refresh"
+        const val TURN_OFF_PROTECTION = "turnOffProtection"
+        const val TURN_PROTECTION_ON = "turnProtectionOn"
         const val USE_HERE_ANSWER_MS = 5_000L
 
         /** The page answers within its own 10 s wait (E10); the rest is slack for a busy page. */

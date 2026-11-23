@@ -4,7 +4,7 @@ Session Lease — `0.1.20` (in progress, branch `feature/session-lease`)
 
 ## Status
 
-**Slices 1–10 done and item 7 passed with rc.4; waiting on extension v0.2.0 (Order steps 4–5).** `context/specs/session-lease-app-spec.md` is reviewed (replaces the superseded `fix-stale-page-overwrites-spec.md`). Extension `v0.2.0-rc.4` is pinned: it keeps `busy` until the reply's chat save (E8), which closed slice 10's gap, so A10's "takeover while generating" passed and the app's own release-after-save wait was dropped (D44). The one-tap install item waits for `v0.2.0` on `main`.
+**Slices 1–10 done, item 7 passed with rc.4, never stuck (rc.5) built and tested; waiting on extension v0.2.0 (Order steps 4–5).** `context/specs/session-lease-app-spec.md` is reviewed (replaces the superseded `fix-stale-page-overwrites-spec.md`). Extension `v0.2.0-rc.5` is pinned: rc.4 keeps `busy` until the reply's chat save (E8, D44); rc.5 makes every lease state offer a way out, which the app follows on its scrim and in its own states (D45–D49). The one-tap install item waits for `v0.2.0` on `main`.
 
 The decision, the spike's evidence and the requirement map are in that repo's `context/decisions/` (`session-lease-spike.md`, which now holds the direction change and the architecture assessment); the shared contract is its `context/specs/ext-0.2-session-lease-spec.md`.
 
@@ -12,12 +12,18 @@ The decision, the spike's evidence and the requirement map are in that repo's `c
 
 1. [x] TravelingTavern-Extension builds the lease in slices and tags **`v0.2.0-rc.1`** on its `dev`
 2. [x] Extension fixes the SillyTavern context hook bug (`v0.2.0-rc.2`) and makes `onForeground()` always report (`v0.2.0-rc.3`); submodule re-pinned to rc.3 (`17004d5`) before slice 8; "unreadable read, then recovers" and the takeover reload re-tested (spec Notes, slice 8)
-3. [x] Feature branch here: submodule pinned to `v0.2.0-rc.4` (`3fab15b`; rc.1 through slice 7, rc.3 in slices 8–10); `0.1.20` implemented; app spec checklist (A10) and the extension's E14 checklist pass with the `leaseTest` build on the test install. Slice 10 ran them; "takeover while generating" with the phone's reply ending in the background failed there (extension E8) and passed after the re-pin to rc.4 (spec Notes). Left for step 5: the install item; document start without support isn't reproducible
+3. [x] Feature branch here: submodule pinned to `v0.2.0-rc.5` (`abbfb4f`; rc.1 through slice 7, rc.3 in slices 8–10, rc.4 for D44); `0.1.20` implemented; app spec checklist (A10) and the extension's E14 checklist pass with the `leaseTest` build on the test install. Slice 10 ran them; "takeover while generating" with the phone's reply ending in the background failed there (extension E8) and passed after the re-pin to rc.4 (spec Notes). Left for step 5: the install item; document start without support isn't reproducible
 4. [ ] The extension releases `v0.2.0` to its `main`
 5. [ ] Re-pin the submodule to `v0.2.0`, re-run the build and unit tests, check the app's one-tap extension install succeeds against `main` (slice 9 checked the request and the failure paths only, since `main` had no release), then merge
 6. [ ] After the release: privacy check of `spike/session-lease`, tag `archive/spike-session-lease`, push the tag, delete the branch (ask first)
 
 ## History
+
+### 2026-11-23 — Session lease: never stuck (extension rc.5) — `0.1.20` (not merged yet)
+- Rule: every lease state offers a way back in; going ahead at your own risk is a tap after a warning. Scrim buttons come from `leaseState.actions` (Use here, Refresh, Take over anyway, Turn off protection); new `damaged` and `error` rows; warning step inside the scrim; "Protection is off" banner with Turn protection back on
+- App-only states: unknown state and Restart needed get Refresh plus the app's Continue without protection when the page can't turn itself off (D45); pages without `actions` get rc.4's buttons plus Refresh (D46); pre-check results get Refresh, which falls back to a plain reload (D47); off is never holder (D49)
+- Gotchas: off lives in the WebView's `sessionStorage`, so an app restart is protected again; a Refresh or Turn off reload leaves ST unconnected when Auto-connect is off; with protection off a background reply is cut off after about 5 s
+- Verified on an emulator (API 37) against SillyTavern 1.19.1 with a real desktop tab: damaged, unknown format, error, unreadable, Take over anyway at 10 s, off and back on (spec Notes, rc.5); not verified: Restart needed and unknown states on a device (unit and UI tests only), Refresh's 2 s no-answer bound (device only, the repository test covers the fallback), Pixel 8. `versionCode` 46
 
 ### 2026-11-22 — Session lease — `0.1.20` (not merged yet)
 - Cause: SillyTavern pages save whole files from their own copy, so a stale page erased newer data. Now one active page per user (TravelingTavern-Extension's lease, bundled through a submodule, injected at document start)

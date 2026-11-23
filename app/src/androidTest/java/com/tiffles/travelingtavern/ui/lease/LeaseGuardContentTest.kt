@@ -33,6 +33,8 @@ import androidx.compose.ui.Modifier
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tiffles.travelingtavern.R
+import com.tiffles.travelingtavern.domain.model.LeaseAction
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -49,8 +51,9 @@ class LeaseGuardContentTest {
 
     private fun string(id: Int) = InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
-    private var useHere = 0
-    private var reload = 0
+    private val actions = mutableListOf<LeaseAction>()
+    private var confirms = 0
+    private var cancels = 0
     private var update = 0
     private var continueUnprotected = 0
     private var tabTaps = 0
@@ -66,8 +69,9 @@ class LeaseGuardContentTest {
             TravelingTavernTheme {
                 LeaseGuardContent(
                     uiState = uiState,
-                    onUseHere = { useHere++ },
-                    onReload = { reload++ },
+                    onAction = { actions += it },
+                    onConfirmWarning = { confirms++ },
+                    onCancelWarning = { cancels++ },
                     onUpdateWebView = { update++ },
                     onContinueWithoutProtection = { continueUnprotected++ },
                     snackbarHostState = snackbarHostState
@@ -98,7 +102,7 @@ class LeaseGuardContentTest {
 
     @Test
     fun scrimCoversTheShellAndSwallowsTaps() {
-        show(LeaseGuardUiState(scrim = ScrimState.InUse))
+        show(LeaseGuardUiState(scrim = ScrimState.InUse, actions = listOf(LeaseAction.UseHere)))
 
         // The scrim is a window of its own (D42), above any sheet or dialog the app has open.
         composeRule.onNode(isDialog()).assertExists()
@@ -118,7 +122,7 @@ class LeaseGuardContentTest {
 
     @Test
     fun backUnderTheScrimReachesTheAppAndKeepsTheScrim() {
-        show(LeaseGuardUiState(scrim = ScrimState.InUse))
+        show(LeaseGuardUiState(scrim = ScrimState.InUse, actions = listOf(LeaseAction.UseHere)))
 
         composeRule.waitForIdle()
         // Into the scrim's window, which has the focus (the app's own window doesn't).
@@ -136,67 +140,138 @@ class LeaseGuardContentTest {
         composeRule.onNodeWithTag(FIELD).performClick()
         composeRule.onNodeWithTag(FIELD).assertIsFocused()
 
-        setState(LeaseGuardUiState(scrim = ScrimState.InUse))
+        setState(LeaseGuardUiState(scrim = ScrimState.InUse, actions = listOf(LeaseAction.UseHere)))
         composeRule.waitForIdle()
         setState(LeaseGuardUiState())
 
         composeRule.onNodeWithTag(FIELD).assertIsNotFocused()
     }
 
+    private fun text(id: Int) = composeRule.onNodeWithText(string(id))
+
     @Test
     fun useHereRowsShowTheirTextAndCallUseHere() {
         val rows = mapOf(
             ScrimState.InUse to (R.string.lease_in_use_title to R.string.lease_in_use_line),
-            ScrimState.LostRace to (R.string.lease_lost_race_title to R.string.lease_lost_race_line),
-            ScrimState.Unreadable to (R.string.lease_unreadable_title to R.string.lease_unreadable_line)
+            ScrimState.LostRace to (R.string.lease_lost_race_title to R.string.lease_lost_race_line)
         )
-        val setState = show(LeaseGuardUiState(scrim = ScrimState.InUse))
-        rows.forEach { (state, text) ->
-            setState(LeaseGuardUiState(scrim = state))
-            composeRule.onNodeWithText(string(text.first)).assertIsDisplayed()
-            composeRule.onNodeWithText(string(text.second)).assertIsDisplayed()
-            composeRule.onNodeWithText(string(R.string.lease_use_here)).performClick()
+        val setState = show(LeaseGuardUiState(scrim = ScrimState.InUse, actions = listOf(LeaseAction.UseHere)))
+        rows.forEach { (state, rowText) ->
+            setState(LeaseGuardUiState(scrim = state, actions = listOf(LeaseAction.UseHere)))
+            text(rowText.first).assertIsDisplayed()
+            text(rowText.second).assertIsDisplayed()
+            text(R.string.lease_use_here).performClick()
         }
 
-        assertEquals(rows.size, useHere)
+        assertEquals(listOf(LeaseAction.UseHere, LeaseAction.UseHere), actions)
     }
 
     @Test
-    fun progressRowsHaveNoButton() {
+    fun progressRowsHaveNoButtonUntilOffered() {
         val setState = show(LeaseGuardUiState(scrim = ScrimState.Claiming))
-        composeRule.onNodeWithText(string(R.string.lease_claiming_title)).assertIsDisplayed()
-        composeRule.onNodeWithText(string(R.string.lease_claiming_line)).assertIsDisplayed()
-        composeRule.onNodeWithText(string(R.string.lease_use_here)).assertDoesNotExist()
+        text(R.string.lease_claiming_title).assertIsDisplayed()
+        text(R.string.lease_claiming_line).assertIsDisplayed()
+        text(R.string.lease_use_here).assertDoesNotExist()
 
         setState(LeaseGuardUiState(scrim = ScrimState.WaitingForReply))
-        composeRule.onNodeWithText(string(R.string.lease_waiting_title)).assertIsDisplayed()
-        composeRule.onNodeWithText(string(R.string.lease_waiting_line)).assertIsDisplayed()
-        composeRule.onNodeWithText(string(R.string.lease_use_here)).assertDoesNotExist()
+        text(R.string.lease_waiting_title).assertIsDisplayed()
+        text(R.string.lease_waiting_line).assertIsDisplayed()
+        text(R.string.lease_take_over_anyway).assertDoesNotExist()
+
+        // After 10 s the page offers Take over anyway (E4), below the spinner.
+        setState(LeaseGuardUiState(scrim = ScrimState.WaitingForReply, actions = listOf(LeaseAction.TakeOverAnyway)))
+        text(R.string.lease_waiting_line_stuck).assertIsDisplayed()
+        text(R.string.lease_take_over_anyway).performClick()
+
+        assertEquals(listOf(LeaseAction.TakeOverAnyway), actions)
+    }
+
+    /** Every error row: its title and line, and each offered button, top to bottom in the given order. */
+    @Test
+    fun errorRowsShowTheirTextAndButtonsInOrder() {
+        val rows = listOf(
+            Row(ScrimState.Unreadable, R.string.lease_unreadable_title, R.string.lease_unreadable_line, UNREADABLE),
+            Row(ScrimState.Damaged, R.string.lease_damaged_title, R.string.lease_damaged_line, DAMAGED),
+            Row(ScrimState.Error, R.string.lease_error_title, R.string.lease_error_line, ERROR),
+            Row(ScrimState.UpdateApp, R.string.lease_update_title, R.string.lease_update_app_line, ERROR),
+            Row(ScrimState.ReloadNeeded, R.string.lease_reload_title, R.string.lease_reload_line, listOf(LeaseAction.Refresh)),
+            Row(
+                ScrimState.RestartNeeded, R.string.lease_restart_title, R.string.lease_restart_line,
+                listOf(LeaseAction.Refresh, LeaseAction.ContinueWithoutProtection)
+            ),
+            Row(
+                ScrimState.UnknownState, R.string.lease_error_title, R.string.lease_unknown_line,
+                listOf(LeaseAction.Refresh, LeaseAction.ContinueWithoutProtection)
+            )
+        )
+        val setState = show(LeaseGuardUiState())
+        rows.forEach { row ->
+            setState(LeaseGuardUiState(scrim = row.state, actions = row.actions))
+            text(row.title).assertIsDisplayed()
+            text(row.line).assertIsDisplayed()
+            val tops = row.actions.map { action ->
+                text(action.label()).assertIsDisplayed().getUnclippedBoundsInRoot().top
+            }
+            assertEquals("${row.state} order", tops.sorted(), tops)
+        }
     }
 
     @Test
-    fun deadEndRowsHaveNoControl() {
-        val setState = show(LeaseGuardUiState(scrim = ScrimState.UpdateApp))
-        composeRule.onNodeWithText(string(R.string.lease_update_title)).assertIsDisplayed()
-        composeRule.onNodeWithText(string(R.string.lease_update_app_line)).assertIsDisplayed()
-        composeRule.onNodeWithText(string(R.string.lease_update)).assertDoesNotExist()
+    fun eachButtonCallsItsAction() {
+        show(LeaseGuardUiState(scrim = ScrimState.Unreadable, actions = UNREADABLE))
 
-        setState(LeaseGuardUiState(scrim = ScrimState.RestartNeeded))
-        composeRule.onNodeWithText(string(R.string.lease_restart_title)).assertIsDisplayed()
-        composeRule.onNodeWithText(string(R.string.lease_restart_line)).assertIsDisplayed()
-        composeRule.onNodeWithText(string(R.string.lease_use_here)).assertDoesNotExist()
+        UNREADABLE.forEach { text(it.label()).performClick() }
+
+        assertEquals(UNREADABLE, actions)
     }
 
     @Test
-    fun reloadNeededCallsReload() {
-        show(LeaseGuardUiState(scrim = ScrimState.ReloadNeeded))
-        composeRule.onNodeWithText(string(R.string.lease_reload_title)).assertIsDisplayed()
-        composeRule.onNodeWithText(string(R.string.lease_reload_line)).assertIsDisplayed()
+    fun warningStepReplacesTheScrimWithItsTextConfirmAndCancel() {
+        val warnings = mapOf(
+            LeaseAction.TakeOverAnyway to (R.string.lease_warn_take_over_title to R.string.lease_warn_take_over_line),
+            LeaseAction.TurnOffProtection to (R.string.lease_warn_turn_off_title to R.string.lease_warn_turn_off_line),
+            LeaseAction.ContinueWithoutProtection to (R.string.lease_warn_continue_title to R.string.lease_warn_turn_off_line)
+        )
+        val setState = show(LeaseGuardUiState())
+        warnings.forEach { (action, warningText) ->
+            setState(LeaseGuardUiState(scrim = ScrimState.Damaged, actions = DAMAGED, warning = action))
+            text(warningText.first).assertIsDisplayed()
+            text(warningText.second).assertIsDisplayed()
+            text(R.string.lease_damaged_title).assertDoesNotExist()
+            text(R.string.lease_refresh).assertDoesNotExist()
+            text(action.label()).performClick()
+            text(R.string.lease_cancel).performClick()
+        }
 
-        composeRule.onNodeWithText(string(R.string.lease_reload)).performClick()
+        assertEquals(warnings.size, confirms)
+        assertEquals(warnings.size, cancels)
+        assertEquals(emptyList<LeaseAction>(), actions)
+    }
 
-        assertEquals(1, reload)
-        assertEquals(0, useHere)
+    @Test
+    fun protectionOffShowsTheBannerOverAUsableAppAndTurnsProtectionOn() {
+        show(LeaseGuardUiState(protectionOff = true))
+        val bannerText = InstrumentationRegistry.getInstrumentation().targetContext
+            .getString(R.string.lease_off_banner, string(R.string.lease_off_banner_link))
+
+        composeRule.onNodeWithText(bannerText).assertIsDisplayed()
+        composeRule.onNode(isDialog()).assertDoesNotExist()
+        composeRule.onNodeWithText(TAB).performClick()
+        text(R.string.lease_turn_protection_on).performClick()
+
+        assertEquals(1, tabTaps)
+        assertEquals(listOf(LeaseAction.TurnProtectionOn), actions)
+    }
+
+    private data class Row(val state: ScrimState, val title: Int, val line: Int, val actions: List<LeaseAction>)
+
+    private fun LeaseAction.label(): Int = when (this) {
+        LeaseAction.UseHere -> R.string.lease_use_here
+        LeaseAction.Refresh -> R.string.lease_refresh
+        LeaseAction.TakeOverAnyway -> R.string.lease_take_over_anyway
+        LeaseAction.TurnOffProtection -> R.string.lease_turn_off_protection
+        LeaseAction.TurnProtectionOn -> R.string.lease_turn_protection_on
+        LeaseAction.ContinueWithoutProtection -> R.string.lease_continue_unprotected
     }
 
     @Test
@@ -256,5 +331,8 @@ class LeaseGuardContentTest {
     private companion object {
         const val TAB = "Chats tab"
         const val FIELD = "field"
+        val UNREADABLE = listOf(LeaseAction.UseHere, LeaseAction.Refresh, LeaseAction.TakeOverAnyway, LeaseAction.TurnOffProtection)
+        val DAMAGED = listOf(LeaseAction.TakeOverAnyway, LeaseAction.Refresh, LeaseAction.TurnOffProtection)
+        val ERROR = listOf(LeaseAction.Refresh, LeaseAction.TakeOverAnyway, LeaseAction.TurnOffProtection)
     }
 }

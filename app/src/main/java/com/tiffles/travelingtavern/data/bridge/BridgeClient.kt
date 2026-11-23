@@ -2,7 +2,9 @@ package com.tiffles.travelingtavern.data.bridge
 
 import com.tiffles.travelingtavern.data.webview.WebViewHolder
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -10,6 +12,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
 
 /**
  * The only way Kotlin calls into the SillyTavern page. Calls made before the bridge is
@@ -227,6 +230,22 @@ class BridgeClient @Inject constructor(
         holder.webView.evaluateJavascript(BridgeScript.leaseCall("onForeground"), null)
     }
 
+    /**
+     * The page's ways out of a parked state (E11, A3): `takeOverAnyway`, `turnOffProtection`,
+     * `turnProtectionOn` or `refresh`. Never gated (like [useHere]); the caller has shown the
+     * warning where one is needed. Returns the page's answer: true only when the script's value
+     * is `true` (the page reloads), false when it answered anything else, null when it didn't
+     * answer within [LEASE_ANSWER_MS] (e.g. a hung page).
+     */
+    suspend fun leaseAction(function: String): Boolean? = withContext(Dispatchers.Main) {
+        val script = BridgeScript.leaseCall(function)
+        withTimeoutOrNull(LEASE_ANSWER_MS) {
+            suspendCancellableCoroutine { cont ->
+                holder.webView.evaluateJavascript(script) { value -> if (cont.isActive) cont.resume(value == "true") }
+            }
+        }
+    }
+
     /** Runs [script] if the lease pre-check allows it; true when it was sent. */
     private suspend fun run(script: String, origin: CommandOrigin = CommandOrigin.User): Boolean =
         withContext(Dispatchers.Main) {
@@ -247,6 +266,11 @@ class BridgeClient @Inject constructor(
     private suspend fun runUnchecked(script: String): Boolean = withContext(Dispatchers.Main) {
         holder.webView.evaluateJavascript(script, null)
         true
+    }
+
+    private companion object {
+        /** How long a lease action waits for the page's answer before the caller falls back (A3). */
+        const val LEASE_ANSWER_MS = 2_000L
     }
 }
 

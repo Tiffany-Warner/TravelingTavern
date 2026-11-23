@@ -104,7 +104,7 @@ class ExtensionPromptViewModelTest {
         assertFalse(viewModel.uiState.value.prompt)
 
         viewModel.install()
-        repository.status.value = LeaseStatus.VersionMismatch
+        repository.status.value = LeaseStatus.VersionMismatch()
         runCurrent()
         assertNull(viewModel.uiState.value.dialog)
     }

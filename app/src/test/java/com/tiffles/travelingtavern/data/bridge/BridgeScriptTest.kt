@@ -194,6 +194,9 @@ class BridgeScriptTest {
     fun `lease calls are guarded by the lease's presence`() {
         assertEquals("window.__ttLease && window.__ttLease.useHere();", BridgeScript.leaseCall("useHere"))
         assertEquals("window.__ttLease && window.__ttLease.onForeground();", BridgeScript.leaseCall("onForeground"))
+        listOf("takeOverAnyway", "turnOffProtection", "turnProtectionOn", "refresh").forEach {
+            assertEquals("window.__ttLease && window.__ttLease.$it();", BridgeScript.leaseCall(it))
+        }
     }
 
     @Test(expected = IllegalArgumentException::class)

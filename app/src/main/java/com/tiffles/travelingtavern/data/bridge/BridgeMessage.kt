@@ -123,18 +123,22 @@ sealed interface BridgeMessage {
     /**
      * The session lease's state for this page load (extension spec E11), sent by
      * `session-lease.js` once the start decision is made and on every change. Every field is
-     * required. [state] (`holder` / `parked`) and [reason] are kept as sent, so unknown values
-     * survive parsing; [toLeaseStatus] types them. [epoch] is null if this load never held the lease.
+     * required except [actions]. [state] (`holder` / `parked` / `off`) and [reason] are kept as
+     * sent, so unknown values survive parsing; [toLeaseStatus] types them. [epoch] is null if this
+     * load never held the lease; [pageId] is null when protection is off. [actions] (extension
+     * rc.5+): the ways out offered now, primary first, unknown strings kept here and dropped when
+     * typed; null from an older page, which then gets the rc.4-style fallback (D46).
      */
     @Serializable
     data class LeaseState(
         val state: String,
         val reason: String?,
-        val pageId: String,
+        val pageId: String?,
         val epoch: Long?,
         val busy: Boolean,
         val connected: Boolean,
-        val origin: String
+        val origin: String,
+        val actions: List<String>? = null
     ) : BridgeMessage
 
     /**

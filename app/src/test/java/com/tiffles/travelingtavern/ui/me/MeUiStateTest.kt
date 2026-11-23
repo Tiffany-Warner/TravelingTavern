@@ -25,7 +25,7 @@ class MeUiStateTest {
 
     @Test
     fun `the dialog hides under the scrim, the row stays`() {
-        listOf(LeaseStatus.Parked(ParkReason.Lost), LeaseStatus.VersionMismatch, LeaseStatus.NoDocumentStart).forEach {
+        listOf(LeaseStatus.Parked(ParkReason.Lost), LeaseStatus.VersionMismatch(), LeaseStatus.NoDocumentStart).forEach {
             val state = meUiState(row, dialog, it)
 
             assertEquals(row, state.protection)

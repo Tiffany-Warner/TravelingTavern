@@ -59,4 +59,7 @@ object ProjectLinks {
 
     /** Where app releases are published (none before 1.0.0). */
     const val APP_RELEASES_URL = "https://github.com/Tiffany-Warner/TravelingTavern/releases"
+
+    /** Where to report a problem, e.g. protection that keeps having to be turned off (A3). */
+    const val APP_ISSUES_URL = "https://github.com/Tiffany-Warner/TravelingTavern/issues"
 }

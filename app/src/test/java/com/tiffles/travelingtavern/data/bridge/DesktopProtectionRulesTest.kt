@@ -67,7 +67,7 @@ class DesktopProtectionRulesTest {
     fun `no prompt over the scrim, restart, no document start, unprotected or before a report`() {
         listOf(
             LeaseStatus.Parked(ParkReason.Held),
-            LeaseStatus.VersionMismatch,
+            LeaseStatus.VersionMismatch(),
             LeaseStatus.NoDocumentStart,
             LeaseStatus.Unprotected,
             LeaseStatus.NotReported

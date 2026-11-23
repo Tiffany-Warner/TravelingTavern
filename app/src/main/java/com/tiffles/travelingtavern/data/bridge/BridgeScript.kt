@@ -20,7 +20,11 @@ object BridgeScript {
         return "window.__ttBridge && window.__ttBridge.$function($encodedArgs);"
     }
 
-    /** `window.__ttLease && window.__ttLease.fn();` — the session lease's page API (E11). */
+    /**
+     * `window.__ttLease && window.__ttLease.fn();` — the session lease's page API (E11). The page
+     * ignores a member it doesn't offer right now; the script's value is the member's result
+     * (`true` / `false` for the reloading ones, `{}` for a promise).
+     */
     fun leaseCall(function: String): String {
         require(function in LEASE_FUNCTIONS) { "Not a lease function: $function" }
         return "window.__ttLease && window.__ttLease.$function();"
@@ -55,6 +59,7 @@ object BridgeScript {
             .replace(" ", "\\u2028")
             .replace(" ", "\\u2029")
 
-    private val LEASE_FUNCTIONS = setOf("useHere", "onForeground")
+    private val LEASE_FUNCTIONS =
+        setOf("useHere", "onForeground", "takeOverAnyway", "turnOffProtection", "turnProtectionOn", "refresh")
     private val FUNCTION_NAME = Regex("^[A-Za-z][A-Za-z0-9]*$")
 }

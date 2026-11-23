@@ -41,7 +41,7 @@ class LeaseGateTest {
 
     private fun TestScope.gate() = LeaseGate(store, reader, clock = { testScheduler.currentTime })
 
-    private fun state(state: String = "holder", reason: String? = null, pageId: String = "t1.l1", epoch: Long? = 3L) =
+    private fun state(state: String = "holder", reason: String? = null, pageId: String? = "t1.l1", epoch: Long? = 3L) =
         BridgeMessage.LeaseState(
             state = state,
             reason = reason,
@@ -76,6 +76,14 @@ class LeaseGateTest {
         }
     }
 
+    @Test
+    fun `protection off runs commands with no check and no read`() = runTest {
+        store.onLeaseState(state(state = "off", pageId = null, epoch = null))
+
+        assertEquals(LeaseCheck.Allowed, gate().check())
+        assertEquals(0, reader.reads)
+    }
+
     // -- Holder: the pair rule
 
     @Test
@@ -92,7 +100,7 @@ class LeaseGateTest {
         reader.result = LeaseFileRead.Found("t2.l9", 3) // same epoch, another page
 
         assertEquals(LeaseCheck.RefusedPageMustCheck, gate().check())
-        assertEquals(LeaseStatus.Parked(ParkReason.Lost), store.status.value)
+        assertEquals(ParkReason.Lost, store.parkReason())
     }
 
     @Test
@@ -101,7 +109,7 @@ class LeaseGateTest {
         reader.result = LeaseFileRead.Found("t1.l1", 4)
 
         assertEquals(LeaseCheck.RefusedPageMustCheck, gate().check())
-        assertEquals(LeaseStatus.Parked(ParkReason.Lost), store.status.value)
+        assertEquals(ParkReason.Lost, store.parkReason())
     }
 
     @Test
@@ -110,7 +118,7 @@ class LeaseGateTest {
         reader.result = LeaseFileRead.Missing
 
         assertEquals(LeaseCheck.RefusedPageMustCheck, gate().check())
-        assertEquals(LeaseStatus.Parked(ParkReason.Lost), store.status.value)
+        assertEquals(ParkReason.Lost, store.parkReason())
     }
 
     @Test
@@ -119,7 +127,7 @@ class LeaseGateTest {
         reader.result = LeaseFileRead.Unreadable
 
         assertEquals(LeaseCheck.RefusedPageMustCheck, gate().check())
-        assertEquals(LeaseStatus.Parked(ParkReason.Unreadable), store.status.value)
+        assertEquals(ParkReason.Unreadable, store.parkReason())
     }
 
     @Test
@@ -128,7 +136,7 @@ class LeaseGateTest {
         reader.result = LeaseFileRead.UnknownFormat
 
         assertEquals(LeaseCheck.RefusedPageMustCheck, gate().check())
-        assertEquals(LeaseStatus.Parked(ParkReason.UnknownFormat), store.status.value)
+        assertEquals(ParkReason.UnknownFormat, store.parkReason())
     }
 
     @Test
@@ -146,7 +154,7 @@ class LeaseGateTest {
 
         store.onLeaseState(state(state = "parked", reason = "lost"))
 
-        assertEquals(LeaseStatus.Parked(ParkReason.Lost), store.status.value)
+        assertEquals(ParkReason.Lost, store.parkReason())
     }
 
     // -- Reuse
@@ -339,7 +347,7 @@ class LeaseGateTest {
         reader.result = LeaseFileRead.Found("t2.l9", 4)
 
         assertEquals(LeaseCheck.RefusedPageMustCheck, gate().check(CommandOrigin.App))
-        assertEquals(LeaseStatus.Parked(ParkReason.Lost), store.status.value)
+        assertEquals(ParkReason.Lost, store.parkReason())
     }
 
     @Test
