@@ -84,8 +84,7 @@ app/src/main/java/com/tiffles/travelingtavern/
 │   ├── remote/
 │   ├── service/     # Android services (the reply foreground service)
 │   └── repository/
-├── di/
-└── util/
+└── di/
 app/src/main/assets/web/  bridge.js, st-selectors.js, clean-theme.css
 ```
 
