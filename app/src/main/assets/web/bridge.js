@@ -30,6 +30,48 @@
         post('error', { message: String(message) });
     }
 
+    /** How long the interrupt's save watch stays armed at most (the app waits far less). */
+    const SAVE_WATCH_MAX_MS = 10000;
+    let saveWatch = null;
+
+    function isChatSave(url) {
+        let path;
+        try {
+            path = new URL(url, location.href).pathname.toLowerCase().replace(/\/+$/, '');
+        } catch (e) {
+            return false;
+        }
+        return S.api.chatSaves.indexOf(path) >= 0;
+    }
+
+    /**
+     * The interrupt's save watch (A6): posts `chatSaved` once, when the page's own chat save
+     * request that started after arming has completed (any status), or never. Passive: a
+     * PerformanceObserver on resource entries, so the lease's fetch wrapper stays the only one.
+     */
+    function watchChatSave() {
+        if (saveWatch) saveWatch();
+        if (typeof PerformanceObserver !== 'function') return;
+        const armedAt = performance.now();
+        let timer = null;
+        const observer = new PerformanceObserver(function (list) {
+            const saved = list.getEntries().some(function (entry) {
+                return entry.startTime >= armedAt && isChatSave(entry.name);
+            });
+            if (!saved) return;
+            disarm();
+            post('chatSaved');
+        });
+        function disarm() {
+            observer.disconnect();
+            clearTimeout(timer);
+            if (saveWatch === disarm) saveWatch = null;
+        }
+        saveWatch = disarm;
+        timer = setTimeout(disarm, SAVE_WATCH_MAX_MS);
+        observer.observe({ type: 'resource' });
+    }
+
     function context() {
         return S.getContext();
     }
@@ -459,6 +501,11 @@
     /** When this page last changed persona settings itself (its save to the server may still be pending). */
     let lastPersonaWriteAt = 0;
     const PERSONA_SYNC_SETTLE_MS = S.api.settingsSaveDelayMs * 5;
+    /**
+     * Set by the app (`setExtensionReported`) once this load's `leaseInfo` reports the desktop
+     * extension. Starts false on every page load: not reported yet counts as no extension.
+     */
+    let extensionReported = false;
 
     function replaceContents(target, source) {
         Object.keys(target).forEach(function (key) { delete target[key]; });
@@ -471,8 +518,11 @@
      * page's copy, so a stale page would erase personas made elsewhere (the desktop) the next
      * time it saves. Skipped right after this page's own persona change, until its debounced
      * save has reached the server. Best effort: on failure the page keeps its copy.
+     * Off once the app says the lease's `leaseInfo` reported the desktop extension
+     * ([extensionReported]): every page that writes then loaded holding the lease.
      */
     async function syncPersonaSettings(ctx) {
+        if (extensionReported) return;
         if (Date.now() - lastPersonaWriteAt < PERSONA_SYNC_SETTLE_MS) return;
         try {
             const response = await fetch(S.api.settings, {
@@ -1143,6 +1193,61 @@
             .finally(function () { events.removeListener(name, onDeleted); });
     }
 
+    const M = S.model;
+    /** How long Connect waits for SillyTavern's attempt, as the lease does (E10). */
+    const CONNECT_WAIT_MS = 10000;
+
+    function isModelConnected(ctx) {
+        const status = ctx && ctx[M.onlineStatus];
+        return typeof status === 'string' && status !== M.noConnection;
+    }
+
+    /**
+     * Resolves true once SillyTavern reports a connection, or after CONNECT_WAIT_MS with its status
+     * then. It fires no event when an attempt fails, so the wait is the only end it has (E10).
+     */
+    function waitForModel(ctx) {
+        return new Promise(function (resolve) {
+            const events = ctx[S.context.eventSource];
+            const name = eventName(ctx, M.statusChanged);
+            let timer = null;
+            function finish(connected) {
+                clearTimeout(timer);
+                events.removeListener(name, onChange);
+                resolve(connected);
+            }
+            function onChange(status) {
+                if (typeof status === 'string' && status !== M.noConnection) finish(true);
+            }
+            events.on(name, onChange);
+            timer = setTimeout(function () { finish(isModelConnected(context())); }, CONNECT_WAIT_MS);
+        });
+    }
+
+    /**
+     * Presses the selected API's connect button unless SillyTavern is connected or already
+     * connecting (a press would start a second status check), then waits for the attempt.
+     * Outcome: `alreadyConnected`, `pressed`, `alreadyConnecting`, `noButton` or `noContext`.
+     */
+    async function connectModel() {
+        const ctx = context();
+        if (!ctx) return { outcome: 'noContext', connected: false };
+        if (isModelConnected(ctx)) return { outcome: 'alreadyConnected', connected: true };
+        const api = ctx[M.mainApi];
+        const selector = Object.prototype.hasOwnProperty.call(M.connectButtons, api) ? M.connectButtons[api] : null;
+        const button = selector ? document.querySelector(selector) : null;
+        // Subscribed before the press: some sources (Custom) set their status inside the click handler.
+        const connected = waitForModel(ctx);
+        let outcome = 'noButton';
+        if (button && button.classList.contains(M.connectingClass)) {
+            outcome = 'alreadyConnecting';
+        } else if (button) {
+            button.click();
+            outcome = 'pressed';
+        }
+        return { outcome: outcome, connected: await connected };
+    }
+
     function postChatResult(requestId, ok, error, extra) {
         const payload = { requestId: requestId, ok: ok };
         if (error) payload.error = error;
@@ -1246,6 +1351,39 @@
         refreshChatDecorations();
     }
 
+    // ---- Desktop extension (A8) -------------------------------------------------------
+
+    /** `extensionResult`: [status] is the HTTP status (0 when nothing came back); [upToDate] only for an update. */
+    function postExtensionResult(requestId, ok, status, upToDate) {
+        post('extensionResult', { requestId: requestId, ok: ok, status: status, upToDate: upToDate });
+    }
+
+    /**
+     * POSTs [body] to [path] with SillyTavern's request headers (CSRF, auth) and answers
+     * [requestId]. Only the status (and `isUpToDate` with [readUpToDate]) goes back: the answer's
+     * server paths never leave the page.
+     */
+    function extensionRequest(requestId, path, body, readUpToDate) {
+        const ctx = context();
+        if (!ctx) {
+            postExtensionResult(requestId, false, 0, null);
+            return;
+        }
+        fetch(path, { method: 'POST', headers: ctx[S.context.getRequestHeaders](), body: JSON.stringify(body || {}) })
+            .then(async function (response) {
+                if (!response.ok) {
+                    postExtensionResult(requestId, false, response.status, null);
+                    return;
+                }
+                const data = readUpToDate ? await response.json() : null;
+                postExtensionResult(requestId, true, response.status, data ? data[S.api.extensionUpToDate] === true : null);
+            })
+            .catch(function (e) {
+                postError('Extension request failed: ' + e);
+                postExtensionResult(requestId, false, 0, null);
+            });
+    }
+
     const chatActions = {
         /** The page's view of the app (foreground, open chat). Read by Phase 8; nothing reads it yet. */
         appState: appState,
@@ -1266,6 +1404,31 @@
                     postError('reloadChat failed: ' + e);
                 });
             });
+        },
+
+        /**
+         * Regenerate on the "couldn't start the reply" snackbar (A7): SillyTavern's own regenerate,
+         * only while the chat's last message is the user's (else `stale`). With a user message last,
+         * SillyTavern's regenerate neither deletes it nor adds it again; with a character's message
+         * last it would delete that message, hence the check. Answers `chatResult` tagged [requestId].
+         */
+        regenerateReply: function (requestId) {
+            const ctx = context();
+            const messages = ctx ? chatOf(ctx) : [];
+            const last = messages[messages.length - 1];
+            if (!last || !last[S.message.isUser]) {
+                postChatResult(requestId, false, 'stale');
+            } else if (generating) {
+                postChatResult(requestId, false, 'busy');
+            } else {
+                try {
+                    clickElement(C.options.regenerate);
+                    postChatResult(requestId, true);
+                } catch (e) {
+                    postError('Regenerate failed: ' + e);
+                    postChatResult(requestId, false, 'failed');
+                }
+            }
         },
 
         /**
@@ -1335,6 +1498,47 @@
         stopGeneration: function () {
             const ctx = context();
             if (ctx) ctx[S.context.stopGeneration]();
+        },
+
+        /**
+         * The banner's Connect (A7): presses SillyTavern's connect button for the selected API, as
+         * the lease does after a takeover (E10), and answers `connectResult` tagged [requestId].
+         */
+        connectModel: function (requestId) {
+            connectModel().then(function (result) {
+                post('connectResult', Object.assign({ requestId: requestId }, result));
+            }, function (e) {
+                postError('Connect failed: ' + e);
+                post('connectResult', { requestId: requestId, outcome: 'failed', connected: false });
+            });
+        },
+
+        /**
+         * The app's interrupt (A6): arms the save watch, then stops the reply. `chatSaved` follows
+         * once SillyTavern's save of the partial reply has completed.
+         */
+        interruptReply: function () {
+            watchChatSave();
+            const ctx = context();
+            if (ctx) ctx[S.context.stopGeneration]();
+        },
+
+        /**
+         * Installs the desktop extension in SillyTavern (A8): POSTs [body] (built by the app) to
+         * SillyTavern's install endpoint with its own request headers. Answers `extensionResult`.
+         */
+        installExtension: function (requestId, body) {
+            extensionRequest(requestId, S.api.extensionInstall, body, false);
+        },
+
+        /** Updates the desktop extension (A8), like [installExtension]; the answer carries `upToDate`. */
+        updateExtension: function (requestId, body) {
+            extensionRequest(requestId, S.api.extensionUpdate, body, true);
+        },
+
+        /** The desktop extension is reported for this load: the persona re-read stops (only `true` turns it off). */
+        setExtensionReported: function (reported) {
+            if (reported === true) extensionReported = true;
         },
 
         /** Start new chat ([deleteCurrent] false) or Restart chat (true), answered with `chatResult`. */

@@ -1,0 +1,64 @@
+package com.tiffles.travelingtavern.domain
+
+import com.tiffles.travelingtavern.domain.model.DesktopProtection
+import com.tiffles.travelingtavern.domain.model.LeaseStatus
+import com.tiffles.travelingtavern.domain.model.ModelBanner
+import com.tiffles.travelingtavern.domain.repository.LeaseRepository
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+
+class FakeLeaseRepository : LeaseRepository {
+
+    override val status = MutableStateFlow<LeaseStatus>(LeaseStatus.NotReported)
+    override val unprotected = MutableStateFlow(false)
+    override val desktopProtection = MutableStateFlow<DesktopProtection?>(null)
+    override val extensionPromptDue = MutableStateFlow(false)
+    var extensionPromptShownCalls = 0
+    override val commandWaiting = MutableStateFlow(false)
+    override val stillLoading = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    override val replyInterrupted = MutableStateFlow(false)
+    override val modelBanner = MutableStateFlow<ModelBanner?>(null)
+    override val replyNotStarted = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    var connectCalls = 0
+    var useHereCalls = 0
+    var continueCalls = 0
+    val leaseCalls = mutableListOf<String>()
+
+    override fun onReplyInterruptedShown() {
+        replyInterrupted.value = false
+    }
+
+    override suspend fun connectModel() {
+        connectCalls++
+    }
+
+    override suspend fun useHere() {
+        useHereCalls++
+    }
+
+    override suspend fun takeOverAnyway() {
+        leaseCalls += "takeOverAnyway"
+    }
+
+    override suspend fun refresh() {
+        leaseCalls += "refresh"
+    }
+
+    override suspend fun turnOffProtection() {
+        leaseCalls += "turnOffProtection"
+    }
+
+    override suspend fun turnProtectionOn() {
+        leaseCalls += "turnProtectionOn"
+    }
+
+    override suspend fun continueWithoutProtection() {
+        continueCalls++
+    }
+
+    override suspend fun onExtensionPromptShown() {
+        extensionPromptShownCalls++
+        // As the real flag: once shown, never due again.
+        extensionPromptDue.value = false
+    }
+}

@@ -4,6 +4,7 @@ import android.util.Log
 import com.tiffles.travelingtavern.data.bridge.BridgeClient
 import com.tiffles.travelingtavern.data.bridge.BridgeMessage
 import com.tiffles.travelingtavern.data.bridge.BridgeRepository
+import com.tiffles.travelingtavern.data.bridge.sendAndAwait
 import com.tiffles.travelingtavern.data.bridge.LorebookEntryDto
 import com.tiffles.travelingtavern.data.bridge.LorebookEntryInput
 import com.tiffles.travelingtavern.data.webview.WebViewHolder
@@ -18,7 +19,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
@@ -48,9 +48,7 @@ class LorebookRepositoryImpl @Inject constructor(
     override suspend fun refresh() {
         withTimeoutOrNull(REFRESH_TIMEOUT_MS) {
             bridge.isReady.first { it }
-            bridge.messages
-                .onSubscription { client.requestLorebooks(fromServer = true) }
-                .first { it is BridgeMessage.Lorebooks || it is BridgeMessage.Error }
+            bridge.messages.sendAndAwait({ client.requestLorebooks(fromServer = true) }) { it is BridgeMessage.Lorebooks || it is BridgeMessage.Error }
         }
     }
 
@@ -90,14 +88,12 @@ class LorebookRepositoryImpl @Inject constructor(
     /** Sends a tagged request (once the page is ready) and returns its answer, or null on timeout. */
     private suspend fun ask(
         timeoutMs: Long = ACTION_TIMEOUT_MS,
-        send: suspend (requestId: String) -> Unit
+        send: suspend (requestId: String) -> Boolean
     ): BridgeMessage? {
         val requestId = "lb${nextRequestId.incrementAndGet()}"
         val answer = withTimeoutOrNull(timeoutMs) {
             bridge.isReady.first { it }
-            bridge.messages
-                .onSubscription { send(requestId) }
-                .first { it.requestId() == requestId }
+            bridge.messages.sendAndAwait({ send(requestId) }) { it.requestId() == requestId }
         }
         if (answer == null) Log.w(TAG, "No answer to a lorebook request within $timeoutMs ms")
         return answer

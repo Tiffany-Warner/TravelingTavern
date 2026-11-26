@@ -3,6 +3,7 @@ package com.tiffles.travelingtavern.data.repository
 import android.util.Log
 import com.tiffles.travelingtavern.data.bridge.BridgeClient
 import com.tiffles.travelingtavern.data.bridge.BridgeRepository
+import com.tiffles.travelingtavern.data.bridge.LeaseStateStore
 import com.tiffles.travelingtavern.data.webview.WebViewHolder
 import com.tiffles.travelingtavern.domain.entry
 import com.tiffles.travelingtavern.domain.repository.LorebookException
@@ -27,7 +28,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class LorebookRepositoryImplTest {
 
-    private val bridge = BridgeRepository()
+    private val bridge = BridgeRepository(LeaseStateStore())
     private val client: BridgeClient = mockk(relaxed = true)
     private val repository = LorebookRepositoryImpl(bridge, client, mockk<WebViewHolder>(relaxed = true))
 
@@ -44,7 +45,11 @@ class LorebookRepositoryImplTest {
         unmockkStatic(Log::class)
     }
 
-    private fun answer(json: String) = bridge.onRawMessage(json)
+    /** Delivers [json]; true, as a sent command returns. */
+    private fun answer(json: String): Boolean {
+        bridge.onRawMessage(json)
+        return true
+    }
 
     private fun failureOf(result: Result<*>) = (result.exceptionOrNull() as LorebookException).failure
 

@@ -22,6 +22,14 @@ class BridgeScriptTest {
     }
 
     @Test
+    fun `interruptReply is one call that arms the save watch and stops in the page`() {
+        assertEquals(
+            "window.__ttBridge && window.__ttBridge.interruptReply();",
+            BridgeScript.call("interruptReply")
+        )
+    }
+
+    @Test
     fun `call without arguments`() {
         assertEquals(
             "window.__ttBridge && window.__ttBridge.requestCharacters();",
@@ -180,5 +188,19 @@ class BridgeScriptTest {
             "window.__ttBridge && window.__ttBridge.selectPersona(\"pe1\",\"1-Mira.png\",true);",
             BridgeScript.call("selectPersona", JsonPrimitive("pe1"), JsonPrimitive("1-Mira.png"), JsonPrimitive(true))
         )
+    }
+
+    @Test
+    fun `lease calls are guarded by the lease's presence`() {
+        assertEquals("window.__ttLease && window.__ttLease.useHere();", BridgeScript.leaseCall("useHere"))
+        assertEquals("window.__ttLease && window.__ttLease.onForeground();", BridgeScript.leaseCall("onForeground"))
+        listOf("takeOverAnyway", "turnOffProtection", "turnProtectionOn", "refresh").forEach {
+            assertEquals("window.__ttLease && window.__ttLease.$it();", BridgeScript.leaseCall(it))
+        }
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `only the lease's own functions can be called`() {
+        BridgeScript.leaseCall("start")
     }
 }

@@ -120,6 +120,18 @@ class BridgeMessageParserTest {
     }
 
     @Test
+    fun `chatSaved`() {
+        assertEquals(BridgeMessage.ChatSaved, parse("""{"v":1,"type":"chatSaved"}"""))
+        assertEquals(BridgeMessage.ChatSaved, parse("""{"v":1,"type":"chatSaved","status":500}"""))
+    }
+
+    @Test
+    fun `chatSaved without a version or malformed is dropped`() {
+        assertNull(parse("""{"type":"chatSaved"}"""))
+        assertNull(parse("""{"v":1,"type":"chatSaved""""))
+    }
+
+    @Test
     fun `unknown type is kept as unknown, not dropped`() {
         assertEquals(BridgeMessage.Unknown("somethingNew"), parse("""{"v":2,"type":"somethingNew","x":1}"""))
     }
@@ -305,5 +317,184 @@ class BridgeMessageParserTest {
             parse("""{"v":1,"type":"impersonateReady","text":"I wave back."}""")
         )
         assertNull(parse("""{"v":1,"type":"impersonateReady"}"""))
+    }
+
+    // Session lease (extension spec E11, as posted by session-lease.js v0.2.0-rc.1)
+
+    private val parkedState =
+        """{"v":1,"type":"leaseState","state":"parked","reason":"held","pageId":"t1.l1","epoch":null,""" +
+            """"busy":false,"connected":true,"origin":"http://192.0.2.1:8000"}"""
+
+    @Test
+    fun `leaseState with every field`() {
+        val raw = """{"v":1,"type":"leaseState","state":"holder","reason":null,"pageId":"t1.l2","epoch":7,""" +
+            """"busy":true,"connected":false,"origin":"http://192.0.2.1:8000"}"""
+
+        assertEquals(
+            BridgeMessage.LeaseState(
+                state = "holder",
+                reason = null,
+                pageId = "t1.l2",
+                epoch = 7L,
+                busy = true,
+                connected = false,
+                origin = "http://192.0.2.1:8000"
+            ),
+            parse(raw)
+        )
+    }
+
+    @Test
+    fun `leaseState parked with a null epoch`() {
+        val message = parse(parkedState) as BridgeMessage.LeaseState
+
+        assertEquals("parked", message.state)
+        assertEquals("held", message.reason)
+        assertNull(message.epoch)
+    }
+
+    @Test
+    fun `leaseState keeps an unknown state and reason`() {
+        val message = parse(
+            parkedState.replace("\"parked\"", "\"sleeping\"").replace("\"held\"", "\"napping\"")
+        ) as BridgeMessage.LeaseState
+
+        assertEquals("sleeping", message.state)
+        assertEquals("napping", message.reason)
+    }
+
+    @Test
+    fun `leaseState ignores unknown fields`() {
+        val message = parse(parkedState.replace("\"busy\"", "\"since\":5,\"busy\""))
+
+        assertEquals("t1.l1", (message as BridgeMessage.LeaseState).pageId)
+    }
+
+    @Test
+    fun `leaseState actions are kept as sent, unknown strings included`() {
+        val parsed = parse(parkedState.replace("}", ",\"actions\":[\"useHere\",\"dance\"]}"))
+
+        assertEquals(listOf("useHere", "dance"), (parsed as BridgeMessage.LeaseState).actions)
+    }
+
+    @Test
+    fun `leaseState without actions (an older page) still parses, with null actions`() {
+        assertNull((parse(parkedState) as BridgeMessage.LeaseState).actions)
+    }
+
+    @Test
+    fun `leaseState off with a null pageId parses`() {
+        val parsed = parse(
+            """{"v":1,"type":"leaseState","state":"off","reason":null,"pageId":null,"epoch":null,""" +
+                """"busy":false,"connected":false,"origin":"http://192.0.2.1:8000","actions":["turnProtectionOn"]}"""
+        ) as BridgeMessage.LeaseState
+
+        assertEquals("off", parsed.state)
+        assertNull(parsed.pageId)
+    }
+
+    @Test
+    fun `leaseState missing a field or with a wrong type is dropped`() {
+        assertNull(parse(parkedState.replace(",\"origin\":\"http://192.0.2.1:8000\"", "")))
+        assertNull(parse(parkedState.replace("\"reason\":\"held\",", "")))
+        assertNull(parse(parkedState.replace("\"epoch\":null", "\"epoch\":\"three\"")))
+        assertNull(parse(parkedState.replace("\"busy\":false", "\"busy\":\"no\"")))
+        assertNull(parse(parkedState.replace("\"connected\":true", "\"connected\":\"yes\"")))
+        assertNull(parse(parkedState.replace("\"pageId\":\"t1.l1\"", "\"pageId\":7")))
+    }
+
+    @Test
+    fun `leaseInfo with an extension and without one`() {
+        assertEquals(
+            BridgeMessage.LeaseInfo(
+                leaseVersion = 1,
+                extensionVersion = "0.2.0",
+                extensionLeaseVersion = 1,
+                stVersion = "1.19.1",
+                untestedServer = false
+            ),
+            parse(
+                """{"v":1,"type":"leaseInfo","leaseVersion":1,"extensionVersion":"0.2.0",""" +
+                    """"extensionLeaseVersion":1,"stVersion":"1.19.1","untestedServer":false}"""
+            )
+        )
+        assertEquals(
+            BridgeMessage.LeaseInfo(
+                leaseVersion = 1,
+                extensionVersion = null,
+                extensionLeaseVersion = null,
+                stVersion = null,
+                untestedServer = true
+            ),
+            parse(
+                """{"v":1,"type":"leaseInfo","leaseVersion":1,"extensionVersion":null,""" +
+                    """"extensionLeaseVersion":null,"stVersion":null,"untestedServer":true}"""
+            )
+        )
+    }
+
+    @Test
+    fun `leaseInfo missing its version or with a wrong type is dropped`() {
+        assertNull(
+            parse(
+                """{"v":1,"type":"leaseInfo","extensionVersion":null,"extensionLeaseVersion":null,""" +
+                    """"stVersion":null,"untestedServer":true}"""
+            )
+        )
+        assertNull(
+            parse(
+                """{"v":1,"type":"leaseInfo","leaseVersion":"one","extensionVersion":null,""" +
+                    """"extensionLeaseVersion":null,"stVersion":null,"untestedServer":true}"""
+            )
+        )
+    }
+
+    @Test
+    fun `leaseNotice keeps known and unknown kinds`() {
+        assertEquals(
+            BridgeMessage.LeaseNotice("replyNotStarted"),
+            parse("""{"v":1,"type":"leaseNotice","kind":"replyNotStarted"}""")
+        )
+        assertEquals(
+            BridgeMessage.LeaseNotice("notConnected"),
+            parse("""{"v":1,"type":"leaseNotice","kind":"notConnected"}""")
+        )
+        assertEquals(
+            BridgeMessage.LeaseNotice("somethingNew"),
+            parse("""{"v":1,"type":"leaseNotice","kind":"somethingNew"}""")
+        )
+        assertNull(parse("""{"v":1,"type":"leaseNotice"}"""))
+    }
+
+    @Test
+    fun `connectResult keeps its outcome as sent`() {
+        assertEquals(
+            BridgeMessage.ConnectResult(requestId = "r1", outcome = "alreadyConnecting", connected = false),
+            parse("""{"v":1,"type":"connectResult","requestId":"r1","outcome":"alreadyConnecting","connected":false}""")
+        )
+        assertEquals(
+            BridgeMessage.ConnectResult(requestId = "r1", outcome = "somethingNew", connected = true),
+            parse("""{"v":1,"type":"connectResult","requestId":"r1","outcome":"somethingNew","connected":true}""")
+        )
+        assertNull(parse("""{"v":1,"type":"connectResult","requestId":"r1","outcome":"pressed"}"""))
+    }
+
+    @Test
+    fun `extensionResult carries status and upToDate`() {
+        assertEquals(
+            BridgeMessage.ExtensionResult(requestId = "r1", ok = true, status = 200, upToDate = false),
+            parse("""{"v":1,"type":"extensionResult","requestId":"r1","ok":true,"status":200,"upToDate":false}""")
+        )
+        assertEquals(
+            BridgeMessage.ExtensionResult(requestId = "r1", ok = false, status = 409, upToDate = null),
+            parse("""{"v":1,"type":"extensionResult","requestId":"r1","ok":false,"status":409,"upToDate":null}""")
+        )
+        assertNull(parse("""{"v":1,"type":"extensionResult","requestId":"r1","ok":true}"""))
+        assertNull(parse("""{"v":1,"type":"extensionResult","requestId":"r1","ok":"yes","status":200,"upToDate":null}"""))
+    }
+
+    @Test
+    fun `lease messages without a version are not ours`() {
+        assertNull(parse(parkedState.replace("\"v\":1,", "")))
     }
 }

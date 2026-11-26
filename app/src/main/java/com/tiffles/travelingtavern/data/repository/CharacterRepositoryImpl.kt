@@ -4,6 +4,8 @@ import android.util.Log
 import com.tiffles.travelingtavern.data.bridge.BridgeClient
 import com.tiffles.travelingtavern.data.bridge.BridgeMessage
 import com.tiffles.travelingtavern.data.bridge.BridgeRepository
+import com.tiffles.travelingtavern.data.bridge.CommandOrigin
+import com.tiffles.travelingtavern.data.bridge.sendAndAwait
 import com.tiffles.travelingtavern.data.lifecycle.AppForegroundTracker
 import com.tiffles.travelingtavern.data.webview.WebViewHolder
 import com.tiffles.travelingtavern.di.ApplicationScope
@@ -15,9 +17,7 @@ import com.tiffles.travelingtavern.domain.repository.CharacterRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
@@ -40,7 +40,6 @@ class CharacterRepositoryImpl @Inject constructor(
     @Volatile private var chatStale = false
 
     init {
-        scope.launch { foreground.isForeground.collect { client.setAppState(it) } }
         scope.launch { foreground.returns.collect { onAppReturned() } }
     }
 
@@ -56,12 +55,9 @@ class CharacterRepositoryImpl @Inject constructor(
     override suspend fun refresh() {
         withTimeoutOrNull(REFRESH_TIMEOUT_MS) {
             // Subscribe before asking, so a fast answer can't slip past.
-            bridge.messages
-                .onSubscription {
-                    client.requestCharacters(fromServer = true)
-                    client.requestRecentChats()
-                }
-                .first { it is BridgeMessage.RecentChats || it is BridgeMessage.Error }
+            bridge.messages.sendAndAwait({ client.requestCharacters(fromServer = true) && client.requestRecentChats(CommandOrigin.User) }) {
+                it is BridgeMessage.RecentChats || it is BridgeMessage.Error
+            }
         }
     }
 
@@ -72,11 +68,10 @@ class CharacterRepositoryImpl @Inject constructor(
         val requestId = UUID.randomUUID().toString()
         val answer = withTimeoutOrNull(DELETE_CHAT_TIMEOUT_MS) {
             bridge.isReady.first { it }
-            bridge.messages
-                .onSubscription { client.deleteChat(requestId, chat.characterId, chat.chatFile) }
-                .filterIsInstance<BridgeMessage.ChatResult>()
-                .first { it.requestId == requestId }
-        }
+            bridge.messages.sendAndAwait({ client.deleteChat(requestId, chat.characterId, chat.chatFile) }) {
+                it is BridgeMessage.ChatResult && it.requestId == requestId
+            }
+        } as? BridgeMessage.ChatResult
         if (answer?.ok != true) {
             Log.w(TAG, "Delete chat failed: ${answer?.error ?: "timed out"}")
             return false
@@ -96,9 +91,9 @@ class CharacterRepositoryImpl @Inject constructor(
         val reload = chatStale
         chatStale = false
         val answer = withTimeoutOrNull(OPEN_CHAT_TIMEOUT_MS) {
-            bridge.messages
-                .onSubscription { client.selectCharacter(requestId, characterId, chatFile, reload) }
-                .first { it.isChatOpened(requestId) || it is BridgeMessage.Error }
+            bridge.messages.sendAndAwait({ client.selectCharacter(requestId, characterId, chatFile, reload) }) {
+                it.isChatOpened(requestId) || it is BridgeMessage.Error
+            }
         }
         val opened = answer as? BridgeMessage.ChatOpened
         when {
@@ -114,11 +109,11 @@ class CharacterRepositoryImpl @Inject constructor(
         // Leaving the chat shows the Chats list again. SillyTavern saves a reply only after its
         // MESSAGE_RECEIVED handlers finish (and has no "saved" event), so the list fetched on that
         // event can miss the newest message; asking again here catches the saved file.
-        if (!visible) scope.launch { client.requestRecentChats() }
+        if (!visible) scope.launch { client.requestRecentChats(CommandOrigin.App) }
     }
 
     private suspend fun onAppReturned() {
-        client.requestRecentChats()
+        client.requestRecentChats(CommandOrigin.App)
         if (chatVisible) client.reloadChat() else chatStale = true
     }
 

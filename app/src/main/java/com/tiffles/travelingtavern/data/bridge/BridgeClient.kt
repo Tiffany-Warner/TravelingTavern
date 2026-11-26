@@ -2,7 +2,9 @@ package com.tiffles.travelingtavern.data.bridge
 
 import com.tiffles.travelingtavern.data.webview.WebViewHolder
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -10,23 +12,36 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
 
 /**
  * The only way Kotlin calls into the SillyTavern page. Calls made before the bridge is
  * loaded do nothing; watch [BridgeRepository.isReady] when timing matters.
+ *
+ * Every command goes through the lease pre-check ([LeaseGate], A4) and returns whether it was
+ * sent: `false` means it was refused and never reached the page. Exempt, because they touch
+ * nothing but the page's DOM or CSS: [revealMessage], [endReveal], [setCleanMode] and
+ * [setPageTheme]. [useHere] and [onForeground] are the lease's own hooks and are never gated,
+ * nor is [interruptReply] (A6), nor [setExtensionReported] (a page flag).
+ *
+ * Commands are [CommandOrigin.User] unless noted: [setAppState], [reloadChat], [requestPersonas]
+ * and [countTokens] are always started by the app, and [requestRecentChats] takes its origin
+ * (D25). An app-started command is checked the same way, but never shows the loading bar or the
+ * "still loading" message.
  */
 @Singleton
 class BridgeClient @Inject constructor(
     private val holder: WebViewHolder,
     private val pageMode: PageModeStore,
-    private val pageTheme: PageThemeStore
+    private val pageTheme: PageThemeStore,
+    private val gate: LeaseGate
 ) {
     /** Asks for a fresh `characters` message; [fromServer] re-reads the list from the server first. */
     suspend fun requestCharacters(fromServer: Boolean) =
         run(BridgeScript.call("requestCharacters", JsonPrimitive(fromServer)))
 
     /** Asks the page to send a fresh `recentChats` message. */
-    suspend fun requestRecentChats() = run(BridgeScript.call("requestRecentChats"))
+    suspend fun requestRecentChats(origin: CommandOrigin) = run(BridgeScript.call("requestRecentChats"), origin)
 
     /**
      * Opens character [id]'s chat (avatar file name): [chatFile] (without `.jsonl`) if it
@@ -44,11 +59,15 @@ class BridgeClient @Inject constructor(
             )
         )
 
-    /** Tells the page whether the app is in the foreground (kept in `appState`). */
-    suspend fun setAppState(foreground: Boolean) = run(BridgeScript.call("setAppState", JsonPrimitive(foreground)))
+    /**
+     * Tells the page whether the app is in the foreground (kept in `appState`). Checked: on
+     * return it runs the persona sync, which reads and can save. App-started.
+     */
+    suspend fun setAppState(foreground: Boolean) =
+        run(BridgeScript.call("setAppState", JsonPrimitive(foreground)), CommandOrigin.App)
 
-    /** Re-reads the open chat from the server once no generation is running. */
-    suspend fun reloadChat() = run(BridgeScript.call("reloadChat"))
+    /** Re-reads the open chat from the server once no generation is running. App-started. */
+    suspend fun reloadChat() = run(BridgeScript.call("reloadChat"), CommandOrigin.App)
 
     /** Runs [action] on a message, answered by `chatResult` tagged [requestId]. */
     suspend fun messageAction(requestId: String, messageId: Int, sendDate: String, action: String) =
@@ -62,6 +81,9 @@ class BridgeClient @Inject constructor(
             )
         )
 
+    /** SillyTavern's regenerate for the user's message last in the chat (A7), answered by `chatResult` tagged [requestId]. */
+    suspend fun regenerateReply(requestId: String) = run(BridgeScript.call("regenerateReply", JsonPrimitive(requestId)))
+
     /** Sends [text] through SillyTavern's own send. */
     suspend fun sendMessage(text: String) = run(BridgeScript.call("sendMessage", JsonPrimitive(text)))
 
@@ -70,12 +92,37 @@ class BridgeClient @Inject constructor(
 
     suspend fun stopGeneration() = run(BridgeScript.call("stopGeneration"))
 
-    /** Scrolls message [messageId] above the actions sheet, which covers the bottom [coveredPx] of the page. */
-    suspend fun revealMessage(messageId: Int, coveredPx: Int) =
-        run(BridgeScript.call("revealMessage", JsonPrimitive(messageId), JsonPrimitive(coveredPx)))
+    /**
+     * Connect on the "Not connected to a model" banner (A7, D2): the page presses SillyTavern's
+     * connect button for the selected API (as the lease does after a takeover, E10) and answers with
+     * `connectResult` tagged [requestId] once connected, or after its 10 s wait.
+     */
+    suspend fun connectModel(requestId: String) = run(BridgeScript.call("connectModel", JsonPrimitive(requestId)))
 
-    /** The actions sheet closed: takes away the room [revealMessage] added. */
-    suspend fun endReveal() = run(BridgeScript.call("endReveal"))
+    /**
+     * The interrupt's Stop (A6), with the app in the background: arms the page's save watch, then
+     * stops the reply; `chatSaved` follows once SillyTavern's save has completed. Not gated (D30):
+     * the interrupt must fit its time budget, and the chat save SillyTavern sends after the stop is
+     * still checked by the page's own lease (E6).
+     */
+    suspend fun interruptReply() = runUnchecked(BridgeScript.call("interruptReply"))
+
+    /**
+     * `leaseInfo` reported the desktop extension: the page stops its persona re-read for this load
+     * ([PersonaSyncSwitch]). Not gated: it only sets a flag in the page, no
+     * request, and a refusal would only keep the re-read (the safe side).
+     */
+    suspend fun setExtensionReported() = runUnchecked(BridgeScript.call("setExtensionReported", JsonPrimitive(true)))
+
+    /**
+     * Scrolls message [messageId] above the actions sheet, which covers the bottom [coveredPx] of
+     * the page. Exempt from the lease check: a scroll and a body class.
+     */
+    suspend fun revealMessage(messageId: Int, coveredPx: Int) =
+        runUnchecked(BridgeScript.call("revealMessage", JsonPrimitive(messageId), JsonPrimitive(coveredPx)))
+
+    /** The actions sheet closed: takes away the room [revealMessage] added. Exempt, like [revealMessage]. */
+    suspend fun endReveal() = runUnchecked(BridgeScript.call("endReveal"))
 
     /** Start new chat, or Restart chat when [deleteCurrent]; answered by `chatResult`. */
     suspend fun newChat(requestId: String, deleteCurrent: Boolean) =
@@ -90,6 +137,17 @@ class BridgeClient @Inject constructor(
         pageTheme.theme = theme
         holder.webView.evaluateJavascript(BridgeScript.setTheme(theme), null)
     }
+
+    /**
+     * Installs the desktop extension (A8): the page POSTs [body] to SillyTavern's install endpoint
+     * with its own request headers; answered by `extensionResult` tagged [requestId].
+     */
+    suspend fun installExtension(requestId: String, body: JsonObject) =
+        run(BridgeScript.call("installExtension", JsonPrimitive(requestId), body))
+
+    /** Updates the desktop extension (A8), like [installExtension]. */
+    suspend fun updateExtension(requestId: String, body: JsonObject) =
+        run(BridgeScript.call("updateExtension", JsonPrimitive(requestId), body))
 
     /** Asks for a fresh `lorebooks` message; [fromServer] re-reads everything from the server first. */
     suspend fun requestLorebooks(fromServer: Boolean) =
@@ -115,9 +173,12 @@ class BridgeClient @Inject constructor(
     suspend fun deleteLorebookEntry(requestId: String, name: String, uid: Int) =
         run(BridgeScript.call("deleteLorebookEntry", JsonPrimitive(requestId), JsonPrimitive(name), JsonPrimitive(uid)))
 
-    /** Asks for a fresh `personas` message; [refreshPictures] makes every picture load again. */
+    /**
+     * Asks for a fresh `personas` message; [refreshPictures] makes every picture load again.
+     * App-started (Personas' automatic refresh on opening).
+     */
     suspend fun requestPersonas(refreshPictures: Boolean) =
-        run(BridgeScript.call("requestPersonas", JsonPrimitive(refreshPictures)))
+        run(BridgeScript.call("requestPersonas", JsonPrimitive(refreshPictures)), CommandOrigin.App)
 
     /** Switches to persona [avatarId]; [lockToChat] also locks it to the open chat. */
     suspend fun selectPersona(requestId: String, avatarId: String, lockToChat: Boolean) =
@@ -140,8 +201,9 @@ class BridgeClient @Inject constructor(
     suspend fun setDefaultPersona(requestId: String, avatarId: String, isDefault: Boolean) =
         run(BridgeScript.call("setDefaultPersona", JsonPrimitive(requestId), JsonPrimitive(avatarId), JsonPrimitive(isDefault)))
 
+    /** App-started: counted while the user types. */
     suspend fun countTokens(requestId: String, text: String) =
-        run(BridgeScript.call("countTokens", JsonPrimitive(requestId), JsonPrimitive(text)))
+        run(BridgeScript.call("countTokens", JsonPrimitive(requestId), JsonPrimitive(text)), CommandOrigin.App)
 
     /**
      * Turns the clean theme on or off (Advanced, 1.8). Remembered, so it is re-applied after
@@ -152,8 +214,63 @@ class BridgeClient @Inject constructor(
         holder.webView.evaluateJavascript(BridgeScript.call("setClean", JsonPrimitive(enabled)), null)
     }
 
-    private suspend fun run(script: String) = withContext(Dispatchers.Main) {
+    /**
+     * Use here (A3): the page claims the lease and reloads. Never gated by the lease check:
+     * it is how a parked page stops being parked.
+     */
+    suspend fun useHere() = withContext(Dispatchers.Main) {
+        holder.webView.evaluateJavascript(BridgeScript.leaseCall("useHere"), null)
+    }
+
+    /**
+     * The app is back in the foreground, or the pre-check found the lease changed: the page
+     * confirms its pair and parks if it lost the lease (E11). Never gated.
+     */
+    suspend fun onForeground() = withContext(Dispatchers.Main) {
+        holder.webView.evaluateJavascript(BridgeScript.leaseCall("onForeground"), null)
+    }
+
+    /**
+     * The page's ways out of a parked state (E11, A3): `takeOverAnyway`, `turnOffProtection`,
+     * `turnProtectionOn` or `refresh`. Never gated (like [useHere]); the caller has shown the
+     * warning where one is needed. Returns the page's answer: true only when the script's value
+     * is `true` (the page reloads), false when it answered anything else, null when it didn't
+     * answer within [LEASE_ANSWER_MS] (e.g. a hung page).
+     */
+    suspend fun leaseAction(function: String): Boolean? = withContext(Dispatchers.Main) {
+        val script = BridgeScript.leaseCall(function)
+        withTimeoutOrNull(LEASE_ANSWER_MS) {
+            suspendCancellableCoroutine { cont ->
+                holder.webView.evaluateJavascript(script) { value -> if (cont.isActive) cont.resume(value == "true") }
+            }
+        }
+    }
+
+    /** Runs [script] if the lease pre-check allows it; true when it was sent. */
+    private suspend fun run(script: String, origin: CommandOrigin = CommandOrigin.User): Boolean =
+        withContext(Dispatchers.Main) {
+            when (gate.check(origin)) {
+                LeaseCheck.Allowed -> {
+                    holder.webView.evaluateJavascript(script, null)
+                    true
+                }
+                LeaseCheck.Refused -> false
+                LeaseCheck.RefusedPageMustCheck -> {
+                    holder.webView.evaluateJavascript(BridgeScript.leaseCall("onForeground"), null)
+                    false
+                }
+            }
+        }
+
+    /** DOM/CSS-only commands (A4 exempt): no lease check. Always true. */
+    private suspend fun runUnchecked(script: String): Boolean = withContext(Dispatchers.Main) {
         holder.webView.evaluateJavascript(script, null)
+        true
+    }
+
+    private companion object {
+        /** How long a lease action waits for the page's answer before the caller falls back (A3). */
+        const val LEASE_ANSWER_MS = 2_000L
     }
 }
 

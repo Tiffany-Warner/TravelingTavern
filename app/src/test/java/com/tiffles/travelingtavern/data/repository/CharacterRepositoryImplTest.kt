@@ -4,6 +4,8 @@ import android.util.Log
 import androidx.lifecycle.LifecycleOwner
 import com.tiffles.travelingtavern.data.bridge.BridgeClient
 import com.tiffles.travelingtavern.data.bridge.BridgeRepository
+import com.tiffles.travelingtavern.data.bridge.CommandOrigin
+import com.tiffles.travelingtavern.data.bridge.LeaseStateStore
 import com.tiffles.travelingtavern.data.lifecycle.AppForegroundTracker
 import com.tiffles.travelingtavern.data.webview.WebViewHolder
 import com.tiffles.travelingtavern.domain.model.ChatRef
@@ -34,7 +36,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class CharacterRepositoryImplTest {
 
-    private val bridge = BridgeRepository()
+    private val bridge = BridgeRepository(LeaseStateStore())
     private val client: BridgeClient = mockk(relaxed = true)
     private val foreground = AppForegroundTracker()
     private val owner: LifecycleOwner = mockk(relaxed = true)
@@ -44,6 +46,13 @@ class CharacterRepositoryImplTest {
         mockkStatic(Log::class)
         every { Log.d(any(), any()) } returns 0
         every { Log.w(any<String>(), any<String>()) } returns 0
+        // Every command is sent unless a test says otherwise (false = refused by the lease check).
+        coEvery { client.requestCharacters(any()) } returns true
+        coEvery { client.requestRecentChats(any()) } returns true
+        coEvery { client.selectCharacter(any(), any(), any(), any()) } returns true
+        coEvery { client.deleteChat(any(), any(), any()) } returns true
+        coEvery { client.reloadChat() } returns true
+        coEvery { client.setAppState(any()) } returns true
     }
 
     @After
@@ -61,8 +70,11 @@ class CharacterRepositoryImplTest {
 
     private fun pageReady() = bridge.onRawMessage("""{"v":1,"type":"ready"}""")
 
-    private fun chatOpened(requestId: String, id: String, chatFile: String) =
+    /** Delivers a chatOpened; true, as a sent command returns. */
+    private fun chatOpened(requestId: String, id: String, chatFile: String): Boolean {
         bridge.onRawMessage("""{"v":1,"type":"chatOpened","requestId":"$requestId","characterId":"$id","chatFile":"$chatFile"}""")
+        return true
+    }
 
     /** Answers every selectCharacter with a chatOpened for [chatFile]. */
     private fun answerOpensWith(chatFile: String) {
@@ -103,6 +115,18 @@ class CharacterRepositoryImplTest {
 
         assertEquals("Bob - current", opened)
         verify(exactly = 1) { Log.w(any<String>(), any<String>()) }
+    }
+
+    @Test
+    fun `a refused open returns at once instead of waiting for chatOpened`() = runTest {
+        val repository = repository()
+        pageReady()
+        coEvery { client.selectCharacter(any(), any(), any(), any()) } returns false
+
+        val opened = repository.openChat("Bob.png")
+
+        assertNull(opened)
+        assertEquals(0L, currentTime)
     }
 
     @Test
@@ -148,37 +172,28 @@ class CharacterRepositoryImplTest {
     }
 
     @Test
-    fun `refresh re-reads the characters from the server and waits for the recent chats`() = runTest {
+    fun `refresh (pull to refresh) re-reads the characters from the server and waits for the recent chats`() = runTest {
         val repository = repository()
-        coEvery { client.requestRecentChats() } coAnswers {
+        coEvery { client.requestRecentChats(any()) } coAnswers {
             bridge.onRawMessage("""{"v":1,"type":"recentChats","items":[]}""")
+            true
         }
 
         repository.refresh()
 
         coVerify(exactly = 1) { client.requestCharacters(fromServer = true) }
-        coVerify(exactly = 1) { client.requestRecentChats() }
+        coVerify(exactly = 1) { client.requestRecentChats(CommandOrigin.User) }
     }
 
     @Test
-    fun `the page hears when the app goes to the background and back`() = runTest(UnconfinedTestDispatcher()) {
-        repository()
-        foreground.onStart(owner)
-        foreground.onStop(owner)
-
-        coVerify { client.setAppState(true) }
-        coVerify { client.setAppState(false) }
-    }
-
-    @Test
-    fun `returning while Chat shows re-reads the open chat and the Chats list`() = runTest(UnconfinedTestDispatcher()) {
+    fun `returning while Chat shows re-reads the open chat and the Chats list, as app-started`() = runTest(UnconfinedTestDispatcher()) {
         val repository = repository()
         repository.setChatVisible(true)
 
         goToBackgroundAndBack()
 
         coVerify(exactly = 1) { client.reloadChat() }
-        coVerify(exactly = 1) { client.requestRecentChats() }
+        coVerify(exactly = 1) { client.requestRecentChats(CommandOrigin.App) }
     }
 
     @Test
@@ -192,7 +207,7 @@ class CharacterRepositoryImplTest {
         repository.openChat("Bob.png")
 
         coVerify(exactly = 0) { client.reloadChat() }
-        coVerify(exactly = 1) { client.requestRecentChats() }
+        coVerify(exactly = 1) { client.requestRecentChats(any()) }
         coVerify(exactly = 1) { client.selectCharacter(any(), "Bob.png", null, true) }
         coVerify(exactly = 1) { client.selectCharacter(any(), "Bob.png", null, false) }
     }
@@ -205,25 +220,27 @@ class CharacterRepositoryImplTest {
         foreground.onStart(owner)
 
         coVerify(exactly = 0) { client.reloadChat() }
-        coVerify(exactly = 0) { client.requestRecentChats() }
+        coVerify(exactly = 0) { client.requestRecentChats(any()) }
     }
 
     @Test
-    fun `leaving Chat asks for the Chats list again`() = runTest(UnconfinedTestDispatcher()) {
+    fun `leaving Chat asks for the Chats list again, as app-started`() = runTest(UnconfinedTestDispatcher()) {
         val repository = repository()
         repository.setChatVisible(true)
-        coVerify(exactly = 0) { client.requestRecentChats() }
+        coVerify(exactly = 0) { client.requestRecentChats(any()) }
 
         repository.setChatVisible(false)
 
-        coVerify(exactly = 1) { client.requestRecentChats() }
+        coVerify(exactly = 1) { client.requestRecentChats(CommandOrigin.App) }
     }
 
     private val bobChat = ChatRef("Bob.png", "Bob - 1")
 
-    private fun chatResult(requestId: String, ok: Boolean, error: String? = null) {
+    /** Delivers a chatResult; true, as a sent command returns. */
+    private fun chatResult(requestId: String, ok: Boolean, error: String? = null): Boolean {
         val errorField = error?.let { ""","error":"$it"""" }.orEmpty()
         bridge.onRawMessage("""{"v":1,"type":"chatResult","requestId":"$requestId","ok":$ok$errorField}""")
+        return true
     }
 
     @Test
@@ -236,7 +253,7 @@ class CharacterRepositoryImplTest {
         }
 
         assertTrue(repository.deleteChat(bobChat))
-        coVerify(exactly = 1) { client.requestRecentChats() }
+        coVerify(exactly = 1) { client.requestRecentChats(any()) }
     }
 
     @Test
@@ -246,7 +263,7 @@ class CharacterRepositoryImplTest {
         coEvery { client.deleteChat(any(), any(), any()) } coAnswers { chatResult(firstArg(), ok = false, error = "failed") }
 
         assertFalse(repository.deleteChat(bobChat))
-        coVerify(exactly = 0) { client.requestRecentChats() }
+        coVerify(exactly = 0) { client.requestRecentChats(any()) }
     }
 
     @Test

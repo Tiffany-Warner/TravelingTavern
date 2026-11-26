@@ -9,12 +9,14 @@ import androidx.lifecycle.viewModelScope
 import com.tiffles.travelingtavern.domain.model.CharacterSummary
 import com.tiffles.travelingtavern.domain.model.ChatActionResult
 import com.tiffles.travelingtavern.domain.model.MessageAction
+import com.tiffles.travelingtavern.domain.model.ModelBanner
 import com.tiffles.travelingtavern.domain.model.PageError
 import com.tiffles.travelingtavern.domain.model.PageState
 import com.tiffles.travelingtavern.domain.model.Persona
 import com.tiffles.travelingtavern.domain.model.TappedMessage
 import com.tiffles.travelingtavern.domain.repository.CharacterRepository
 import com.tiffles.travelingtavern.domain.repository.ChatSessionRepository
+import com.tiffles.travelingtavern.domain.repository.LeaseRepository
 import com.tiffles.travelingtavern.domain.repository.PersonaRepository
 import com.tiffles.travelingtavern.domain.usecase.GetMessageActionsUseCase
 import com.tiffles.travelingtavern.ui.navigation.Routes
@@ -43,7 +45,9 @@ sealed interface ChatUiState {
         val sheet: MessageSheet? = null,
         val confirmation: ChatConfirmation? = null,
         /** The persona the user is chatting as, for the input bar's chip; null until known. */
-        val persona: Persona? = null
+        val persona: Persona? = null,
+        /** "Not connected to a model" after a takeover (A7); null when not shown. */
+        val modelBanner: ModelBanner? = null
     ) : ChatUiState {
         /** Send needs text in the message field and no reply generating. */
         fun canSend(input: String): Boolean = input.isNotBlank() && !generating
@@ -76,6 +80,27 @@ sealed interface ChatEvent {
     data object ActionFailed : ChatEvent
 }
 
+/** What the Chat screen says when SillyTavern couldn't start a reply (A7, D34). */
+sealed interface ReplyNotStartedNotice {
+    /**
+     * After a send (or the snackbar's Regenerate): the user's message is saved; offers Regenerate.
+     * [text] is the sent text to put back in the field, null after a Regenerate.
+     */
+    data class MessageSaved(val text: String?) : ReplyNotStartedNotice
+
+    /** After anything else (Write for me, a message action, a background generation): "Try again", no action. */
+    data object TryAgain : ReplyNotStartedNotice
+}
+
+/** The last reply start that saved the user's message first (A7). */
+private sealed interface ReplyStart {
+    /** A send of [text]; the text goes back in the field once if the reply can't start. */
+    data class Send(val text: String) : ReplyStart
+
+    /** The snackbar's Regenerate, or a send whose text was already put back. */
+    data object Regenerate : ReplyStart
+}
+
 /** Things the screen holds that don't come from SillyTavern. */
 private data class LocalState(
     val tapped: TappedMessage? = null,
@@ -93,7 +118,8 @@ class ChatViewModel @Inject constructor(
     private val characters: CharacterRepository,
     private val chat: ChatSessionRepository,
     private val getMessageActions: GetMessageActionsUseCase,
-    personas: PersonaRepository
+    personas: PersonaRepository,
+    private val lease: LeaseRepository
 ) : ViewModel() {
 
     val characterId: String = checkNotNull(savedStateHandle[Routes.FullScreen.Chat.ARG_CHARACTER_ID])
@@ -119,7 +145,35 @@ class ChatViewModel @Inject constructor(
     private val local = MutableStateFlow(LocalState())
     private val _events = MutableSharedFlow<ChatEvent>(extraBufferCapacity = 4)
 
+    /**
+     * Main thread only. Cleared when another kind of generation starts, the chat changes, or a
+     * generation ends without a notice (the reply came, so a later notice belongs to something else,
+     * such as an extension's background generation).
+     */
+    private var replyStart: ReplyStart? = null
+
+    /** A notice arrived during the running generation; read when it ends. */
+    private var noticeThisGeneration = false
+
+    private val _replyNotStarted = MutableSharedFlow<ReplyNotStartedNotice>(extraBufferCapacity = 1)
+
+    /** The text put back after a reply that couldn't start, until a Regenerate or another send. */
+    private var restoredText: String? = null
+
     val events: SharedFlow<ChatEvent> = _events.asSharedFlow()
+
+    /**
+     * A reply was interrupted when the app went to the background (A6). A flag rather than an
+     * event, so the screen shows it once it is visible again.
+     */
+    val replyInterrupted: StateFlow<Boolean> = lease.replyInterrupted
+
+    /**
+     * SillyTavern couldn't start a reply (A7), told apart by what started it. Not replayed: the
+     * screen collects it only while it is on view, so a notice that arrives while the user is
+     * elsewhere is dropped, not shown later.
+     */
+    val replyNotStarted: SharedFlow<ReplyNotStartedNotice> = _replyNotStarted.asSharedFlow()
 
     private val activePersona = personas.personas
         .map { list -> list?.firstOrNull { it.isActive } }
@@ -141,17 +195,27 @@ class ChatViewModel @Inject constructor(
         }
 
     val uiState: StateFlow<ChatUiState> =
-        combine(chatState, activePersona) { state, persona ->
-            if (state is ChatUiState.Ready) state.copy(persona = persona) else state
+        combine(chatState, activePersona, lease.modelBanner) { state, persona, banner ->
+            if (state is ChatUiState.Ready) state.copy(persona = persona, modelBanner = banner) else state
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), ChatUiState.Loading())
 
     init {
         characters.setChatVisible(true)
         viewModelScope.launch { openFollowedChat() }
-        viewModelScope.launch { chat.generating.collect { generating.value = it } }
+        viewModelScope.launch {
+            chat.generating.collect { busy ->
+                if (!generating.value && busy) noticeThisGeneration = false
+                if (generating.value && !busy) onGenerationEnded()
+                generating.value = busy
+            }
+        }
+        viewModelScope.launch {
+            lease.replyNotStarted.collect { _replyNotStarted.tryEmit(classifyReplyNotStarted()) }
+        }
         viewModelScope.launch {
             chat.chatChanges.collect { open ->
                 if (chatOpen.value && open.characterId == characterId && open.chatFile != null) {
+                    if (open.chatFile != followedChatFile) replyStart = null
                     followedChatFile = open.chatFile
                 }
             }
@@ -164,6 +228,14 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             chat.impersonations.collect { text -> input = text }
         }
+    }
+
+    /** The screen showed the interrupted-reply notice. */
+    fun onReplyInterruptedShown() = lease.onReplyInterruptedShown()
+
+    /** Connect on the "Not connected to a model" banner. */
+    fun onConnectModel() {
+        viewModelScope.launch { lease.connectModel() }
     }
 
     private suspend fun openFollowedChat() {
@@ -187,11 +259,82 @@ class ChatViewModel @Inject constructor(
         val text = input
         if (text.isBlank() || generating.value) return
         input = ""
-        viewModelScope.launch { chat.send(text) }
+        restoredText = null
+        // Set before sending, so a notice can't arrive before the app knows about the send.
+        replyStart = ReplyStart.Send(text)
+        viewModelScope.launch {
+            if (!chat.send(text)) {
+                replyStart = null
+                // Refused by the session lease: nothing was sent, so the text comes back.
+                if (input.isEmpty()) input = text
+            }
+        }
+    }
+
+    /**
+     * Relies on the notice arriving before the generation's end: the extension's `beginGeneration()`
+     * posts `leaseNotice` before it aborts the request, and `bridge.js` reports `generationState`
+     * false only after SillyTavern has handled that abort (D34).
+     */
+    private fun onGenerationEnded() {
+        if (!noticeThisGeneration) replyStart = null
+        noticeThisGeneration = false
+    }
+
+    /** Which notice this is: after a send or the snackbar's Regenerate the user's message is saved. */
+    private fun classifyReplyNotStarted(): ReplyNotStartedNotice {
+        // A background request without Stop (no generationState) must not mark the next generation.
+        if (generating.value) noticeThisGeneration = true
+        return when (val start = replyStart) {
+            null -> ReplyNotStartedNotice.TryAgain
+            is ReplyStart.Send -> {
+                replyStart = ReplyStart.Regenerate
+                ReplyNotStartedNotice.MessageSaved(start.text)
+            }
+            ReplyStart.Regenerate -> ReplyNotStartedNotice.MessageSaved(text = null)
+        }
+    }
+
+    /**
+     * The screen is showing [notice]. After a send, SillyTavern has already saved the user's
+     * message: its text goes back in the field (only into an empty one), so the user can edit and
+     * send it again, or use the snackbar's Regenerate instead.
+     */
+    fun onReplyNotStartedShown(notice: ReplyNotStartedNotice) {
+        val text = (notice as? ReplyNotStartedNotice.MessageSaved)?.text ?: return
+        if (input.isEmpty()) {
+            input = text
+            restoredText = text
+        }
+    }
+
+    /**
+     * Regenerate on the snackbar: a reply to the saved message, without adding it again. Only from
+     * the user's tap, never retried by the app. Once started, the put-back text (if unchanged) goes,
+     * so it can't be sent a second time by mistake.
+     */
+    fun onRegenerateReply() {
+        if (generating.value) return
+        replyStart = ReplyStart.Regenerate
+        viewModelScope.launch {
+            when (chat.regenerateReply()) {
+                is ChatActionResult.Done -> {
+                    if (restoredText != null && input == restoredText) input = ""
+                    restoredText = null
+                }
+                ChatActionResult.Stale -> {
+                    replyStart = null
+                    _events.tryEmit(ChatEvent.MessageChanged)
+                    chat.reloadChat()
+                }
+                ChatActionResult.Busy, ChatActionResult.Failed -> _events.tryEmit(ChatEvent.ActionFailed)
+            }
+        }
     }
 
     fun onWriteForMe() {
         if (generating.value) return
+        replyStart = null
         viewModelScope.launch { chat.impersonate() }
     }
 
@@ -221,6 +364,7 @@ class ChatViewModel @Inject constructor(
             return
         }
         onSheetDismissed()
+        if (action == MessageAction.Regenerate || action == MessageAction.Continue) replyStart = null
         runAction(message, action)
     }
 

@@ -3,6 +3,7 @@ package com.tiffles.travelingtavern.data.repository
 import android.util.Log
 import com.tiffles.travelingtavern.data.bridge.BridgeClient
 import com.tiffles.travelingtavern.data.bridge.BridgeRepository
+import com.tiffles.travelingtavern.data.bridge.LeaseStateStore
 import com.tiffles.travelingtavern.domain.model.ChatActionResult
 import com.tiffles.travelingtavern.domain.model.MessageAction
 import com.tiffles.travelingtavern.domain.tappedMessage
@@ -24,7 +25,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatSessionRepositoryImplTest {
 
-    private val bridge = BridgeRepository()
+    private val bridge = BridgeRepository(LeaseStateStore())
     private val client: BridgeClient = mockk(relaxed = true)
     private val repository = ChatSessionRepositoryImpl(bridge, client)
 
@@ -45,6 +46,7 @@ class ChatSessionRepositoryImplTest {
         coEvery { client.messageAction(any(), any(), any(), any()) } coAnswers {
             bridge.onRawMessage("""{"v":1,"type":"chatResult","requestId":"other","ok":false,"error":"failed"}""")
             bridge.onRawMessage("""{"v":1,"type":"chatResult","requestId":"${firstArg<String>()}",$fields}""")
+            true
         }
     }
 
@@ -79,9 +81,28 @@ class ChatSessionRepositoryImplTest {
     fun `restart asks SillyTavern to delete the current chat`() = runTest {
         coEvery { client.newChat(any(), true) } coAnswers {
             bridge.onRawMessage("""{"v":1,"type":"chatResult","requestId":"${firstArg<String>()}","ok":true}""")
+            true
         }
 
         assertEquals(ChatActionResult.Done(), repository.startNewChat(deleteCurrent = true))
+    }
+
+    @Test
+    fun `regenerate reply matches its own answer, stale when the last message isn't the user's`() = runTest {
+        coEvery { client.regenerateReply(any()) } coAnswers {
+            bridge.onRawMessage("""{"v":1,"type":"chatResult","requestId":"other","ok":true}""")
+            bridge.onRawMessage("""{"v":1,"type":"chatResult","requestId":"${firstArg<String>()}","ok":false,"error":"stale"}""")
+            true
+        }
+
+        assertEquals(ChatActionResult.Stale, repository.regenerateReply())
+    }
+
+    @Test
+    fun `regenerate reply refused by the pre-check fails at once`() = runTest {
+        coEvery { client.regenerateReply(any()) } returns false
+
+        assertEquals(ChatActionResult.Failed, repository.regenerateReply())
     }
 
     @Test

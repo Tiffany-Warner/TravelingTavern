@@ -248,6 +248,7 @@ private fun ConnectionResult.messageRes(): Int = when (this) {
     ConnectionResult.AuthFailed -> R.string.connect_result_auth_failed
     ConnectionResult.NotSillyTavern -> R.string.connect_result_not_sillytavern
     ConnectionResult.InvalidUrl -> R.string.connect_result_invalid_url
+    ConnectionResult.ServerNotAllowed -> R.string.server_not_allowed
 }
 
 /** The full-width Connect button, or a spinner with "Connecting…" below it while connecting. */

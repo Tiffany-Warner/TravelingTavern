@@ -73,8 +73,11 @@ private fun ErrorOverlay(
             )
             // Retrying or changing servers can't fix an outdated WebView; only an update can.
             if (error != PageError.WebViewOutdated) {
-                Button(onClick = onRetry) {
-                    Text(stringResource(R.string.webview_retry))
+                // Retrying a refused server loads the same refused server.
+                if (error != PageError.ServerNotAllowed) {
+                    Button(onClick = onRetry) {
+                        Text(stringResource(R.string.webview_retry))
+                    }
                 }
                 TextButton(onClick = onOpenServerSettings) {
                     Text(stringResource(R.string.webview_server_settings))
@@ -90,6 +93,7 @@ private fun PageError.message(): String = when (this) {
     PageError.AuthFailed -> stringResource(R.string.webview_error_auth_failed)
     is PageError.HttpError -> stringResource(R.string.webview_error_http, code)
     PageError.WebViewOutdated -> stringResource(R.string.webview_error_outdated)
+    PageError.ServerNotAllowed -> stringResource(R.string.server_not_allowed)
 }
 
 @Preview(name = "Loading", showBackground = true)

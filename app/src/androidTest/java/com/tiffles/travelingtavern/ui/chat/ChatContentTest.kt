@@ -1,6 +1,11 @@
 package com.tiffles.travelingtavern.ui.chat
 
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -13,6 +18,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.tiffles.travelingtavern.R
 import com.tiffles.travelingtavern.domain.model.CharacterSummary
 import com.tiffles.travelingtavern.domain.model.MessageAction
+import com.tiffles.travelingtavern.domain.model.ModelBanner
 import com.tiffles.travelingtavern.domain.model.Persona
 import com.tiffles.travelingtavern.domain.model.TappedMessage
 import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
@@ -42,7 +48,8 @@ class ChatContentTest {
         onStartNewChat = { calls += "startNewChat" },
         onRestartChat = { calls += "restartChat" },
         onConfirm = { calls += "confirm" },
-        onPersonaClick = { calls += "persona" }
+        onPersonaClick = { calls += "persona" },
+        onConnectModel = { calls += "connect" }
     )
 
     private val state = mutableStateOf<ChatUiState>(ChatUiState.Loading())
@@ -185,4 +192,75 @@ class ChatContentTest {
     }
 
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
+
+    @Test
+    fun noModelBannerByDefault() {
+        show(ChatUiState.Ready(bob))
+
+        composeRule.onNodeWithText(string(R.string.chat_not_connected)).assertDoesNotExist()
+        composeRule.onNodeWithText(string(R.string.chat_connect)).assertDoesNotExist()
+    }
+
+    @Test
+    fun modelBannerShowsNotConnectedAndConnectCallsBack() {
+        show(ChatUiState.Ready(bob, modelBanner = ModelBanner()))
+
+        composeRule.onNodeWithText(string(R.string.chat_not_connected)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.chat_connect)).assertIsEnabled().performClick()
+
+        assertEquals(listOf("connect"), calls)
+    }
+
+    @Test
+    fun modelBannerAfterAFailedConnectPointsToApiConnections() {
+        show(ChatUiState.Ready(bob, modelBanner = ModelBanner(stillNotConnected = true)))
+
+        composeRule.onNodeWithText(string(R.string.chat_still_not_connected)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.chat_not_connected)).assertDoesNotExist()
+        composeRule.onNodeWithText(string(R.string.chat_connect)).performClick()
+
+        assertEquals(listOf("connect"), calls)
+    }
+
+    @Test
+    fun modelBannerDisablesConnectWhileConnecting() {
+        show(ChatUiState.Ready(bob, modelBanner = ModelBanner(connecting = true)))
+
+        composeRule.onNodeWithText(string(R.string.chat_connecting)).assertIsNotEnabled()
+    }
+
+    // -- A reply that couldn't start (A7)
+
+    private val snackbars = SnackbarHostState()
+    private var snackbarResult: SnackbarResult? = null
+
+    private fun showReplyNotStarted(notice: ReplyNotStartedNotice) {
+        composeRule.setContent {
+            TravelingTavernTheme {
+                val context = LocalContext.current
+                ChatContent(uiState = ChatUiState.Ready(bob), input = "", actions = actions, snackbarHostState = snackbars)
+                LaunchedEffect(Unit) { snackbarResult = snackbars.showReplyNotStarted(context, notice) }
+            }
+        }
+    }
+
+    @Test
+    fun replyNotStartedAfterASendSaysSavedAndRegenerateCanBeTapped() {
+        showReplyNotStarted(ReplyNotStartedNotice.MessageSaved("Good morning!"))
+
+        composeRule.onNodeWithText(string(R.string.chat_reply_not_started_saved)).assertIsDisplayed()
+        assertEquals(SnackbarDuration.Long, snackbars.currentSnackbarData?.visuals?.duration)
+        composeRule.onNodeWithText(string(R.string.chat_action_regenerate)).performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(SnackbarResult.ActionPerformed, snackbarResult)
+    }
+
+    @Test
+    fun replyNotStartedAfterAnotherStartSaysTryAgainWithoutRegenerate() {
+        showReplyNotStarted(ReplyNotStartedNotice.TryAgain)
+
+        composeRule.onNodeWithText(string(R.string.chat_reply_not_started)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.chat_action_regenerate)).assertDoesNotExist()
+    }
 }

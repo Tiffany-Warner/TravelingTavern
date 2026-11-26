@@ -2,6 +2,7 @@ package com.tiffles.travelingtavern.domain.usecase
 
 import com.tiffles.travelingtavern.domain.model.ConnectionResult
 import com.tiffles.travelingtavern.domain.repository.ConnectionTester
+import com.tiffles.travelingtavern.domain.repository.ServerPolicy
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -12,13 +13,24 @@ import org.junit.Test
 class TestConnectionUseCaseTest {
 
     private val tester: ConnectionTester = mockk()
-    private val useCase = TestConnectionUseCase(tester)
+    private var allowed = true
+    private val useCase = TestConnectionUseCase(tester, ServerPolicy { allowed })
 
     @Test
     fun `invalid url short-circuits without hitting the network`() = runTest {
         val result = useCase(rawUrl = "not a url", username = null, password = null)
 
         assertEquals(ConnectionResult.InvalidUrl, result)
+        coVerify(exactly = 0) { tester.test(any(), any(), any()) }
+    }
+
+    @Test
+    fun `a server this build doesn't allow is refused without hitting the network`() = runTest {
+        allowed = false
+
+        val result = useCase(rawUrl = "192.0.2.2:8000", username = null, password = null)
+
+        assertEquals(ConnectionResult.ServerNotAllowed, result)
         coVerify(exactly = 0) { tester.test(any(), any(), any()) }
     }
 

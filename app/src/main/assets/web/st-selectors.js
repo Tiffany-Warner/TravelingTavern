@@ -161,6 +161,21 @@
             settingsPowerUser: 'power_user',
             /** SillyTavern saves settings 1 s after a change (saveSettingsDebounced, debounce_timeout.relaxed). */
             settingsSaveDelayMs: 1000,
+            /**
+             * Paths of SillyTavern's chat saves (lower case, no trailing slash): a character's chat
+             * (`script.js` `saveChat`) and a group chat (`group-chats.js`). Verified in 1.19.1.
+             */
+            chatSaves: Object.freeze(['/api/chats/save', '/api/chats/group/save']),
+            /**
+             * Extension install and update (`src/endpoints/extensions.js`, verified in 1.19.1).
+             * POST with getRequestHeaders(). Install body `{ url }` (no `branch`: the default
+             * branch; no `global`: needs admin), `409` when the folder exists. Update body
+             * `{ extensionName }`, answer field `isUpToDate` (the state before its pull), `404`
+             * when not in the user's folder.
+             */
+            extensionInstall: '/api/extensions/install',
+            extensionUpdate: '/api/extensions/update',
+            extensionUpToDate: 'isUpToDate',
         }),
         /** Fields of one /api/chats/recent row. */
         recentChat: Object.freeze({
@@ -267,6 +282,30 @@
                 'PERSONA_DELETED',
                 'CHAT_CHANGED',
             ]),
+        }),
+
+        /**
+         * The model connection (A7 Connect). The same buttons SillyTavern's auto-connect presses
+         * (`RossAscends-mods.js` `RA_autoconnect`), by `main_api`; other APIs (e.g. `koboldhorde`)
+         * have none. Each carries the `disabled` class while an attempt runs (`startStatusLoading()`
+         * to `stopStatusLoading()`). Verified in 1.19.1's source (extension spec E15) and in the live
+         * page (session lease app spec, Notes slice 8).
+         */
+        model: Object.freeze({
+            /** getContext() members. */
+            onlineStatus: 'onlineStatus',
+            mainApi: 'mainApi',
+            /** onlineStatus while not connected. */
+            noConnection: 'no_connection',
+            /** Key into context.event_types; emitted only when the status changes, with the new one. */
+            statusChanged: 'ONLINE_STATUS_CHANGED',
+            connectButtons: Object.freeze({
+                kobold: '#api_button',
+                novel: '#api_button_novel',
+                textgenerationwebui: '#api_button_textgenerationwebui',
+                openai: '#api_button_openai',
+            }),
+            connectingClass: 'disabled',
         }),
 
         /** selectCharacterById option: false opens the chat without the character editor panel. */

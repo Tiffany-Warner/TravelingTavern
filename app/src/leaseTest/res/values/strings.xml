@@ -1,0 +1,4 @@
+<resources>
+    <!-- Installs beside the real app, so the launcher needs to tell them apart -->
+    <string name="app_name">TT Lease Test</string>
+</resources>

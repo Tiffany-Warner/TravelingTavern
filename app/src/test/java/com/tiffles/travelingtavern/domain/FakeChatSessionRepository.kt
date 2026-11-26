@@ -33,8 +33,22 @@ class FakeChatSessionRepository : ChatSessionRepository {
         return actionResult
     }
 
-    override suspend fun send(text: String) {
-        sent += text
+    /** False: [send] is refused (the session lease), as if nothing reached the page. */
+    var sendAccepted = true
+
+    override suspend fun send(text: String): Boolean {
+        if (sendAccepted) sent += text
+        return sendAccepted
+    }
+
+    var regenerateReplyCalls = 0
+
+    /** What [regenerateReply] answers. */
+    var regenerateReplyResult: ChatActionResult = ChatActionResult.Done()
+
+    override suspend fun regenerateReply(): ChatActionResult {
+        regenerateReplyCalls++
+        return regenerateReplyResult
     }
 
     override suspend fun impersonate() {

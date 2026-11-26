@@ -3,6 +3,7 @@ package com.tiffles.travelingtavern.data.repository
 import com.tiffles.travelingtavern.data.bridge.BridgeClient
 import com.tiffles.travelingtavern.data.bridge.BridgeMessage
 import com.tiffles.travelingtavern.data.bridge.BridgeRepository
+import com.tiffles.travelingtavern.data.bridge.sendAndAwait
 import com.tiffles.travelingtavern.domain.model.ChatActionResult
 import com.tiffles.travelingtavern.domain.model.MessageAction
 import com.tiffles.travelingtavern.domain.model.OpenChat
@@ -10,9 +11,7 @@ import com.tiffles.travelingtavern.domain.model.TappedMessage
 import com.tiffles.travelingtavern.domain.repository.ChatSessionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
 import javax.inject.Inject
@@ -41,31 +40,41 @@ class ChatSessionRepositoryImpl @Inject constructor(
             client.messageAction(requestId, message.messageId, message.sendDate, action.wireName())
         }
 
-    override suspend fun send(text: String) = client.sendMessage(text)
+    override suspend fun send(text: String): Boolean = client.sendMessage(text)
 
-    override suspend fun impersonate() = client.impersonate()
+    override suspend fun regenerateReply(): ChatActionResult =
+        request(ACTION_TIMEOUT_MS) { requestId -> client.regenerateReply(requestId) }
 
-    override suspend fun stop() = client.stopGeneration()
+    override suspend fun impersonate() {
+        client.impersonate()
+    }
+
+    override suspend fun stop() {
+        client.stopGeneration()
+    }
 
     override suspend fun startNewChat(deleteCurrent: Boolean): ChatActionResult =
         request(NEW_CHAT_TIMEOUT_MS) { requestId -> client.newChat(requestId, deleteCurrent) }
 
-    override suspend fun reloadChat() = client.reloadChat()
+    override suspend fun reloadChat() {
+        client.reloadChat()
+    }
 
     // The page's CSS pixels are dp: the WebView keeps its default zoom.
-    override suspend fun revealMessage(messageId: Int, coveredDp: Int) = client.revealMessage(messageId, coveredDp)
+    override suspend fun revealMessage(messageId: Int, coveredDp: Int) {
+        client.revealMessage(messageId, coveredDp)
+    }
 
-    override suspend fun endReveal() = client.endReveal()
+    override suspend fun endReveal() {
+        client.endReveal()
+    }
 
     /** Sends a command tagged with a new request ID and waits for its `chatResult`. */
-    private suspend fun request(timeoutMs: Long, send: suspend (String) -> Unit): ChatActionResult {
+    private suspend fun request(timeoutMs: Long, send: suspend (String) -> Boolean): ChatActionResult {
         val requestId = UUID.randomUUID().toString()
         val answer = withTimeoutOrNull(timeoutMs) {
-            bridge.messages
-                .onSubscription { send(requestId) }
-                .filterIsInstance<BridgeMessage.ChatResult>()
-                .first { it.requestId == requestId }
-        }
+            bridge.messages.sendAndAwait({ send(requestId) }) { it is BridgeMessage.ChatResult && it.requestId == requestId }
+        } as? BridgeMessage.ChatResult
         return answer?.toDomain() ?: ChatActionResult.Failed
     }
 

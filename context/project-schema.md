@@ -45,6 +45,7 @@ Proactive messages and reminders come last, but every phase before them keeps to
 - **A deep link to a chat** (character + chat) exists before Phase 8, so a notification tap only has to use it
 - **Times come from SillyTavern's `send_date`**, never from app-side tracking. The Bridge's scheduler reads the same field
 - **One active page per SillyTavern user.** A session lease (TravelingTavern-Extension's `session-lease.js`, bundled in the app) lets only one page write; every other page is parked until the user taps Use here. The Phase 8 headless page must hold the lease too (decided with Phase 8)
+- **Never stuck:** every lease state offers a way back in; going ahead at your own risk is a tap after a warning (`session-lease-app-spec.md` A1, A3)
 - **Login stays simple:** whatever auth the Connect screen supports must also work for a desktop browser page, since the headless page signs in the same way
 
 ---

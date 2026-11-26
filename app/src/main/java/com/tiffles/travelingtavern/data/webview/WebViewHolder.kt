@@ -6,17 +6,20 @@ import android.content.Context
 import android.content.Intent
 import android.content.MutableContextWrapper
 import android.graphics.Color
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebView
 import com.tiffles.travelingtavern.BuildConfig
 import com.tiffles.travelingtavern.data.bridge.BridgeInstaller
+import com.tiffles.travelingtavern.data.bridge.LeaseStateStore
 import com.tiffles.travelingtavern.data.repository.ServerConfigRepositoryImpl
 import com.tiffles.travelingtavern.data.settings.ServerCredentials
 import com.tiffles.travelingtavern.di.ApplicationScope
 import com.tiffles.travelingtavern.domain.model.PageError
 import com.tiffles.travelingtavern.domain.model.PageState
+import com.tiffles.travelingtavern.domain.repository.ServerPolicy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -39,8 +42,10 @@ class WebViewHolder @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val repository: ServerConfigRepositoryImpl,
     private val bridge: BridgeInstaller,
+    private val lease: LeaseStateStore,
+    private val serverPolicy: ServerPolicy,
     @ApplicationScope private val scope: CoroutineScope
-) {
+) : PageReloader {
     // The WebView holds this wrapper, not an Activity, so no Activity can leak through it.
     private val contextWrapper = MutableContextWrapper(appContext)
     private val tracker = PageStateTracker()
@@ -54,7 +59,13 @@ class WebViewHolder @Inject constructor(
     private var loadedBaseUrl: String? = null
     private var pendingLoad: View.OnLayoutChangeListener? = null
 
-    private val chromeClient = TavernWebChromeClient(serverBaseUrl = { serverBaseUrl })
+    /** Continue without protection (A2): loads skip the lease for the rest of this process. */
+    private var withoutLease = false
+
+    private val chromeClient = TavernWebChromeClient(
+        serverBaseUrl = { serverBaseUrl },
+        isTakeoverReload = { lease.isTakeoverReload }
+    )
     private val webViewClient = TavernWebViewClient(
         tracker = tracker,
         serverBaseUrl = { serverBaseUrl },
@@ -96,6 +107,29 @@ class WebViewHolder @Inject constructor(
 
     fun retry() {
         serverBaseUrl?.let { load(webView, it) }
+    }
+
+    /** Reloads the page, e.g. to finish a takeover (`reloadPending`, A3). */
+    fun reload() {
+        webView.reload()
+    }
+
+    /**
+     * After an extension install or update (A2, A8): drops the HTTP cache so the page loads the new
+     * extension files, then reloads. Only the cache: never cookies (the SillyTavern session) or web
+     * storage (`sessionStorage` holds the lease's tab id, `localStorage` SillyTavern's own data).
+     */
+    override fun clearCacheAndReload() = webView.clearCacheOnlyAndReload()
+
+    /**
+     * No document-start support and the user chose to continue anyway: loads SillyTavern
+     * without the lease. Process only, so the next launch asks again.
+     */
+    fun continueWithoutLease() {
+        Log.w(TAG, "Continuing without the session lease for this launch")
+        withoutLease = true
+        lease.onContinueWithoutProtection()
+        retry()
     }
 
     fun goBack() {
@@ -167,12 +201,33 @@ class WebViewHolder @Inject constructor(
             tracker.onMainFrameError(PageError.WebViewOutdated)
             return
         }
+        if (!withoutLease && !bridge.isDocumentStartSupported) {
+            Log.w(TAG, "WebView lacks document-start scripts; SillyTavern not loaded")
+            onNoDocumentStart()
+            return
+        }
+        if (!serverPolicy.allows(baseUrl)) {
+            tracker.onMainFrameError(PageError.ServerNotAllowed)
+            return
+        }
         view.doOnNonZeroSize {
-            // The listener only takes effect on the next navigation, so register it first.
+            // The listener and the lease only take effect on the next navigation, so register them first.
             bridge.registerListener(view, origin = baseUrl)
+            if (!withoutLease && !bridge.addLeaseScript(view, origin = baseUrl)) {
+                onNoDocumentStart()
+                return@doOnNonZeroSize
+            }
             view.loadUrl(baseUrl)
             startWatchdog()
         }
+    }
+
+    /**
+     * The lease can't run before SillyTavern's first request, so the page isn't loaded. The
+     * scrim (A3) offers updating the WebView or continuing without protection.
+     */
+    private fun onNoDocumentStart() {
+        lease.onDocumentStartUnsupported()
     }
 
     /** Gives up on a load the server never answers, instead of waiting ~2 min for the WebView. */
@@ -183,6 +238,10 @@ class WebViewHolder @Inject constructor(
             webView.stopLoading()
             tracker.onMainFrameError(PageError.Unreachable)
         }
+    }
+
+    private companion object {
+        const val TAG = "WebViewHolder"
     }
 
     /**

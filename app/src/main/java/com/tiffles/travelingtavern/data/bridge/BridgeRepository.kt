@@ -18,7 +18,7 @@ import javax.inject.Singleton
 
 /** Everything the page has told the app through the bridge. Fed by [BridgeInstaller]. */
 @Singleton
-class BridgeRepository @Inject constructor() {
+class BridgeRepository @Inject constructor(private val lease: LeaseStateStore) {
 
     private val _messages = MutableSharedFlow<BridgeMessage>(extraBufferCapacity = MESSAGE_BUFFER)
     private val _characters = MutableStateFlow<List<CharacterSummary>?>(null)
@@ -68,6 +68,7 @@ class BridgeRepository @Inject constructor() {
         _isReady.value = false
         _generating.value = false
         _openChat.value = null
+        lease.onPageStarted()
     }
 
     private fun onMessage(message: BridgeMessage) {
@@ -82,10 +83,14 @@ class BridgeRepository @Inject constructor() {
             is BridgeMessage.ChatChanged -> _openChat.value = chatRef(message.characterId, message.chatFile)
             is BridgeMessage.ChatOpened -> _openChat.value = chatRef(message.characterId, message.chatFile)
             is BridgeMessage.Error -> Log.w(TAG, "Bridge reported an error")
+            is BridgeMessage.LeaseState -> lease.onLeaseState(message)
+            is BridgeMessage.LeaseInfo -> lease.onLeaseInfo(message)
+            BridgeMessage.ChatSaved -> lease.onChatSaved()
+            is BridgeMessage.LeaseNotice -> lease.onLeaseNotice(message)
             is BridgeMessage.Unknown -> Log.d(TAG, "Ignored unknown bridge message type: ${message.type}")
             is BridgeMessage.MessageReceived,
             is BridgeMessage.LorebookEntries, is BridgeMessage.LorebookResult, is BridgeMessage.TokenCount,
-            is BridgeMessage.PersonaResult,
+            is BridgeMessage.PersonaResult, is BridgeMessage.ConnectResult, is BridgeMessage.ExtensionResult,
             is BridgeMessage.MessageTapped, is BridgeMessage.ChatResult, is BridgeMessage.ImpersonateReady -> Unit
         }
         _messages.tryEmit(message)
@@ -102,6 +107,10 @@ class BridgeRepository @Inject constructor() {
         is BridgeMessage.LorebookResult -> if (ok) "lorebookResult ok" else "lorebookResult ${error.orEmpty()}"
         is BridgeMessage.ChatResult -> if (ok) "chatResult ok" else "chatResult ${error.orEmpty()}"
         is BridgeMessage.GenerationState -> "generationState $running"
+        is BridgeMessage.LeaseState -> "leaseState $state ${reason.orEmpty()}"
+        is BridgeMessage.LeaseNotice -> "leaseNotice $kind"
+        is BridgeMessage.ConnectResult -> "connectResult $outcome connected=$connected"
+        is BridgeMessage.ExtensionResult -> "extensionResult ok=$ok status=$status upToDate=$upToDate"
         else -> this::class.simpleName.orEmpty()
     }
 

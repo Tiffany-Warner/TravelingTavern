@@ -19,4 +19,7 @@ sealed interface PageError {
 
     /** The phone's Android System WebView lacks the messaging feature the bridge needs. */
     data object WebViewOutdated : PageError
+
+    /** This build may not load the saved server (the `leaseTest` build allows its test install only). */
+    data object ServerNotAllowed : PageError
 }

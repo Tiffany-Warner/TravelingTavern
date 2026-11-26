@@ -30,6 +30,9 @@ jobs:
     steps:
       - name: Check out the code
         uses: actions/checkout@v6
+        with:
+          # session-lease.js comes from the TravelingTavern-Extension submodule
+          submodules: true
 
       - name: Set up Java 21
         uses: actions/setup-java@v5
@@ -42,6 +45,11 @@ jobs:
 
       - name: Build
         run: ./gradlew assembleDebug
+
+      # Compiles the leaseTest variant, incl. its Hilt component and single-server binding.
+      # Not packaged: that needs leaseTest.serverUrl from local.properties, which CI doesn't have.
+      - name: Compile leaseTest
+        run: ./gradlew compileLeaseTestKotlin hiltJavaCompileLeaseTest
 
       - name: Unit tests
         run: ./gradlew test

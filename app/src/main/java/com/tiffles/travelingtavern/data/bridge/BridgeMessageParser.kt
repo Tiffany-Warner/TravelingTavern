@@ -29,6 +29,7 @@ object BridgeMessageParser {
         val type = (obj["type"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return null
         return when (type) {
             "ready" -> BridgeMessage.Ready
+            "chatSaved" -> BridgeMessage.ChatSaved
             "characters" -> decode(obj, BridgeMessage.Characters.serializer())
             "recentChats" -> decode(obj, BridgeMessage.RecentChats.serializer())
             "chatChanged" -> decode(obj, BridgeMessage.ChatChanged.serializer())
@@ -45,6 +46,11 @@ object BridgeMessageParser {
             "chatResult" -> decode(obj, BridgeMessage.ChatResult.serializer())
             "impersonateReady" -> decode(obj, BridgeMessage.ImpersonateReady.serializer())
             "error" -> decode(obj, BridgeMessage.Error.serializer())
+            "leaseState" -> decode(obj, BridgeMessage.LeaseState.serializer())
+            "leaseInfo" -> decode(obj, BridgeMessage.LeaseInfo.serializer())
+            "leaseNotice" -> decode(obj, BridgeMessage.LeaseNotice.serializer())
+            "connectResult" -> decode(obj, BridgeMessage.ConnectResult.serializer())
+            "extensionResult" -> decode(obj, BridgeMessage.ExtensionResult.serializer())
             else -> BridgeMessage.Unknown(type)
         }
     }

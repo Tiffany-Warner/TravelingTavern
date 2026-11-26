@@ -3,6 +3,7 @@ package com.tiffles.travelingtavern.data.bridge
 import android.content.Context
 import android.util.Log
 import android.webkit.WebView
+import androidx.webkit.ScriptHandler
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.tiffles.travelingtavern.data.lifecycle.AppForegroundTracker
@@ -13,8 +14,8 @@ import javax.inject.Singleton
 
 /**
  * Connects the WebView to [BridgeRepository]: registers the `TravelingTavern` message
- * listener for the saved server's origin only, and injects the bridge scripts and the clean
- * theme after each page load. Main thread only.
+ * listener and the bundled session lease (at document start) for the saved server's origin
+ * only, and injects the bridge scripts and the clean theme after each page load. Main thread only.
  */
 @Singleton
 class BridgeInstaller @Inject constructor(
@@ -25,6 +26,8 @@ class BridgeInstaller @Inject constructor(
     private val foreground: AppForegroundTracker
 ) {
     private var registeredOrigin: String? = null
+    private var leaseOrigin: String? = null
+    private var leaseScript: ScriptHandler? = null
 
     /** Bridge scripts, then the clean-theme stylesheet (inert until `tt-clean` is set on the body). */
     private val scripts: String by lazy(LazyThreadSafetyMode.NONE) {
@@ -34,6 +37,10 @@ class BridgeInstaller @Inject constructor(
 
     val isSupported: Boolean
         get() = WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
+
+    /** Without document-start scripts the lease can't run before SillyTavern's first request (A2). */
+    val isDocumentStartSupported: Boolean
+        get() = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
 
     /**
      * Allows messages from [origin] (e.g. `http://192.0.2.1:8000`) and nowhere else. Takes
@@ -52,6 +59,32 @@ class BridgeInstaller @Inject constructor(
         } catch (e: IllegalArgumentException) {
             Log.e(TAG, "Server origin was rejected as a listener rule", e)
             registeredOrigin = null
+        }
+    }
+
+    /**
+     * Injects the bundled `session-lease.js` (APK assets, never the HTTP cache) at document
+     * start of every page from [origin], replacing the rule for an earlier origin. Like the
+     * listener, it applies from the next navigation, so call it before loading the server.
+     * The script itself skips frames and SillyTavern's login page (E11).
+     *
+     * @return false when the lease couldn't be added: the page must not load as if it were protected.
+     */
+    fun addLeaseScript(view: WebView, origin: String): Boolean {
+        // Checked inline, not through isDocumentStartSupported, so lint's RequiresFeature sees it.
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return false
+        if (origin == leaseOrigin) return true
+        leaseScript?.remove()
+        leaseScript = null
+        leaseOrigin = null
+        return try {
+            leaseScript = WebViewCompat.addDocumentStartJavaScript(view, readAsset(LEASE_ASSET), setOf(origin))
+            leaseOrigin = origin
+            true
+        } catch (e: RuntimeException) {
+            // Any failure (a rejected origin rule, a WebView that refuses it) leaves the page without the lease.
+            Log.w(TAG, "Couldn't add the session lease at document start", e)
+            false
         }
     }
 
@@ -81,5 +114,6 @@ class BridgeInstaller @Inject constructor(
         val SCRIPT_ASSETS = listOf("web/st-selectors.js", "web/bridge.js")
         const val CLEAN_THEME_ASSET = "web/clean-theme.css"
         const val CLEAN_THEME_STYLE_ID = "tt-clean-theme"
+        const val LEASE_ASSET = "web/session-lease.js"
     }
 }

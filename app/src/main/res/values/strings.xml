@@ -21,6 +21,7 @@
     <string name="connect_result_auth_failed">Username or password is wrong</string>
     <string name="connect_result_not_sillytavern">That address answered, but it doesn\'t look like SillyTavern</string>
     <string name="connect_result_invalid_url">That doesn\'t look like a valid address</string>
+    <string name="server_not_allowed">This test build only connects to its test install. Use the address set for it.</string>
     <string name="webview_error_auth_failed">Your server didn\'t accept the saved login</string>
     <string name="webview_error_http">Your server answered with an error (%1$d)</string>
     <string name="webview_error_outdated">Your Android System WebView is too old. Update it in the Play Store.</string>
@@ -184,4 +185,95 @@
     <string name="persona_retry">Retry</string>
     <string name="persona_picture_unreadable">Couldn\'t read that picture. Try another one.</string>
     <string name="persona_more_settings">Description position, depth, persona lorebook and connections stay as they are. Change them in Advanced.</string>
+
+    <!-- Session lease: parked state (A3) and the unprotected banner (A2) -->
+    <string name="lease_in_use_title">In use on another device</string>
+    <string name="lease_in_use_line">Use SillyTavern on this phone instead?</string>
+    <string name="lease_claiming_title">Taking over…</string>
+    <string name="lease_claiming_line">Loading your chat on this phone.</string>
+    <string name="lease_waiting_title">Finishing a reply…</string>
+    <string name="lease_waiting_line">Your other device is still writing a reply.</string>
+    <string name="lease_waiting_line_stuck">Your other device is still writing a reply. If it has stopped responding, you can take over anyway.</string>
+    <string name="lease_lost_race_title">Another device took over</string>
+    <string name="lease_lost_race_line">It claimed SillyTavern first.</string>
+    <string name="lease_unreadable_title">Can\'t reach SillyTavern</string>
+    <string name="lease_unreadable_line">Nothing is saved from this phone. Check that SillyTavern and Tailscale are running.</string>
+    <string name="lease_damaged_title">The lease file is damaged</string>
+    <string name="lease_damaged_line">TravelingTavern can\'t read its lease file. Nothing is saved from this phone.</string>
+    <string name="lease_error_title">Something went wrong</string>
+    <string name="lease_error_line">TravelingTavern couldn\'t update its lease file. Nothing is saved from this phone.</string>
+    <string name="lease_unknown_line">Nothing is saved from this phone.</string>
+    <string name="lease_update_title">Update needed</string>
+    <string name="lease_update_app_line">Update TravelingTavern to use SillyTavern here.</string>
+    <string name="lease_update_webview_line">Update Android System WebView to use SillyTavern here.</string>
+    <string name="lease_reload_title">Reload needed</string>
+    <string name="lease_reload_line">Refresh to finish taking over on this phone.</string>
+    <string name="lease_restart_title">Restart needed</string>
+    <string name="lease_restart_line">Restart TravelingTavern to use SillyTavern here.</string>
+    <string name="lease_use_here">Use here</string>
+    <string name="lease_refresh">Refresh</string>
+    <string name="lease_take_over_anyway">Take over anyway</string>
+    <string name="lease_turn_off_protection">Turn off protection</string>
+    <string name="lease_turn_protection_on">Turn protection back on</string>
+    <string name="lease_cancel">Cancel</string>
+    <string name="lease_warn_take_over_title">Take over anyway?</string>
+    <string name="lease_warn_take_over_line">Anything unsaved on your other device may be lost.</string>
+    <string name="lease_warn_turn_off_title">Turn off protection on this phone?</string>
+    <string name="lease_warn_turn_off_line">This phone can save over newer changes from your other devices.</string>
+    <string name="lease_warn_continue_title">Continue without protection?</string>
+    <string name="lease_off_banner">Protection is off. If this keeps happening, please report it on %1$s.</string>
+    <string name="lease_off_banner_link">GitHub</string>
+    <string name="lease_update">Update</string>
+    <string name="lease_continue_unprotected">Continue without protection</string>
+    <string name="lease_still_loading">SillyTavern is still loading, try again in a moment.</string>
+    <string name="lease_unprotected_banner">Not protected: data from another device can be overwritten</string>
+
+    <!-- Session lease: reply in the background (A6) -->
+    <string name="reply_channel_name">Replies in progress</string>
+    <string name="reply_notification_text">Finishing your reply…</string>
+    <string name="chat_reply_interrupted">Your reply was interrupted when TravelingTavern went to the background.</string>
+
+    <!-- Session lease: notices (A7) -->
+    <string name="chat_not_connected">Not connected to a model</string>
+    <string name="chat_still_not_connected">Connect to a model in SillyTavern\'s API Connections.</string>
+    <string name="chat_connect">Connect</string>
+    <string name="chat_connecting">Connecting…</string>
+    <string name="chat_reply_not_started">Couldn\'t reach SillyTavern to start the reply. Try again.</string>
+    <string name="chat_reply_not_started_saved">Couldn\'t reach SillyTavern to start the reply. Your message was saved.</string>
+
+    <!-- Desktop protection: the TravelingTavern extension (session lease A8) -->
+    <string name="protection_title">Desktop protection</string>
+    <string name="protection_checking">Checking SillyTavern…</string>
+    <string name="protection_not_installed">Not installed</string>
+    <string name="protection_not_installed_detail">Without the TravelingTavern extension, SillyTavern on your computer can overwrite changes made on this phone.</string>
+    <string name="protection_update_available">Update available</string>
+    <string name="protection_update_available_detail">The TravelingTavern extension on your SillyTavern is older than this app.</string>
+    <string name="protection_update_app">Update TravelingTavern</string>
+    <string name="protection_update_app_detail">The extension on your SillyTavern is newer than this app.</string>
+    <string name="protection_installed">Installed</string>
+    <string name="protection_untested">Not tested with SillyTavern %1$s yet.</string>
+    <string name="protection_untested_unknown">Not tested with this SillyTavern version yet.</string>
+    <string name="protection_install">Install</string>
+    <string name="protection_update">Update</string>
+    <string name="protection_get_app_update">Get the update</string>
+    <string name="protection_not_now">Not now</string>
+    <string name="protection_ok">OK</string>
+    <string name="protection_prompt_title">Keep your devices from overwriting each other</string>
+    <string name="protection_prompt_text">Without the TravelingTavern extension, a SillyTavern tab on your computer can overwrite changes made on this phone, and this phone can overwrite changes made in that tab. Install it once for your SillyTavern user, and it protects every tab on your computer.</string>
+    <string name="protection_confirm_install_title">Install the TravelingTavern extension?</string>
+    <string name="protection_confirm_install_text">SillyTavern downloads it from GitHub and installs it for your user. SillyTavern on this phone then reloads.</string>
+    <string name="protection_confirm_update_title">Update the TravelingTavern extension?</string>
+    <string name="protection_confirm_update_text">SillyTavern downloads the latest version from GitHub. SillyTavern on this phone then reloads.</string>
+    <string name="protection_installing">Installing the extension…</string>
+    <string name="protection_updating">Updating the extension…</string>
+    <string name="protection_installed_title">Extension installed</string>
+    <string name="protection_updated_title">Extension updated</string>
+    <string name="protection_reload_computer">Reload SillyTavern on your computer to turn on protection there.</string>
+    <string name="protection_already_installed_title">Already installed</string>
+    <string name="protection_already_installed_text">The extension is already installed in SillyTavern.</string>
+    <string name="protection_up_to_date">The extension is already up to date.</string>
+    <string name="protection_install_failed_title">Couldn\'t install</string>
+    <string name="protection_install_failed_text">Couldn\'t install the extension. On your computer, use SillyTavern\'s Install extension with this address:</string>
+    <string name="protection_update_failed_title">Couldn\'t update</string>
+    <string name="protection_update_failed_text">Couldn\'t update the extension. If it was installed for all users, or extensions are turned off, update it in SillyTavern\'s Manage extensions on your computer.</string>
 </resources>

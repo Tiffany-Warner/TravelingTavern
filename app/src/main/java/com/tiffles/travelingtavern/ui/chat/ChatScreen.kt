@@ -1,13 +1,13 @@
 package com.tiffles.travelingtavern.ui.chat
 
 import android.content.ClipData
+import android.content.Context
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -22,8 +22,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -50,18 +52,24 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.tiffles.travelingtavern.R
 import com.tiffles.travelingtavern.domain.model.CharacterSummary
 import com.tiffles.travelingtavern.domain.model.MessageAction
+import com.tiffles.travelingtavern.domain.model.ModelBanner
 import com.tiffles.travelingtavern.ui.chat.components.ChatInputBar
 import com.tiffles.travelingtavern.ui.chat.components.MessageActionsSheet
+import com.tiffles.travelingtavern.ui.chat.components.ModelConnectionBanner
 import com.tiffles.travelingtavern.ui.components.CharacterAvatar
 import com.tiffles.travelingtavern.ui.components.ConfirmDeleteChatDialog
 import com.tiffles.travelingtavern.ui.components.ConfirmDeleteSheet
 import com.tiffles.travelingtavern.ui.components.WebViewBackHandler
 import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
 import kotlin.math.roundToInt
 
 /**
@@ -91,7 +99,8 @@ data class ChatActions(
     val onConfirm: () -> Unit = {},
     val onConfirmationDismissed: () -> Unit = {},
     val onInputBarHeightChange: (Dp) -> Unit = {},
-    val onPersonaClick: () -> Unit = {}
+    val onPersonaClick: () -> Unit = {},
+    val onConnectModel: () -> Unit = {}
 )
 
 /**
@@ -130,7 +139,8 @@ fun ChatScreen(
             onConfirm = viewModel::onConfirm,
             onConfirmationDismissed = viewModel::onConfirmationDismissed,
             onInputBarHeightChange = onInputBarHeightChange,
-            onPersonaClick = onOpenPersonas
+            onPersonaClick = onOpenPersonas,
+            onConnectModel = viewModel::onConnectModel
         ),
         snackbarHostState = snackbarHostState,
         modifier = modifier
@@ -142,6 +152,28 @@ fun ChatScreen(
 private fun ChatEventsEffect(viewModel: ChatViewModel, snackbarHostState: SnackbarHostState) {
     val clipboard = LocalClipboard.current
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    // Collected only while the screen is visible, so an interrupt in the background shows on return.
+    // Not keyed on the flag: clearing it would restart the effect and cancel the snackbar it shows.
+    // Cleared once shown, so leaving again mid-snackbar shows it on the next return.
+    LaunchedEffect(viewModel, lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.replyInterrupted.filter { it }.collect {
+                snackbarHostState.showSnackbar(context.getString(R.string.chat_reply_interrupted))
+                viewModel.onReplyInterruptedShown()
+            }
+        }
+    }
+    // Only while this screen is on view (STARTED): a notice arriving anywhere else is dropped (A7).
+    LaunchedEffect(viewModel, lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.replyNotStarted.collect { notice ->
+                viewModel.onReplyNotStartedShown(notice)
+                val result = snackbarHostState.showReplyNotStarted(context, notice)
+                if (result == SnackbarResult.ActionPerformed) viewModel.onRegenerateReply()
+            }
+        }
+    }
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
@@ -154,6 +186,22 @@ private fun ChatEventsEffect(viewModel: ChatViewModel, snackbarHostState: Snackb
             }
         }
     }
+}
+
+/**
+ * The "couldn't start the reply" snackbar (A7). After a send it says the message was saved and
+ * offers Regenerate, shown long enough to tap.
+ */
+internal suspend fun SnackbarHostState.showReplyNotStarted(
+    context: Context,
+    notice: ReplyNotStartedNotice
+): SnackbarResult = when (notice) {
+    is ReplyNotStartedNotice.MessageSaved -> showSnackbar(
+        message = context.getString(R.string.chat_reply_not_started_saved),
+        actionLabel = context.getString(R.string.chat_action_regenerate),
+        duration = SnackbarDuration.Long
+    )
+    ReplyNotStartedNotice.TryAgain -> showSnackbar(context.getString(R.string.chat_reply_not_started))
 }
 
 @Composable
@@ -181,9 +229,19 @@ fun ChatContent(
                 onStartNewChat = actions.onStartNewChat,
                 onRestartChat = actions.onRestartChat
             )
-            // While SillyTavern swaps chats it briefly shows an empty or half-drawn list; cover it.
-            // Errors are shown by the WebView layer's own overlay underneath.
-            if (uiState is ChatUiState.Loading) ChatLoadingCover(Modifier.weight(1f)) else Spacer(Modifier.weight(1f))
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                // While SillyTavern swaps chats it briefly shows an empty or half-drawn list; cover it.
+                // Errors are shown by the WebView layer's own overlay underneath.
+                if (uiState is ChatUiState.Loading) ChatLoadingCover(Modifier.fillMaxSize())
+                // Over the top of the page (the WebView sits right below the top bar).
+                ready?.modelBanner?.let { banner ->
+                    ModelConnectionBanner(
+                        banner = banner,
+                        onConnect = actions.onConnectModel,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
             if (uiState !is ChatUiState.Error) {
                 MeasuredInputBar(ready = ready, input = input, actions = actions, onTopChange = { inputBarTop = it })
             }
@@ -351,6 +409,21 @@ private fun ChatContentPreview() {
         ChatContent(
             uiState = ChatUiState.Ready(CharacterSummary("Seraphina.png", "Seraphina", "", "", null)),
             input = "Hello",
+            actions = ChatActions()
+        )
+    }
+}
+
+@Preview(name = "Chat · not connected", showBackground = true)
+@Composable
+private fun ChatNotConnectedPreview() {
+    TravelingTavernTheme {
+        ChatContent(
+            uiState = ChatUiState.Ready(
+                character = CharacterSummary("Seraphina.png", "Seraphina", "", "", null),
+                modelBanner = ModelBanner()
+            ),
+            input = "",
             actions = ChatActions()
         )
     }

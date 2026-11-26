@@ -21,6 +21,16 @@ object BridgeScript {
     }
 
     /**
+     * `window.__ttLease && window.__ttLease.fn();` — the session lease's page API (E11). The page
+     * ignores a member it doesn't offer right now; the script's value is the member's result
+     * (`true` / `false` for the reloading ones, `{}` for a promise).
+     */
+    fun leaseCall(function: String): String {
+        require(function in LEASE_FUNCTIONS) { "Not a lease function: $function" }
+        return "window.__ttLease && window.__ttLease.$function();"
+    }
+
+    /**
      * Adds or replaces `<style id=[id]>` with [css]. The stylesheet travels Base64-encoded
      * (UTF-8) and is decoded in the page, so its quotes and newlines can't break the script.
      */
@@ -49,5 +59,7 @@ object BridgeScript {
             .replace(" ", "\\u2028")
             .replace(" ", "\\u2029")
 
+    private val LEASE_FUNCTIONS =
+        setOf("useHere", "onForeground", "takeOverAnyway", "turnOffProtection", "turnProtectionOn", "refresh")
     private val FUNCTION_NAME = Regex("^[A-Za-z][A-Za-z0-9]*$")
 }
