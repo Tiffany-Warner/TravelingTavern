@@ -170,7 +170,7 @@ Prompts from `leaseInfo` (E11), carried over from the old spec and adjusted:
 
 | `leaseInfo` | Prompt |
 |---|---|
-| `extensionLeaseVersion` null (no extension) | One-time dialog after connecting, "Keep your devices from overwriting each other": without the TravelingTavern extension, a SillyTavern tab on your computer can overwrite changes made on this phone, and this phone can overwrite changes made in that tab. Install it on every browser you use with SillyTavern. **Install** / Not now. Plus a Settings row "Desktop protection: Not installed" |
+| `extensionLeaseVersion` null (no extension) | One-time dialog after connecting, "Keep your devices from overwriting each other": without the TravelingTavern extension, a SillyTavern tab on your computer can overwrite changes made on this phone, and this phone can overwrite changes made in that tab. Install it once for your SillyTavern user, and it protects every tab on your computer. **Install** / Not now. Plus a Settings row "Desktop protection: Not installed" |
 | `extensionLeaseVersion < leaseVersion` | Settings row "Update available" + **Update** |
 | `extensionLeaseVersion > leaseVersion` | Settings row "Update TravelingTavern": the app's copy is older than the extension; link to the app's release |
 | `untestedServer` | Settings row "Not tested with SillyTavern {stVersion} yet." |

@@ -259,7 +259,7 @@
     <string name="protection_not_now">Not now</string>
     <string name="protection_ok">OK</string>
     <string name="protection_prompt_title">Keep your devices from overwriting each other</string>
-    <string name="protection_prompt_text">Without the TravelingTavern extension, a SillyTavern tab on your computer can overwrite changes made on this phone, and this phone can overwrite changes made in that tab. Install it on every browser you use with SillyTavern.</string>
+    <string name="protection_prompt_text">Without the TravelingTavern extension, a SillyTavern tab on your computer can overwrite changes made on this phone, and this phone can overwrite changes made in that tab. Install it once for your SillyTavern user, and it protects every tab on your computer.</string>
     <string name="protection_confirm_install_title">Install the TravelingTavern extension?</string>
     <string name="protection_confirm_install_text">SillyTavern downloads it from GitHub and installs it for your user. SillyTavern on this phone then reloads.</string>
     <string name="protection_confirm_update_title">Update the TravelingTavern extension?</string>
