@@ -1,7 +1,7 @@
 package com.tiffles.travelingtavern.ui.chat
 
 import android.content.ClipData
-import android.content.Context
+import android.content.res.Resources
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
@@ -44,7 +44,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -151,7 +151,7 @@ fun ChatScreen(
 @Composable
 private fun ChatEventsEffect(viewModel: ChatViewModel, snackbarHostState: SnackbarHostState) {
     val clipboard = LocalClipboard.current
-    val context = LocalContext.current
+    val resources = LocalResources.current
     val lifecycleOwner = LocalLifecycleOwner.current
     // Collected only while the screen is visible, so an interrupt in the background shows on return.
     // Not keyed on the flag: clearing it would restart the effect and cancel the snackbar it shows.
@@ -159,7 +159,7 @@ private fun ChatEventsEffect(viewModel: ChatViewModel, snackbarHostState: Snackb
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             viewModel.replyInterrupted.filter { it }.collect {
-                snackbarHostState.showSnackbar(context.getString(R.string.chat_reply_interrupted))
+                snackbarHostState.showSnackbar(resources.getString(R.string.chat_reply_interrupted))
                 viewModel.onReplyInterruptedShown()
             }
         }
@@ -169,7 +169,7 @@ private fun ChatEventsEffect(viewModel: ChatViewModel, snackbarHostState: Snackb
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             viewModel.replyNotStarted.collect { notice ->
                 viewModel.onReplyNotStartedShown(notice)
-                val result = snackbarHostState.showReplyNotStarted(context, notice)
+                val result = snackbarHostState.showReplyNotStarted(resources, notice)
                 if (result == SnackbarResult.ActionPerformed) viewModel.onRegenerateReply()
             }
         }
@@ -180,9 +180,9 @@ private fun ChatEventsEffect(viewModel: ChatViewModel, snackbarHostState: Snackb
                 is ChatEvent.CopyText ->
                     clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(null, event.text)))
                 ChatEvent.MessageChanged ->
-                    snackbarHostState.showSnackbar(context.getString(R.string.chat_message_changed))
+                    snackbarHostState.showSnackbar(resources.getString(R.string.chat_message_changed))
                 ChatEvent.ActionFailed ->
-                    snackbarHostState.showSnackbar(context.getString(R.string.chat_action_failed))
+                    snackbarHostState.showSnackbar(resources.getString(R.string.chat_action_failed))
             }
         }
     }
@@ -193,15 +193,15 @@ private fun ChatEventsEffect(viewModel: ChatViewModel, snackbarHostState: Snackb
  * offers Regenerate, shown long enough to tap.
  */
 internal suspend fun SnackbarHostState.showReplyNotStarted(
-    context: Context,
+    resources: Resources,
     notice: ReplyNotStartedNotice
 ): SnackbarResult = when (notice) {
     is ReplyNotStartedNotice.MessageSaved -> showSnackbar(
-        message = context.getString(R.string.chat_reply_not_started_saved),
-        actionLabel = context.getString(R.string.chat_action_regenerate),
+        message = resources.getString(R.string.chat_reply_not_started_saved),
+        actionLabel = resources.getString(R.string.chat_action_regenerate),
         duration = SnackbarDuration.Long
     )
-    ReplyNotStartedNotice.TryAgain -> showSnackbar(context.getString(R.string.chat_reply_not_started))
+    ReplyNotStartedNotice.TryAgain -> showSnackbar(resources.getString(R.string.chat_reply_not_started))
 }
 
 @Composable

@@ -27,15 +27,16 @@ val leaseTestServerUrl: String? = rootProject.file("local.properties").takeIf { 
 android {
     namespace = "com.tiffles.travelingtavern"
     compileSdk {
-        version = release(36)
+        // Compose BOM 2026.11 needs at least 37.1
+        version = release(37) { minorApiLevel = 2 }
     }
 
     defaultConfig {
         applicationId = "com.tiffles.travelingtavern"
         minSdk = 31
-        targetSdk = 36
+        targetSdk = 37
         // See "Versioning" in CLAUDE.md
-        versionCode = 47
+        versionCode = 48
         versionName = "0.1.20"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

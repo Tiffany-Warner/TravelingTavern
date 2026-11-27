@@ -5,7 +5,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -237,9 +237,9 @@ class ChatContentTest {
     private fun showReplyNotStarted(notice: ReplyNotStartedNotice) {
         composeRule.setContent {
             TravelingTavernTheme {
-                val context = LocalContext.current
+                val resources = LocalResources.current
                 ChatContent(uiState = ChatUiState.Ready(bob), input = "", actions = actions, snackbarHostState = snackbars)
-                LaunchedEffect(Unit) { snackbarResult = snackbars.showReplyNotStarted(context, notice) }
+                LaunchedEffect(Unit) { snackbarResult = snackbars.showReplyNotStarted(resources, notice) }
             }
         }
     }

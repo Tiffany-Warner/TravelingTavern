@@ -20,6 +20,12 @@ The decision, the spike's evidence and the requirement map are in that repo's `c
 
 ## History
 
+### 2026-11-27 — SDK 37 and AGP 9.5
+- Target SDK 37, compile SDK 37.2 (Compose BOM 2026.11 needs 37.1+); AGP 9.5.3, Gradle 9.6.1; the libraries held back for SDK 36 moved up (core-ktx 1.19.1, lifecycle 2.11.1, activity-compose 1.13.0, Compose BOM 2026.11.01). New lint error fixed: snackbar text now comes from `LocalResources`, not `LocalContext`
+- Verified on an emulator (API 37) against the test install: page and scrim, takeover both ways, release, the reply service starting from the background (`shortService`), insets on every tab, Compose UI test `ChatContentTest`. Android logs "Foreground service start … does not have any types" for it: seen, harmless (a service with no type can't start on target 34+). Not verified: the reply notification (no model on the test install; moves to the final sweep's end-to-end test), Pixel 8
+- No `versionName` bump (build chore); `versionCode` 48
+- Follow-up before `1.0.0`: deprecated Compose calls (`ListItem` ×4, `rememberModalBottomSheetState` ×2, `PasswordVisualTransformation` on Connect); Back from Me lands on Lorebooks instead of Chats after visiting Lorebooks, also on `dev` with SDK 36 (pre-existing)
+
 ### 2026-11-23 — Session lease: never stuck (extension rc.5) — `0.1.20` (merged)
 - Rule: every lease state offers a way back in; going ahead at your own risk is a tap after a warning. Scrim buttons come from `leaseState.actions` (Use here, Refresh, Take over anyway, Turn off protection); new `damaged` and `error` rows; warning step inside the scrim; "Protection is off" banner with Turn protection back on
 - App-only states: unknown state and Restart needed get Refresh plus the app's Continue without protection when the page can't turn itself off (D45); pages without `actions` get rc.4's buttons plus Refresh (D46); pre-check results get Refresh, which falls back to a plain reload (D47); off is never holder (D49)

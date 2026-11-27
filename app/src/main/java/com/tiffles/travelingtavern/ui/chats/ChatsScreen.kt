@@ -44,7 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -128,19 +128,19 @@ private fun rememberNow() = produceState(initialValue = Instant.now()) {
 /** Shows the ViewModel's one-shot events as snackbars; Undo on "Chat hidden" shows the chat again. */
 @Composable
 private fun ChatsEventSnackbars(viewModel: ChatsViewModel, snackbarHostState: SnackbarHostState) {
-    val context = LocalContext.current
+    val resources = LocalResources.current
     LaunchedEffect(viewModel, snackbarHostState) {
         viewModel.events.collect { event ->
             when (event) {
                 is ChatsEvent.ChatHidden -> {
                     val result = snackbarHostState.showSnackbar(
-                        message = context.getString(R.string.chats_hidden),
-                        actionLabel = context.getString(R.string.chats_undo),
+                        message = resources.getString(R.string.chats_hidden),
+                        actionLabel = resources.getString(R.string.chats_undo),
                         duration = SnackbarDuration.Short
                     )
                     if (result == SnackbarResult.ActionPerformed) viewModel.onUndoHide(event.chat)
                 }
-                ChatsEvent.DeleteFailed -> snackbarHostState.showSnackbar(context.getString(R.string.chats_delete_failed))
+                ChatsEvent.DeleteFailed -> snackbarHostState.showSnackbar(resources.getString(R.string.chats_delete_failed))
             }
         }
     }

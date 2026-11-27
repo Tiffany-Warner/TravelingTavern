@@ -41,7 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -60,7 +60,7 @@ import com.tiffles.travelingtavern.ui.theme.TravelingTavernTheme
 fun PersonaEditorScreen(onBack: () -> Unit, viewModel: PersonaEditorViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    val context = LocalContext.current
+    val resources = LocalResources.current
     val pickPicture = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) viewModel.setPicture(uri.toString())
     }
@@ -70,7 +70,7 @@ fun PersonaEditorScreen(onBack: () -> Unit, viewModel: PersonaEditorViewModel = 
         viewModel.failed.collect { failure ->
             val message = if (failure == PersonaFailure.PictureUnreadable) R.string.persona_picture_unreadable
             else R.string.personas_action_failed
-            snackbar.showSnackbar(context.getString(message))
+            snackbar.showSnackbar(resources.getString(message))
         }
     }
 

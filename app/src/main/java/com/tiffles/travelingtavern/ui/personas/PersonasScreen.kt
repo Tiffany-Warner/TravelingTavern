@@ -29,7 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -69,12 +69,12 @@ fun PersonasScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    val context = LocalContext.current
+    val resources = LocalResources.current
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
                 PersonasEvent.Close -> onClose()
-                PersonasEvent.ActionFailed -> snackbar.showSnackbar(context.getString(R.string.personas_action_failed))
+                PersonasEvent.ActionFailed -> snackbar.showSnackbar(resources.getString(R.string.personas_action_failed))
             }
         }
     }
